@@ -25,6 +25,13 @@ pub fn run() {
             commands::get_note_headings,
             commands::resolve_link_target,
             commands::link_mention,
+            commands::search_vault,
+            commands::get_tag_counts,
+            commands::preview_tag_rename,
+            commands::rename_tag,
+            commands::preview_replace,
+            commands::apply_replace,
+            commands::undo_last_replace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

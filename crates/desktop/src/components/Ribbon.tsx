@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useUiStore } from "../store/uiStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Tooltip } from "./ui/Tooltip";
 import "./Ribbon.css";
@@ -14,6 +15,19 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
   const graphActive = useWorkspaceStore((s) =>
     s.panes.some((p) => p.id === s.activePaneId && p.view === "graph"),
   );
+  const sidebarView = useUiStore((s) => s.sidebarView);
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const setSidebarView = useUiStore((s) => s.setSidebarView);
+  const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
+
+  function showSidebarView(view: "files" | "search" | "tags") {
+    if (!sidebarCollapsed && sidebarView === view) {
+      toggleSidebarCollapsed();
+    } else {
+      setSidebarView(view);
+      if (sidebarCollapsed) toggleSidebarCollapsed();
+    }
+  }
 
   return (
     <div className="ribbon">
@@ -21,6 +35,40 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
         <button type="button" className="ribbon-btn" onClick={onOpenFolder}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip label={t("sidebar.filesView")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "files" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("files")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M5 4h5l2 2h7a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip label={t("search.title")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "search" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("search")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="M20 20l-5-5" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip label={t("tags.title")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "tags" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("tags")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M9 3 7.5 21M16.5 3 15 21M3.5 8.5h17M2.5 15.5h17" />
           </svg>
         </button>
       </Tooltip>

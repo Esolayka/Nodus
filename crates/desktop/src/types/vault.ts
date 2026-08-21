@@ -46,3 +46,35 @@ export interface GraphData {
   nodes: GraphNode[];
   links: GraphLink[];
 }
+
+export interface SearchLineMatch {
+  line: number;
+  text: string;
+  ranges: [number, number][];
+}
+
+export interface SearchFileResult {
+  path: string;
+  matches: SearchLineMatch[];
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
+}
+
+export interface ReplaceLineMatch {
+  line: number;
+  before: string;
+  after: string;
+}
+
+export interface ReplaceFilePreview {
+  path: string;
+  matches: ReplaceLineMatch[];
+}
+
+export interface ReplaceSelection {
+  path: string;
+  line: number;
+}

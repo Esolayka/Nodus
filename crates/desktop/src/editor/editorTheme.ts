@@ -228,4 +228,61 @@ export const editorTheme = EditorView.theme({
     fontStyle: "italic",
     padding: "4px 0 10px",
   },
+  ".cm-inline-tag": {
+    color: "var(--accent)",
+    cursor: "pointer",
+  },
+  ".cm-inline-tag:hover": {
+    textDecoration: "underline",
+  },
+  ".cm-nodus-search-panel": {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    padding: "8px 12px",
+    background: "var(--bg-secondary)",
+    borderBottom: "1px solid var(--border)",
+  },
+  ".cm-nodus-search-row": {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  ".cm-nodus-search-input": {
+    flex: "1",
+    height: "26px",
+    padding: "0 8px",
+    borderRadius: "6px",
+    background: "var(--bg-tertiary)",
+    border: "1px solid transparent",
+    color: "var(--text-normal)",
+    fontSize: "12.5px",
+  },
+  ".cm-nodus-search-input:focus": {
+    borderColor: "var(--accent)",
+    outline: "none",
+  },
+  ".cm-nodus-search-count": {
+    fontSize: "11px",
+    color: "var(--text-faint)",
+    minWidth: "48px",
+    textAlign: "center",
+    flexShrink: "0",
+  },
+  ".cm-nodus-search-btn": {
+    height: "26px",
+    padding: "0 8px",
+    borderRadius: "6px",
+    background: "var(--bg-tertiary)",
+    color: "var(--text-normal)",
+    fontSize: "12px",
+    flexShrink: "0",
+  },
+  ".cm-nodus-search-btn:hover": {
+    background: "var(--bg-hover)",
+  },
+  ".cm-nodus-search-close": {
+    fontSize: "15px",
+    lineHeight: "1",
+  },
 });

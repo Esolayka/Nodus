@@ -23,6 +23,20 @@ impl Frontmatter {
     }
 }
 
+/// Locates the raw YAML text of a note's frontmatter block, if any, along
+/// with its byte offset into `content` — for callers that need to make a
+/// surgical byte-range edit inside the block (e.g. renaming one tag) rather
+/// than parsing and re-serializing the whole thing.
+pub(crate) fn raw_block(content: &str) -> Option<(&str, usize)> {
+    let after_open = content.strip_prefix(FENCE)?;
+    let after_open = after_open
+        .strip_prefix('\n')
+        .or_else(|| after_open.strip_prefix("\r\n"))?;
+    let close_pos = find_closing_fence(after_open)?;
+    let yaml_start = content.len() - after_open.len();
+    Some((&after_open[..close_pos], yaml_start))
+}
+
 /// Splits a note's raw text into its frontmatter (if any) and body.
 ///
 /// The frontmatter block must start on the file's first line with `---` and

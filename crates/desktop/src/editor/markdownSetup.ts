@@ -1,9 +1,8 @@
-import { acceptCompletion } from "@codemirror/autocomplete";
+import { acceptCompletion, autocompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting } from "@codemirror/language";
-import { search, searchKeymap } from "@codemirror/search";
 import { Annotation, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { GFM } from "@lezer/markdown";
@@ -13,13 +12,16 @@ import { embeds } from "./embeds";
 import { footnotes } from "./footnotes";
 import { toggleBold, toggleItalic, insertLink, pasteAsLink } from "./formatting";
 import { frontmatterPanel } from "./frontmatter";
+import { inFileSearch, openInFileSearch } from "./inFileSearch";
 import { latex } from "./latex";
 import { linkClickHandler } from "./links";
 import { linkHoverPreview } from "./linkHoverPreview";
 import { listEnter, listIndent, listOutdent } from "./listCommands";
 import { livePreview } from "./livePreview";
 import { editorModeField } from "./modeState";
-import { wikilinkAutocomplete } from "./wikilinkAutocomplete";
+import { tagCompletionSources } from "./tagAutocomplete";
+import { tags } from "./tags";
+import { matchedTextTheme, wikilinkCompletionSources } from "./wikilinkAutocomplete";
 import { type FollowLink, wikilinks } from "./wikilinks";
 
 /** Tags a transaction as programmatic (external reload / initial load) so the
@@ -46,18 +48,30 @@ export function buildExtensions(
       { key: "Tab", run: listIndent },
       { key: "Shift-Tab", run: listOutdent },
       indentWithTab,
-      ...searchKeymap,
+      {
+        key: "Mod-f",
+        run: (view) => {
+          openInFileSearch(view);
+          return true;
+        },
+        preventDefault: true,
+      },
       ...defaultKeymap,
       ...historyKeymap,
     ]),
     markdown({ extensions: GFM, codeLanguages: languages }),
     syntaxHighlighting(codeHighlightStyle),
-    search({ top: true }),
+    inFileSearch(),
     EditorView.lineWrapping,
     livePreview,
     wikilinks(path, onFollowLink),
     embeds(path, onFollowLink),
-    wikilinkAutocomplete(path),
+    // A single `autocompletion()` call — CodeMirror's `override` config can
+    // only be set once per editor, so the wikilink and tag completion
+    // sources have to be combined here rather than each wrapping their own.
+    autocompletion({ override: [...wikilinkCompletionSources(path), ...tagCompletionSources()] }),
+    matchedTextTheme,
+    tags(),
     latex,
     footnotes,
     frontmatterPanel,

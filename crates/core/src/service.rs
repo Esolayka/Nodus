@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use crate::fs_ops;
-use crate::index::{Backlink, GraphData, HeadingEntry, Index, Mention};
+use crate::index::{Backlink, GraphData, HeadingEntry, Index, Mention, TagCount};
+use crate::replace::{self, ReplaceFilePreview, ReplaceSelection};
+use crate::search::SearchFileResult;
 use crate::tree::{self, TreeNode};
 use crate::vault::Vault;
 use crate::watcher::{ChangeKind, FsChange, VaultWatcher};
@@ -17,6 +19,10 @@ pub struct VaultService {
     vault: Vault,
     watcher: VaultWatcher,
     index: Arc<Index>,
+    /// Snapshot of every file a vault-wide replace touched, so the single
+    /// most dangerous operation in the app has a one-command undo. Only the
+    /// most recent replace is kept — this isn't a general undo stack.
+    last_replace_undo: Mutex<Option<Vec<(String, String)>>>,
 }
 
 impl VaultService {
@@ -53,6 +59,7 @@ impl VaultService {
             vault,
             watcher,
             index,
+            last_replace_undo: Mutex::new(None),
         })
     }
 
@@ -220,6 +227,145 @@ impl VaultService {
         self.watcher.mark_self_write(&absolute);
         fs_ops::write_note(&self.vault, relative, &new_content)?;
         self.index.update_note(&self.vault, relative)
+    }
+
+    pub fn search(&self, query: &str) -> Result<Vec<SearchFileResult>> {
+        self.index.search(query)
+    }
+
+    pub fn tag_counts(&self) -> Result<Vec<TagCount>> {
+        self.index.tag_counts()
+    }
+
+    /// Vault-relative paths of notes that carry `tag` — for a rename
+    /// confirmation dialog, same idea as note rename's preview.
+    pub fn preview_tag_rename(&self, tag: &str) -> Result<Vec<String>> {
+        self.index.paths_with_tag(tag)
+    }
+
+    /// Renames a tag (inline `#tag` and frontmatter `tags:` entries alike)
+    /// across every note that carries it. Returns the paths actually
+    /// rewritten.
+    pub fn rename_tag(&self, old_tag: &str, new_tag: &str) -> Result<Vec<String>> {
+        let paths = self.index.paths_with_tag(old_tag)?;
+        let mut renamed = Vec::new();
+        for path in paths {
+            if self.rewrite_tag_in_file(&path, old_tag, new_tag)? {
+                renamed.push(path);
+            }
+        }
+        Ok(renamed)
+    }
+
+    fn rewrite_tag_in_file(&self, relative: &str, old_tag: &str, new_tag: &str) -> Result<bool> {
+        let absolute = self.vault.resolve(relative)?;
+        let content = std::fs::read_to_string(&absolute)?;
+        let old_lower = old_tag.to_lowercase();
+        let mut edits: Vec<(usize, usize)> = crate::tags::find_tags(&content)
+            .into_iter()
+            .filter(|occ| occ.tag.to_lowercase() == old_lower)
+            .map(|occ| (occ.start, occ.end))
+            .collect();
+        if edits.is_empty() {
+            return Ok(false);
+        }
+        edits.sort_by_key(|(start, _)| std::cmp::Reverse(*start));
+
+        let mut new_content = content;
+        for (start, end) in edits {
+            new_content.replace_range(start..end, new_tag);
+        }
+
+        self.watcher.mark_self_write(&absolute);
+        fs_ops::write_note(&self.vault, relative, &new_content)?;
+        self.index.update_note(&self.vault, relative)?;
+        Ok(true)
+    }
+
+    /// Per-line preview of a vault-wide literal find/replace, across every
+    /// note — nothing is written yet.
+    pub fn preview_replace(
+        &self,
+        find: &str,
+        replace_with: &str,
+        skip_code_blocks: bool,
+    ) -> Result<Vec<ReplaceFilePreview>> {
+        let mut previews = Vec::new();
+        for path in self.index.all_paths()? {
+            let absolute = self.vault.resolve(&path)?;
+            let Ok(content) = std::fs::read_to_string(&absolute) else {
+                continue;
+            };
+            let matches = replace::preview_replace(&content, find, replace_with, skip_code_blocks);
+            if !matches.is_empty() {
+                previews.push(ReplaceFilePreview { path, matches });
+            }
+        }
+        Ok(previews)
+    }
+
+    /// Applies a replace to exactly the selected (path, line) pairs from a
+    /// prior preview, keeping a snapshot of every touched file's prior
+    /// content so [`VaultService::undo_last_replace`] can restore it in one
+    /// call — this is the most dangerous operation in the app, so it always
+    /// gets a way back.
+    pub fn apply_replace(
+        &self,
+        find: &str,
+        replace_with: &str,
+        selected: &[ReplaceSelection],
+    ) -> Result<Vec<String>> {
+        let mut by_path: std::collections::HashMap<String, std::collections::HashSet<usize>> =
+            std::collections::HashMap::new();
+        for sel in selected {
+            by_path.entry(sel.path.clone()).or_default().insert(sel.line);
+        }
+
+        let mut undo_bundle = Vec::new();
+        let mut changed_paths = Vec::new();
+        for (path, lines) in by_path {
+            let absolute = self.vault.resolve(&path)?;
+            let Ok(content) = std::fs::read_to_string(&absolute) else {
+                continue;
+            };
+            let new_content = replace::apply_selected_lines(&content, find, replace_with, &lines);
+            if new_content == content {
+                continue;
+            }
+            undo_bundle.push((path.clone(), content));
+            self.watcher.mark_self_write(&absolute);
+            fs_ops::write_note(&self.vault, &path, &new_content)?;
+            self.index.update_note(&self.vault, &path)?;
+            changed_paths.push(path);
+        }
+
+        *self.last_replace_undo.lock().expect("undo mutex poisoned") = Some(undo_bundle);
+        changed_paths.sort();
+        Ok(changed_paths)
+    }
+
+    /// Restores every file touched by the most recent [`VaultService::apply_replace`]
+    /// to its prior content. Returns the restored paths (empty if there's
+    /// nothing to undo, e.g. it was already undone once) — callers use this
+    /// to notify any open editors the same way a rename's relinked files do.
+    pub fn undo_last_replace(&self) -> Result<Vec<String>> {
+        let bundle = self
+            .last_replace_undo
+            .lock()
+            .expect("undo mutex poisoned")
+            .take();
+        let Some(bundle) = bundle else {
+            return Ok(Vec::new());
+        };
+        let mut restored = Vec::new();
+        for (path, original_content) in bundle {
+            let absolute = self.vault.resolve(&path)?;
+            self.watcher.mark_self_write(&absolute);
+            fs_ops::write_note(&self.vault, &path, &original_content)?;
+            self.index.update_note(&self.vault, &path)?;
+            restored.push(path);
+        }
+        Ok(restored)
     }
 }
 
@@ -415,5 +561,65 @@ mod tests {
         assert!(result.is_err());
         let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
         assert_eq!(content, "Completely different text now.");
+    }
+
+    #[test]
+    fn rename_tag_rewrites_inline_and_frontmatter_occurrences() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "Body with #project tag.\n").unwrap();
+        std::fs::write(
+            dir.path().join("B.md"),
+            "---\ntags:\n  - project\n---\nBody.\n",
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("C.md"), "Unrelated note.\n").unwrap();
+        let service = open(dir.path());
+
+        let affected = service.preview_tag_rename("project").unwrap();
+        assert_eq!(affected.len(), 2);
+
+        let renamed = service.rename_tag("project", "work").unwrap();
+        assert_eq!(renamed.len(), 2);
+
+        let a = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(a, "Body with #work tag.\n");
+        let b = std::fs::read_to_string(dir.path().join("B.md")).unwrap();
+        assert_eq!(b, "---\ntags:\n  - work\n---\nBody.\n");
+    }
+
+    #[test]
+    fn replace_preview_apply_and_undo_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "foo one\nfoo two\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "no match here\n").unwrap();
+        let service = open(dir.path());
+
+        let preview = service.preview_replace("foo", "bar", false).unwrap();
+        assert_eq!(preview.len(), 1);
+        assert_eq!(preview[0].path, "A.md");
+        assert_eq!(preview[0].matches.len(), 2);
+
+        // Only select the first match, leaving the second untouched.
+        let changed = service
+            .apply_replace(
+                "foo",
+                "bar",
+                &[crate::replace::ReplaceSelection {
+                    path: "A.md".to_string(),
+                    line: 1,
+                }],
+            )
+            .unwrap();
+        assert_eq!(changed, vec!["A.md".to_string()]);
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "bar one\nfoo two\n");
+
+        let undone = service.undo_last_replace().unwrap();
+        assert_eq!(undone, vec!["A.md".to_string()]);
+        let restored = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(restored, "foo one\nfoo two\n");
+
+        // A second undo has nothing left to do.
+        assert!(service.undo_last_replace().unwrap().is_empty());
     }
 }

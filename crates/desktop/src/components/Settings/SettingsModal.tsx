@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { pickVaultFolder } from "../../api/vault";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../../i18n";
+import {
+  getCommand,
+  getCommandsSnapshot,
+  subscribeCommands,
+  type Command,
+} from "../../lib/commandRegistry";
+import { findConflict, keysForCommand, labelForKeys, normalizeKeyEvent } from "../../lib/hotkeyRegistry";
 import {
   DEFAULT_SETTINGS,
   useSettingsStore,
@@ -14,7 +21,7 @@ import { Select } from "../ui/Select";
 import { Toggle } from "../ui/Toggle";
 import "./SettingsModal.css";
 
-type Section = "general" | "editor" | "graph" | "vault";
+type Section = "general" | "editor" | "graph" | "hotkeys" | "vault";
 
 const COLOR_FIELDS: { key: keyof GraphColors; labelKey: string; descKey: string }[] = [
   { key: "background", labelKey: "settings.graph.colors_background", descKey: "settings.graph.colors_backgroundDesc" },
@@ -124,6 +131,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     { id: "general", label: t("settings.sections.general"), icon: slidersIcon },
     { id: "editor", label: t("settings.sections.editor"), icon: penIcon },
     { id: "graph", label: t("settings.sections.graph"), icon: graphIcon },
+    { id: "hotkeys", label: t("settings.sections.hotkeys"), icon: keyIcon },
     { id: "vault", label: t("settings.sections.vault"), icon: folderIcon },
   ];
 
@@ -372,6 +380,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
+          {section === "hotkeys" && <HotkeysSection />}
+
           {section === "vault" && (
             <>
               <SectionTitle>{t("settings.vault.title")}</SectionTitle>
@@ -415,6 +425,147 @@ const graphIcon = (
     <circle cx="12" cy="4.5" r="1.8" />
     <circle cx="8" cy="12.5" r="1.8" />
     <path d="M5.5 10.5 10.5 5.5M5.8 11.8l1.7-.6M10.3 5.3l-1.4 1.7" />
+  </svg>
+);
+
+function HotkeysSection() {
+  const { t } = useTranslation();
+  const commands = useSyncExternalStore(subscribeCommands, getCommandsSnapshot);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim().toLowerCase();
+  const visible = trimmed
+    ? commands.filter((c) => c.title.toLowerCase().includes(trimmed))
+    : commands;
+
+  return (
+    <>
+      <SectionTitle>{t("settings.sections.hotkeys")}</SectionTitle>
+      <input
+        type="search"
+        className="field settings-search"
+        style={{ marginBottom: "12px" }}
+        placeholder={t("settings.hotkeys.searchPlaceholder")}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        spellCheck={false}
+      />
+      <div className="settings-card">
+        {visible.map((command) => (
+          <HotkeyRow key={command.id} command={command} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function HotkeyRow({ command }: { command: Command }) {
+  const { t } = useTranslation();
+  const overrides = useSettingsStore((s) => s.settings.hotkeys ?? {});
+  const setSettings = useSettingsStore((s) => s.setSettings);
+  const [capturing, setCapturing] = useState(false);
+  const [pendingKeys, setPendingKeys] = useState<string | null>(null);
+  const [conflictId, setConflictId] = useState<string | null>(null);
+
+  const currentKeys = keysForCommand(command.id, overrides);
+
+  function applyBinding(keys: string) {
+    setSettings({ hotkeys: { ...overrides, [command.id]: keys } });
+    setCapturing(false);
+    setPendingKeys(null);
+    setConflictId(null);
+  }
+
+  function onCaptureKeyDown(e: React.KeyboardEvent) {
+    e.preventDefault();
+    if (e.key === "Escape") {
+      setCapturing(false);
+      setPendingKeys(null);
+      setConflictId(null);
+      return;
+    }
+    const combo = normalizeKeyEvent(e.nativeEvent);
+    if (!combo) return;
+    const conflict = findConflict(combo, overrides, command.id);
+    if (conflict) {
+      setPendingKeys(combo);
+      setConflictId(conflict);
+    } else {
+      applyBinding(combo);
+    }
+  }
+
+  function reassign() {
+    if (!pendingKeys || !conflictId) return;
+    setSettings({
+      hotkeys: { ...overrides, [conflictId]: "", [command.id]: pendingKeys },
+    });
+    setCapturing(false);
+    setPendingKeys(null);
+    setConflictId(null);
+  }
+
+  function resetToDefault() {
+    const next = { ...overrides };
+    delete next[command.id];
+    setSettings({ hotkeys: next });
+  }
+
+  return (
+    <div className="hotkey-row">
+      <div className="settings-row" style={{ padding: 0 }}>
+        <div className="settings-row-text">
+          <div className="settings-row-label">{command.title}</div>
+        </div>
+        <div className="settings-row-control hotkey-row-control">
+          {capturing ? (
+            <input
+              className="hotkey-capture-input"
+              autoFocus
+              readOnly
+              value={pendingKeys ? labelForKeys(pendingKeys) : t("settings.hotkeys.pressKeys")}
+              onKeyDown={onCaptureKeyDown}
+              onBlur={() => {
+                setCapturing(false);
+                setPendingKeys(null);
+                setConflictId(null);
+              }}
+            />
+          ) : (
+            <button type="button" className="hotkey-current-btn" onClick={() => setCapturing(true)}>
+              {currentKeys ? labelForKeys(currentKeys) : t("settings.hotkeys.unbound")}
+            </button>
+          )}
+          <button
+            type="button"
+            className="settings-reset-btn"
+            onClick={resetToDefault}
+            title={t("settings.hotkeys.reset")}
+          >
+            {t("settings.hotkeys.reset")}
+          </button>
+        </div>
+      </div>
+      {conflictId && pendingKeys && (
+        <div className="hotkey-conflict">
+          <span>
+            {t("settings.hotkeys.conflict", {
+              keys: labelForKeys(pendingKeys),
+              command: getCommand(conflictId)?.title ?? conflictId,
+            })}
+          </span>
+          <button type="button" onClick={reassign}>
+            {t("settings.hotkeys.reassign")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const keyIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+    <circle cx="5" cy="8" r="3" />
+    <path d="M7.5 8H14M11 8v3M13 8v2" />
   </svg>
 );
 

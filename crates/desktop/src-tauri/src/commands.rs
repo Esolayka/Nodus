@@ -1,4 +1,7 @@
-use nodus_core::{Backlink, FsChange, GraphData, HeadingEntry, Mention, TreeNode, VaultService};
+use nodus_core::{
+    Backlink, FsChange, GraphData, HeadingEntry, Mention, ReplaceFilePreview, ReplaceSelection,
+    SearchFileResult, TagCount, TreeNode, VaultService,
+};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -164,4 +167,86 @@ pub fn link_mention(
     with_service(&state, |s| {
         s.link_mention(&path, start, end, &expected_text)
     })
+}
+
+#[tauri::command]
+pub fn search_vault(state: State<AppState>, query: String) -> Result<Vec<SearchFileResult>, String> {
+    with_service(&state, |s| s.search(&query))
+}
+
+#[tauri::command]
+pub fn get_tag_counts(state: State<AppState>) -> Result<Vec<TagCount>, String> {
+    with_service(&state, |s| s.tag_counts())
+}
+
+#[tauri::command]
+pub fn preview_tag_rename(state: State<AppState>, tag: String) -> Result<Vec<String>, String> {
+    with_service(&state, |s| s.preview_tag_rename(&tag))
+}
+
+#[tauri::command]
+pub fn rename_tag(
+    app: AppHandle,
+    state: State<AppState>,
+    old_tag: String,
+    new_tag: String,
+) -> Result<(), String> {
+    let renamed = with_service(&state, |s| s.rename_tag(&old_tag, &new_tag))?;
+    for path in renamed {
+        let _ = app.emit(
+            "vault:changed",
+            FsChange {
+                kind: nodus_core::ChangeKind::Modified,
+                path,
+            },
+        );
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn preview_replace(
+    state: State<AppState>,
+    find: String,
+    replace_with: String,
+    skip_code_blocks: bool,
+) -> Result<Vec<ReplaceFilePreview>, String> {
+    with_service(&state, |s| s.preview_replace(&find, &replace_with, skip_code_blocks))
+}
+
+#[tauri::command]
+pub fn apply_replace(
+    app: AppHandle,
+    state: State<AppState>,
+    find: String,
+    replace_with: String,
+    selected: Vec<ReplaceSelection>,
+) -> Result<Vec<String>, String> {
+    let changed = with_service(&state, |s| s.apply_replace(&find, &replace_with, &selected))?;
+    for path in &changed {
+        let _ = app.emit(
+            "vault:changed",
+            FsChange {
+                kind: nodus_core::ChangeKind::Modified,
+                path: path.clone(),
+            },
+        );
+    }
+    Ok(changed)
+}
+
+#[tauri::command]
+pub fn undo_last_replace(app: AppHandle, state: State<AppState>) -> Result<usize, String> {
+    let restored = with_service(&state, |s| s.undo_last_replace())?;
+    let count = restored.len();
+    for path in restored {
+        let _ = app.emit(
+            "vault:changed",
+            FsChange {
+                kind: nodus_core::ChangeKind::Modified,
+                path,
+            },
+        );
+    }
+    Ok(count)
 }

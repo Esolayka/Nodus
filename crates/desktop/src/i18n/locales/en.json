@@ -3,7 +3,8 @@
     "emptyState": "No vault open yet",
     "loading": "Opening...",
     "openFolder": "Open folder",
-    "help": "Help"
+    "help": "Help",
+    "filesView": "Files"
   },
   "workspace": {
     "placeholder": "Open a folder of notes to get started",
@@ -103,7 +104,16 @@
       "general": "General",
       "editor": "Editor",
       "graph": "Graph",
+      "hotkeys": "Hotkeys",
       "vault": "Vault"
+    },
+    "hotkeys": {
+      "searchPlaceholder": "Search commands...",
+      "pressKeys": "Press a key combo...",
+      "unbound": "Unbound",
+      "reset": "Reset",
+      "conflict": "\"{{keys}}\" is already used by: {{command}}",
+      "reassign": "Reassign"
     },
     "general": {
       "title": "Appearance",
@@ -149,5 +159,55 @@
       "path": "Vault path",
       "pathDesc": "The folder that holds your notes. You can switch it at any time."
     }
+  },
+  "search": {
+    "title": "Search",
+    "searchMode": "Search",
+    "replaceMode": "Replace",
+    "placeholder": "Search the vault...",
+    "findPlaceholder": "Find...",
+    "replacePlaceholder": "Replace with...",
+    "skipCodeBlocks": "Don't touch code blocks",
+    "resultsSummary_one": "{{count}} match in {{files}} notes",
+    "resultsSummary_other": "{{count}} matches in {{files}} notes",
+    "replaceDone_one": "Replaced in {{count}} note",
+    "replaceDone_other": "Replaced in {{count}} notes",
+    "undo": "Undo",
+    "applyReplace_one": "Replace ({{count}})",
+    "applyReplace_other": "Replace ({{count}})",
+    "replaceWarning": "This will replace {{matchCount}} matches across {{fileCount}} files. You can undo this with a single command right after applying.",
+    "applyReplaceConfirm": "Replace"
+  },
+  "tags": {
+    "title": "Tags",
+    "filterPlaceholder": "Search tags...",
+    "sortAlpha": "Alphabetical",
+    "sortFrequency": "By frequency",
+    "empty": "No tags in this vault yet",
+    "renameTitle": "Rename tag \"{{tag}}\"",
+    "renameConfirmTitle_one": "The tag will be updated in {{count}} note",
+    "renameConfirmTitle_other": "The tag will be updated in {{count}} notes"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command...",
+    "empty": "No commands found"
+  },
+  "quickSwitcher": {
+    "placeholder": "Go to note...",
+    "createNote": "Create note \"{{name}}\""
+  },
+  "commands": {
+    "newNote": "New note",
+    "newTab": "New tab",
+    "save": "Save",
+    "toggleEditorMode": "Toggle editor mode",
+    "closeTab": "Close tab",
+    "openSettings": "Settings",
+    "toggleSidebar": "Collapse left panel",
+    "findInVault": "Search vault",
+    "findInNote": "Search current note",
+    "commandPalette": "Command palette",
+    "quickSwitcher": "Quick switcher",
+    "openGraph": "Open graph"
   }
 }

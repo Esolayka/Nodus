@@ -16,6 +16,7 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::heading::find_headings;
+use crate::search::{self, SearchFileResult};
 use crate::tree::list_markdown_files;
 use crate::vault::Vault;
 use crate::wikilink::{find_wikilinks, LinkKind};
@@ -48,6 +49,14 @@ const SCHEMA: &str = "
         content,
         tokenize = 'unicode61'
     );
+    CREATE TABLE IF NOT EXISTS tags (
+        path  TEXT NOT NULL,
+        tag   TEXT NOT NULL,
+        start INTEGER NOT NULL,
+        end   INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS tags_path ON tags(path);
+    CREATE INDEX IF NOT EXISTS tags_tag ON tags(tag);
 ";
 
 #[derive(Debug, Clone, Serialize)]
@@ -213,6 +222,7 @@ impl Index {
         let content = std::fs::read_to_string(&absolute).unwrap_or_default();
         let links = find_wikilinks(&content);
         let headings = find_headings(&content);
+        let tags = crate::tags::find_tags(&content);
 
         let conn = self.conn.lock().expect("index mutex poisoned");
         conn.execute(
@@ -233,6 +243,8 @@ impl Index {
             params![relative],
         )
         .map_err(index_err)?;
+        conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
 
         for link in &links {
             let to_path = resolve_target_locked(&conn, &link.target, relative);
@@ -269,6 +281,14 @@ impl Index {
         )
         .map_err(index_err)?;
 
+        for tag in &tags {
+            conn.execute(
+                "INSERT INTO tags (path, tag, start, end) VALUES (?1, ?2, ?3, ?4)",
+                params![relative, tag.tag, tag.start, tag.end],
+            )
+            .map_err(index_err)?;
+        }
+
         Ok(())
     }
 
@@ -288,6 +308,8 @@ impl Index {
             params![relative],
         )
         .map_err(index_err)?;
+        conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
         Ok(())
     }
 
@@ -301,6 +323,7 @@ impl Index {
             "DELETE FROM links WHERE from_path = ?1 OR from_path LIKE ?2 ESCAPE '\\'",
             "DELETE FROM headings WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
             "DELETE FROM notes_fts WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
+            "DELETE FROM tags WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
         ] {
             conn.execute(sql, params![relative, like_pattern])
                 .map_err(index_err)?;
@@ -337,6 +360,11 @@ impl Index {
         .map_err(index_err)?;
         conn.execute(
             "UPDATE notes_fts SET path = ?2 WHERE path = ?1",
+            params![old, new],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "UPDATE tags SET path = ?2 WHERE path = ?1",
             params![old, new],
         )
         .map_err(index_err)?;
@@ -531,6 +559,143 @@ impl Index {
             .map_err(index_err)?;
         Ok(rows)
     }
+
+    /// Runs a parsed vault-wide search query. FTS5 narrows candidates down
+    /// (a safe, over-inclusive prefix match on every positive word) before
+    /// the precise DSL evaluation runs on just that set — falling back to
+    /// scanning every note if the narrowing query can't be built or the FTS
+    /// MATCH itself errors, so a search never fails outright.
+    pub fn search(&self, query_str: &str) -> Result<Vec<SearchFileResult>> {
+        let query = search::parse_query(query_str);
+        let conn = self.conn.lock().expect("index mutex poisoned");
+
+        let candidates: Vec<(String, String)> = match search::narrowing_fts_query(&query) {
+            Some(fts_q) => narrowed_notes_content(&conn, &fts_q)
+                .or_else(|_| all_notes_content(&conn))?,
+            None => all_notes_content(&conn)?,
+        };
+        let tag_map = tags_by_path(&conn)?;
+        drop(conn);
+
+        let mut results = Vec::new();
+        for (path, content) in candidates {
+            let empty = Vec::new();
+            let tags = tag_map.get(&path).unwrap_or(&empty);
+            if search::matches_file(&query, &path, tags, &content) {
+                // A pure filter query (e.g. just `tag:project`, no words)
+                // legitimately has nothing to highlight — it still belongs
+                // in the results, just with an empty match-line list.
+                let matches = search::highlight_lines(&query, &content);
+                results.push(SearchFileResult { path, matches });
+            }
+        }
+        results.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(results)
+    }
+
+    /// Every known note's vault-relative path.
+    pub fn all_paths(&self) -> Result<Vec<String>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn.prepare("SELECT path FROM notes").map_err(index_err)?;
+        let rows = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        Ok(rows)
+    }
+
+    /// Every tag in the vault (case-folded for grouping) with how many
+    /// distinct notes carry it — for the tags panel's counts and sorting.
+    pub fn tag_counts(&self) -> Result<Vec<TagCount>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn
+            .prepare("SELECT path, tag FROM tags")
+            .map_err(index_err)?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        let mut by_tag: std::collections::HashMap<String, std::collections::HashSet<String>> =
+            std::collections::HashMap::new();
+        for (path, tag) in rows {
+            by_tag.entry(tag.to_lowercase()).or_default().insert(path);
+        }
+        let mut counts: Vec<TagCount> = by_tag
+            .into_iter()
+            .map(|(tag, paths)| TagCount {
+                tag,
+                count: paths.len(),
+            })
+            .collect();
+        counts.sort_by(|a, b| a.tag.cmp(&b.tag));
+        Ok(counts)
+    }
+
+    /// Vault-relative paths of every note carrying `tag` (case-insensitive,
+    /// exact match — not a namespace/prefix match on nested tags).
+    pub fn paths_with_tag(&self, tag: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn
+            .prepare("SELECT path, tag FROM tags")
+            .map_err(index_err)?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        let tag_lower = tag.to_lowercase();
+        let mut paths: Vec<String> = rows
+            .into_iter()
+            .filter(|(_, t)| t.to_lowercase() == tag_lower)
+            .map(|(p, _)| p)
+            .collect();
+        paths.sort();
+        paths.dedup();
+        Ok(paths)
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagCount {
+    pub tag: String,
+    pub count: usize,
+}
+
+fn all_notes_content(conn: &Connection) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn
+        .prepare("SELECT path, content FROM notes_fts")
+        .map_err(index_err)?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(index_err)?;
+    rows.collect::<std::result::Result<_, _>>().map_err(index_err)
+}
+
+fn narrowed_notes_content(conn: &Connection, fts_query: &str) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn
+        .prepare("SELECT path, content FROM notes_fts WHERE notes_fts MATCH ?1")
+        .map_err(index_err)?;
+    let rows = stmt
+        .query_map(params![fts_query], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(index_err)?;
+    rows.collect::<std::result::Result<_, _>>().map_err(index_err)
+}
+
+fn tags_by_path(conn: &Connection) -> Result<std::collections::HashMap<String, Vec<String>>> {
+    let mut stmt = conn.prepare("SELECT path, tag FROM tags").map_err(index_err)?;
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(index_err)?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(index_err)?;
+    let mut map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (path, tag) in rows {
+        map.entry(path).or_default().push(tag);
+    }
+    Ok(map)
 }
 
 /// Quotes `title` as an FTS5 phrase-match query, doubling any embedded
@@ -786,5 +951,105 @@ mod tests {
         // rename_note only updates index bookkeeping — so resolution against
         // the *old* target text no longer matches anything post-rename.
         assert!(backlinks.is_empty());
+    }
+
+    #[test]
+    fn search_finds_word_with_highlight() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "line one\nhas foo in it\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "nothing relevant here\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let results = index.search("foo").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "A.md");
+        assert_eq!(results[0].matches[0].line, 2);
+    }
+
+    #[test]
+    fn search_tag_filter_uses_tags_table() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "Body with #project tag.\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "No tag here.\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let results = index.search("tag:project").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "A.md");
+    }
+
+    #[test]
+    fn search_survives_malformed_query_without_crashing() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "foo unterminated bar\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let results = index.search("foo \"unterminated").unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn tag_counts_aggregates_across_notes_case_insensitively() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "#Project here\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "#project there too\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let counts = index.tag_counts().unwrap();
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts[0].tag, "project");
+        assert_eq!(counts[0].count, 2);
+    }
+
+    #[test]
+    fn paths_with_tag_finds_exact_tag_only() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "#project alone\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "#project/nodus nested\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let paths = index.paths_with_tag("project").unwrap();
+        assert_eq!(paths, vec!["A.md".to_string()]);
+    }
+
+    /// The spec's own bar: on a 500-note vault, a search must resolve in
+    /// well under 100ms — and stay there because it goes through FTS5
+    /// narrowing first, not because 500 small files just happen to be fast
+    /// to brute-force scan in Rust. If this ever regresses to a full scan
+    /// (e.g. `narrowing_fts_query` starts returning `None` for common
+    /// queries, or the MATCH call starts erroring and silently falling back
+    /// every time), this is the test that should catch it.
+    #[test]
+    fn search_meets_100ms_budget_on_500_notes() {
+        let (dir, vault, index) = setup();
+        let topics = [
+            "проект", "заметка", "идея", "план", "задача", "встреча", "работа", "код", "тест",
+            "дизайн",
+        ];
+        for i in 0..500 {
+            let topic = topics[i % topics.len()];
+            let content = format!(
+                "# Note {i}\n\nThis is note number {i}, mostly about {topic}. \
+                 It contains some filler prose so the file is a realistic size: \
+                 {topic} comes up in several sentences here, discussed from a few \
+                 different angles to pad out the content meaningfully.\n\n\
+                 Linked to [[Note {link}]].\n\n#topic/{topic}\n",
+                i = i,
+                topic = topic,
+                link = (i + 1) % 500,
+            );
+            std::fs::write(dir.path().join(format!("Note {i}.md")), content).unwrap();
+        }
+        index.reconcile(&vault).unwrap();
+
+        let start = std::time::Instant::now();
+        let results = index.search("проект").unwrap();
+        let elapsed = start.elapsed();
+
+        assert!(!results.is_empty(), "expected the common topic word to match something");
+        assert!(
+            elapsed.as_millis() < 100,
+            "search took {elapsed:?} on 500 notes, expected under 100ms"
+        );
     }
 }

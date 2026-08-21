@@ -3,7 +3,8 @@
     "emptyState": "Хранилище ещё не открыто",
     "loading": "Открываем...",
     "openFolder": "Открыть папку",
-    "help": "Справка"
+    "help": "Справка",
+    "filesView": "Файлы"
   },
   "workspace": {
     "placeholder": "Откройте папку с заметками, чтобы начать",
@@ -110,7 +111,16 @@
       "general": "Общие",
       "editor": "Редактор",
       "graph": "Граф",
+      "hotkeys": "Горячие клавиши",
       "vault": "Хранилище"
+    },
+    "hotkeys": {
+      "searchPlaceholder": "Поиск команды...",
+      "pressKeys": "Нажмите сочетание клавиш...",
+      "unbound": "Не назначено",
+      "reset": "Сбросить",
+      "conflict": "«{{keys}}» уже занято: {{command}}",
+      "reassign": "Переназначить"
     },
     "general": {
       "title": "Внешний вид",
@@ -156,5 +166,63 @@
       "path": "Путь к хранилищу",
       "pathDesc": "Папка, в которой лежат ваши заметки. Содержимое можно заменить в любой момент."
     }
+  },
+  "search": {
+    "title": "Поиск",
+    "searchMode": "Поиск",
+    "replaceMode": "Замена",
+    "placeholder": "Поиск по хранилищу...",
+    "findPlaceholder": "Найти...",
+    "replacePlaceholder": "Заменить на...",
+    "skipCodeBlocks": "Не трогать блоки кода",
+    "resultsSummary_one": "{{count}} совпадение в {{files}} заметках",
+    "resultsSummary_few": "{{count}} совпадения в {{files}} заметках",
+    "resultsSummary_many": "{{count}} совпадений в {{files}} заметках",
+    "resultsSummary_other": "{{count}} совпадений в {{files}} заметках",
+    "replaceDone_one": "Заменено в {{count}} заметке",
+    "replaceDone_few": "Заменено в {{count}} заметках",
+    "replaceDone_many": "Заменено в {{count}} заметках",
+    "replaceDone_other": "Заменено в {{count}} заметках",
+    "undo": "Отменить",
+    "applyReplace_one": "Заменить ({{count}})",
+    "applyReplace_few": "Заменить ({{count}})",
+    "applyReplace_many": "Заменить ({{count}})",
+    "applyReplace_other": "Заменить ({{count}})",
+    "replaceWarning": "Будет заменено {{matchCount}} совпадений в {{fileCount}} файлах. Действие можно отменить одной командой сразу после применения.",
+    "applyReplaceConfirm": "Заменить"
+  },
+  "tags": {
+    "title": "Теги",
+    "filterPlaceholder": "Поиск тега...",
+    "sortAlpha": "По алфавиту",
+    "sortFrequency": "По частоте",
+    "empty": "В хранилище пока нет тегов",
+    "renameTitle": "Переименовать тег «{{tag}}»",
+    "renameConfirmTitle_one": "Тег будет изменён в {{count}} заметке",
+    "renameConfirmTitle_few": "Тег будет изменён в {{count}} заметках",
+    "renameConfirmTitle_many": "Тег будет изменён в {{count}} заметках",
+    "renameConfirmTitle_other": "Тег будет изменён в {{count}} заметках"
+  },
+  "commandPalette": {
+    "placeholder": "Введите команду...",
+    "empty": "Команды не найдены"
+  },
+  "quickSwitcher": {
+    "placeholder": "Перейти к заметке...",
+    "createNote": "Создать заметку «{{name}}»"
+  },
+  "commands": {
+    "newNote": "Новая заметка",
+    "newTab": "Новая вкладка",
+    "save": "Сохранить",
+    "toggleEditorMode": "Переключить режим редактора",
+    "closeTab": "Закрыть вкладку",
+    "openSettings": "Настройки",
+    "toggleSidebar": "Свернуть левую панель",
+    "findInVault": "Поиск по хранилищу",
+    "findInNote": "Поиск в текущей заметке",
+    "commandPalette": "Палитра команд",
+    "quickSwitcher": "Быстрое переключение заметок",
+    "openGraph": "Открыть граф"
   }
 }

@@ -1,0 +1,140 @@
+.tags-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.tags-panel-toolbar {
+  display: flex;
+  gap: 6px;
+}
+
+.tags-filter-input {
+  flex: 1;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  color: var(--text-normal);
+  font-size: 13px;
+}
+
+.tags-filter-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.tags-sort-toggle {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.tags-sort-toggle button {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tags-sort-toggle button.active {
+  background: var(--bg-primary);
+  color: var(--text-normal);
+}
+
+.tags-tree,
+.tag-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.tag-row:hover {
+  background: var(--bg-hover);
+}
+
+.tag-row:hover .tag-rename-btn {
+  opacity: 1;
+}
+
+.tag-caret,
+.tag-caret-spacer {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-faint);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 100ms ease;
+}
+
+.tag-caret.collapsed {
+  transform: rotate(-90deg);
+}
+
+.tag-name-btn {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 12.5px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-name-btn:hover {
+  color: var(--accent);
+}
+
+.tag-count {
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.tag-rename-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-faint);
+  opacity: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag-rename-btn:hover {
+  color: var(--accent);
+}
+
+.tag-rename-btn svg {
+  width: 12px;
+  height: 12px;
+}

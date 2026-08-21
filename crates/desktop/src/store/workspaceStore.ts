@@ -32,6 +32,11 @@ export interface Pane {
   /** Navigation history for the path bar's back/forward arrows. */
   history: string[];
   historyIndex: number;
+  /** Most-recently-used tab order (index 0 = most recent) — Ctrl+Tab
+   * cycles through this, not tab position, per spec. Separate from
+   * `history`: clicking back to an already-open tab is a "recent use" but
+   * not a new history entry. */
+  mru: string[];
 }
 
 interface WorkspaceState {
@@ -66,35 +71,69 @@ interface WorkspaceState {
   reloadFromDisk: (path: string) => void;
   keepMine: (path: string) => void;
   /** Opens `path` (in the current pane) and moves the cursor to `line`
-   * (1-indexed) — used by the backlinks panel's click-to-open-at-line. */
-  jumpToLine: (path: string, line: number) => Promise<void>;
+   * (1-indexed) — used by the backlinks panel's click-to-open-at-line.
+   * `range` (char offsets within that line) selects and briefly flashes a
+   * specific match instead of just placing the cursor, for the search panel. */
+  jumpToLine: (path: string, line: number, range?: [number, number]) => Promise<void>;
   /** Following a wikilink: plain click replaces what's showing in the
    * current tab (`newTab: false`), Ctrl/Cmd+click and the middle mouse
    * button open a separate new tab instead. */
   navigateTo: (path: string, opts?: { newTab?: boolean }) => Promise<void>;
+  /** Ctrl+Tab / Ctrl+Shift+Tab: step +1 or -1 through the pane's
+   * most-recently-used tab order. */
+  cycleMru: (paneId: string, step: 1 | -1) => void;
+  /** Called on Ctrl release to fold the cycling session's result into the
+   * front of the MRU list. */
+  commitMruCycle: (paneId: string) => void;
 }
 
 const AUTOSAVE_DELAY_MS = 500;
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+interface PendingJump {
+  path: string;
+  line: number;
+  /** Char-offset range within that line to select (and briefly flash) —
+   * from the search panel's "highlight the match for a couple of seconds"
+   * requirement — instead of just placing the cursor. */
+  range?: [number, number];
+}
+
 // A jump requested before the target note's CodeMirror instance exists yet
 // (opening a note mounts its editor asynchronously, via `NoteEditor`'s own
 // effect) — `NoteEditor` applies and clears this once its view is ready,
 // rather than this module polling for it.
-let pendingJump: { path: string; line: number } | null = null;
+let pendingJump: PendingJump | null = null;
 
-export function consumePendingJump(path: string): number | null {
+export function consumePendingJump(path: string): PendingJump | null {
   if (pendingJump?.path !== path) return null;
-  const line = pendingJump.line;
+  const jump = pendingJump;
   pendingJump = null;
-  return line;
+  return jump;
 }
 
-export function jumpEditorToLine(view: EditorView, line: number) {
+const HIGHLIGHT_FLASH_MS = 2000;
+
+export function jumpEditorToLine(view: EditorView, line: number, range?: [number, number]) {
   const clamped = Math.min(Math.max(line, 1), view.state.doc.lines);
   const lineInfo = view.state.doc.line(clamped);
-  view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
-  view.focus();
+  if (range) {
+    const from = lineInfo.from + Math.min(range[0], lineInfo.length);
+    const to = lineInfo.from + Math.min(range[1], lineInfo.length);
+    view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
+    view.focus();
+    setTimeout(() => {
+      // Collapse back to a cursor once the flash window has passed — only
+      // if the selection is still what we set (the user hasn't since
+      // clicked/typed elsewhere).
+      if (view.state.selection.main.from === from && view.state.selection.main.to === to) {
+        view.dispatch({ selection: { anchor: to } });
+      }
+    }, HIGHLIGHT_FLASH_MS);
+  } else {
+    view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+    view.focus();
+  }
 }
 
 function makePaneId(): string {
@@ -102,7 +141,23 @@ function makePaneId(): string {
 }
 
 function firstPane(): Pane {
-  return { id: makePaneId(), tabs: [], activePath: null, view: null, history: [], historyIndex: -1 };
+  return {
+    id: makePaneId(),
+    tabs: [],
+    activePath: null,
+    view: null,
+    history: [],
+    historyIndex: -1,
+    mru: [],
+  };
+}
+
+/** Moves `path` to the front of the MRU list, dropping any earlier
+ * occurrence — called on every "real" activation (not on Ctrl+Tab cycling
+ * itself, which deliberately leaves this order alone until the cycle ends,
+ * or nothing would be left to cycle *through*). */
+function touchMru(pane: Pane, path: string): string[] {
+  return [path, ...pane.mru.filter((p) => p !== path)];
 }
 
 /** Records a navigation step: truncates the forward history and appends `path`. */
@@ -179,6 +234,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               view: null,
               tabs: pane.tabs.includes(path) ? pane.tabs : [...pane.tabs, path],
               activePath: path,
+              mru: touchMru(pane, path),
             }
           : pane,
       ),
@@ -230,7 +286,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : fromPath && p.tabs.includes(fromPath)
             ? p.tabs.map((t) => (t === fromPath ? path : t))
             : [...p.tabs, path];
-        return { ...p, ...pushHistory(p, path), view: null, tabs, activePath: path };
+        return { ...p, ...pushHistory(p, path), view: null, tabs, activePath: path, mru: touchMru(p, path) };
       }),
     }));
     useNoteUsageStore.getState().recordOpen(path);
@@ -279,7 +335,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         const tabs = pane.tabs.filter((t) => t !== path);
         const activePath =
           pane.activePath === path ? (tabs[tabs.length - 1] ?? null) : pane.activePath;
-        return { ...pane, tabs, activePath, ...dropFromHistory(pane, path) };
+        return {
+          ...pane,
+          tabs,
+          activePath,
+          mru: pane.mru.filter((p) => p !== path),
+          ...dropFromHistory(pane, path),
+        };
       });
       return { panes };
     });
@@ -301,7 +363,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePaneId: paneId,
       panes: s.panes.map((pane) =>
         pane.id === paneId
-          ? { ...pane, ...pushHistory(pane, path), view: null, activePath: path }
+          ? { ...pane, ...pushHistory(pane, path), view: null, activePath: path, mru: touchMru(pane, path) }
           : pane,
       ),
     }));
@@ -326,7 +388,38 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           historyIndex: index,
           activePath: path,
           tabs: pane.tabs.includes(path) ? pane.tabs : [...pane.tabs, path],
+          mru: touchMru(pane, path),
         };
+      }),
+    }));
+  },
+
+  /** Ctrl+Tab: `step` +1/-1 walks forward/backward through the pane's MRU
+   * list, finding wherever the current tab sits in it each time — the list
+   * itself isn't reordered mid-cycle (see `touchMru`'s doc comment), so
+   * repeated presses keep advancing instead of just toggling the same two
+   * tabs back and forth. */
+  cycleMru: (paneId, step) => {
+    set((s) => ({
+      panes: s.panes.map((pane) => {
+        if (pane.id !== paneId || pane.mru.length < 2) return pane;
+        const currentIndex = pane.activePath ? pane.mru.indexOf(pane.activePath) : -1;
+        const nextIndex =
+          ((currentIndex === -1 ? 0 : currentIndex) + step + pane.mru.length) % pane.mru.length;
+        const nextPath = pane.mru[nextIndex];
+        return { ...pane, view: null, activePath: nextPath };
+      }),
+    }));
+  },
+
+  /** Ends an MRU-cycling session (Ctrl released): folds wherever the pane
+   * landed back into the front of the MRU list, so the *next* Ctrl+Tab
+   * session starts fresh from there. */
+  commitMruCycle: (paneId) => {
+    set((s) => ({
+      panes: s.panes.map((pane) => {
+        if (pane.id !== paneId || !pane.activePath) return pane;
+        return { ...pane, mru: touchMru(pane, pane.activePath) };
       }),
     }));
   },
@@ -470,13 +563,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     void get().flush(path);
   },
 
-  jumpToLine: async (path, line) => {
+  jumpToLine: async (path, line, range) => {
     await get().openNote(path);
     const view = getEditor(path);
     if (view) {
-      jumpEditorToLine(view, line);
+      jumpEditorToLine(view, line, range);
     } else {
-      pendingJump = { path, line };
+      pendingJump = { path, line, range };
     }
   },
 
@@ -503,6 +596,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               pane.activePath && matches(pane.activePath)
                 ? (tabs[tabs.length - 1] ?? null)
                 : pane.activePath,
+            mru: pane.mru.filter((p) => !matches(p)),
           };
           const removed = nextPane.history.filter((p) => matches(p));
           if (removed.length > 0) {
@@ -536,6 +630,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           ...pane,
           tabs: pane.tabs.map(remap),
           activePath: pane.activePath ? remap(pane.activePath) : pane.activePath,
+          history: pane.history.map(remap),
+          mru: pane.mru.map(remap),
         })),
       };
     });

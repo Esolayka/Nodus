@@ -7,6 +7,10 @@ import type {
   GraphData,
   HeadingEntry,
   Mention,
+  ReplaceFilePreview,
+  ReplaceSelection,
+  SearchFileResult,
+  TagCount,
   TreeNode,
 } from "../types/vault";
 
@@ -81,6 +85,42 @@ export function linkMention(
   expectedText: string,
 ): Promise<void> {
   return invoke("link_mention", { path, start, end, expectedText });
+}
+
+export function searchVault(query: string): Promise<SearchFileResult[]> {
+  return invoke("search_vault", { query });
+}
+
+export function getTagCounts(): Promise<TagCount[]> {
+  return invoke("get_tag_counts");
+}
+
+export function previewTagRename(tag: string): Promise<string[]> {
+  return invoke("preview_tag_rename", { tag });
+}
+
+export function renameTag(oldTag: string, newTag: string): Promise<void> {
+  return invoke("rename_tag", { oldTag, newTag });
+}
+
+export function previewReplace(
+  find: string,
+  replaceWith: string,
+  skipCodeBlocks: boolean,
+): Promise<ReplaceFilePreview[]> {
+  return invoke("preview_replace", { find, replaceWith, skipCodeBlocks });
+}
+
+export function applyReplace(
+  find: string,
+  replaceWith: string,
+  selected: ReplaceSelection[],
+): Promise<string[]> {
+  return invoke("apply_replace", { find, replaceWith, selected });
+}
+
+export function undoLastReplace(): Promise<number> {
+  return invoke("undo_last_replace");
 }
 
 export function onVaultChanged(

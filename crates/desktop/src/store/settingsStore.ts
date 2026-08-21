@@ -26,6 +26,9 @@ export interface AppSettings {
     localDepth: number;
     colors: GraphColors;
   };
+  /** User overrides only, commandId -> normalized key combo; anything not
+   * present here falls back to the built-in default binding. */
+  hotkeys: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       accent: "",
     },
   },
+  hotkeys: {},
 };
 
 interface SettingsState {

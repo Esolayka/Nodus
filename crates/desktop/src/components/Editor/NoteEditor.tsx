@@ -56,8 +56,8 @@ export function NoteEditor({ path }: NoteEditorProps) {
     });
 
     containerRef.current?.appendChild(view.dom);
-    const pendingLine = consumePendingJump(path);
-    if (pendingLine != null) jumpEditorToLine(view, pendingLine);
+    const pendingJump = consumePendingJump(path);
+    if (pendingJump != null) jumpEditorToLine(view, pendingJump.line, pendingJump.range);
     const focusHandle = requestAnimationFrame(() => view.focus());
 
     return () => {

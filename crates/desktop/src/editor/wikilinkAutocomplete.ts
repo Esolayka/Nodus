@@ -1,9 +1,4 @@
-import {
-  autocompletion,
-  type Completion,
-  type CompletionContext,
-  type CompletionResult,
-} from "@codemirror/autocomplete";
+import { type Completion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { EditorView } from "@codemirror/view";
 import { getNoteHeadings } from "../api/vault";
 import i18next from "../i18n";
@@ -149,11 +144,13 @@ function headingCompletionSource(
   return getNoteHeadings(targetPath).then(toResult);
 }
 
-export function wikilinkAutocomplete(path: string) {
-  return [
-    autocompletion({
-      override: [(ctx: CompletionContext) => headingCompletionSource(path, ctx), noteCompletionSource],
-    }),
-    matchedTextTheme,
-  ];
+/** Completion sources only — NOT wrapped in `autocompletion()`. CodeMirror's
+ * `autocompletion()` config (specifically `override`) can only be set once
+ * per editor; a second call anywhere else in the same extension list throws
+ * "Config merge conflict." `markdownSetup.ts` combines these sources with
+ * `tagAutocomplete`'s into a single `autocompletion()` call. */
+export function wikilinkCompletionSources(path: string) {
+  return [(ctx: CompletionContext) => headingCompletionSource(path, ctx), noteCompletionSource];
 }
+
+export { matchedTextTheme };
