@@ -40,7 +40,32 @@ export function buildNoteIndex(tree: TreeNode | null): NoteIndex {
   return { byBasename, allPaths, notes };
 }
 
-export function resolveWikilinkTarget(index: NoteIndex, target: string): string | null {
+function dirComponents(path: string): string[] {
+  const parts = path.split("/");
+  parts.pop(); // drop the filename itself
+  return parts;
+}
+
+/** Folder-distance between two notes: directory levels up from `from` plus
+ * back down to `candidate`, past their common ancestor. Mirrors
+ * `tree_distance` in `crates/core/src/index.rs` exactly — same tie-breaking,
+ * so the editor's live rendering agrees with what rename/backlinks resolve to. */
+function treeDistance(fromDir: string[], candidateDir: string[]): number {
+  let common = 0;
+  while (common < fromDir.length && common < candidateDir.length && fromDir[common] === candidateDir[common]) {
+    common++;
+  }
+  return fromDir.length - common + (candidateDir.length - common);
+}
+
+/** Resolves a raw `[[target]]` string from `fromPath`'s point of view —
+ * when several notes share a basename, the closest one by folder wins
+ * (ties broken alphabetically), matching the Rust index's resolution. */
+export function resolveWikilinkTarget(
+  index: NoteIndex,
+  target: string,
+  fromPath: string,
+): string | null {
   const stem = target.endsWith(".md") ? target.slice(0, -3) : target;
 
   if (stem.includes("/")) {
@@ -49,5 +74,18 @@ export function resolveWikilinkTarget(index: NoteIndex, target: string): string 
   }
 
   const matches = index.byBasename.get(stem.toLowerCase());
-  return matches && matches.length > 0 ? matches[0] : null;
+  if (!matches || matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  const fromDir = dirComponents(fromPath);
+  let best = matches[0];
+  let bestDistance = treeDistance(fromDir, dirComponents(best));
+  for (const candidate of matches.slice(1)) {
+    const distance = treeDistance(fromDir, dirComponents(candidate));
+    if (distance < bestDistance || (distance === bestDistance && candidate < best)) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }

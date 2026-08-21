@@ -6,20 +6,24 @@ import { buildExtensions, externalUpdate } from "../../editor/markdownSetup";
 import { setEditorMode } from "../../editor/modeState";
 import type { FollowLink } from "../../editor/wikilinks";
 import { useVaultStore } from "../../store/vaultStore";
-import { useWorkspaceStore } from "../../store/workspaceStore";
+import {
+  consumePendingJump,
+  jumpEditorToLine,
+  useWorkspaceStore,
+} from "../../store/workspaceStore";
 import "./NoteEditor.css";
 
 interface NoteEditorProps {
   path: string;
 }
 
-const onFollowLink: FollowLink = async (target, resolvedPath) => {
+const onFollowLink: FollowLink = async (target, resolvedPath, newTab) => {
   if (resolvedPath) {
-    await useWorkspaceStore.getState().openNote(resolvedPath);
+    await useWorkspaceStore.getState().navigateTo(resolvedPath, { newTab });
     return;
   }
   const newPath = await useVaultStore.getState().createFile("", target);
-  await useWorkspaceStore.getState().openNote(newPath);
+  await useWorkspaceStore.getState().navigateTo(newPath, { newTab });
 };
 
 export function NoteEditor({ path }: NoteEditorProps) {
@@ -37,6 +41,7 @@ export function NoteEditor({ path }: NoteEditorProps) {
       const state = EditorState.create({
         doc: initialContent,
         extensions: buildExtensions(
+          path,
           (content) => updateContent(path, content),
           () => void flush(path),
           onFollowLink,
@@ -51,6 +56,8 @@ export function NoteEditor({ path }: NoteEditorProps) {
     });
 
     containerRef.current?.appendChild(view.dom);
+    const pendingLine = consumePendingJump(path);
+    if (pendingLine != null) jumpEditorToLine(view, pendingLine);
     const focusHandle = requestAnimationFrame(() => view.focus());
 
     return () => {

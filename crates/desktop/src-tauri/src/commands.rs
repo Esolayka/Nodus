@@ -1,4 +1,4 @@
-use nodus_core::{Backlink, FsChange, GraphData, Mention, TreeNode, VaultService};
+use nodus_core::{Backlink, FsChange, GraphData, HeadingEntry, Mention, TreeNode, VaultService};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -88,6 +88,11 @@ pub fn create_folder(state: State<AppState>, path: String) -> Result<(), String>
 }
 
 #[tauri::command]
+pub fn preview_rename(state: State<AppState>, old_path: String) -> Result<Vec<String>, String> {
+    with_service(&state, |s| s.preview_rename(&old_path))
+}
+
+#[tauri::command]
 pub fn rename_entry(
     app: AppHandle,
     state: State<AppState>,
@@ -128,15 +133,24 @@ pub fn get_graph(state: State<AppState>) -> Result<GraphData, String> {
 }
 
 #[tauri::command]
+pub fn get_note_headings(
+    state: State<AppState>,
+    path: String,
+) -> Result<Vec<HeadingEntry>, String> {
+    with_service(&state, |s| s.headings(&path))
+}
+
+#[tauri::command]
 pub fn resolve_link_target(
     state: State<AppState>,
     target: String,
+    from_path: String,
 ) -> Result<Option<String>, String> {
     let guard = state.service.lock().expect("app state mutex poisoned");
     let service = guard
         .as_ref()
         .ok_or_else(|| "no vault is open".to_string())?;
-    Ok(service.resolve_link_target(&target))
+    Ok(service.resolve_link_target(&target, &from_path))
 }
 
 #[tauri::command]

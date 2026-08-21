@@ -1,7 +1,9 @@
+import type { EditorView } from "@codemirror/view";
 import { create } from "zustand";
 import * as api from "../api/vault";
 import { destroyEditor, getEditor } from "../editor/editorRegistry";
 import { type EditorMode, setEditorMode } from "../editor/modeState";
+import { useNoteUsageStore } from "./noteUsageStore";
 import type { FsChange } from "../types/vault";
 
 export interface Buffer {
@@ -63,10 +65,37 @@ interface WorkspaceState {
   toggleLiveSource: (path: string) => void;
   reloadFromDisk: (path: string) => void;
   keepMine: (path: string) => void;
+  /** Opens `path` (in the current pane) and moves the cursor to `line`
+   * (1-indexed) — used by the backlinks panel's click-to-open-at-line. */
+  jumpToLine: (path: string, line: number) => Promise<void>;
+  /** Following a wikilink: plain click replaces what's showing in the
+   * current tab (`newTab: false`), Ctrl/Cmd+click and the middle mouse
+   * button open a separate new tab instead. */
+  navigateTo: (path: string, opts?: { newTab?: boolean }) => Promise<void>;
 }
 
 const AUTOSAVE_DELAY_MS = 500;
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// A jump requested before the target note's CodeMirror instance exists yet
+// (opening a note mounts its editor asynchronously, via `NoteEditor`'s own
+// effect) — `NoteEditor` applies and clears this once its view is ready,
+// rather than this module polling for it.
+let pendingJump: { path: string; line: number } | null = null;
+
+export function consumePendingJump(path: string): number | null {
+  if (pendingJump?.path !== path) return null;
+  const line = pendingJump.line;
+  pendingJump = null;
+  return line;
+}
+
+export function jumpEditorToLine(view: EditorView, line: number) {
+  const clamped = Math.min(Math.max(line, 1), view.state.doc.lines);
+  const lineInfo = view.state.doc.line(clamped);
+  view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+  view.focus();
+}
 
 function makePaneId(): string {
   return crypto.randomUUID();
@@ -154,6 +183,57 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : pane,
       ),
     }));
+    useNoteUsageStore.getState().recordOpen(path);
+  },
+
+  navigateTo: async (path, opts) => {
+    if (opts?.newTab) {
+      await get().openNote(path);
+      return;
+    }
+
+    const state = get();
+    const activePaneId = state.activePaneId || state.panes[0].id;
+    const pane = state.panes.find((p) => p.id === activePaneId);
+    const fromPath = pane?.activePath ?? null;
+    if (fromPath === path) return;
+
+    if (!state.buffers[path]) {
+      const content = await api.readNote(path);
+      set((s) => ({
+        buffers: {
+          ...s.buffers,
+          [path]: {
+            path,
+            content,
+            dirty: false,
+            saving: false,
+            saveError: null,
+            reloadToken: 0,
+            externalConflict: false,
+            conflictContent: null,
+          },
+        },
+      }));
+    }
+
+    set((s) => ({
+      activePaneId,
+      panes: s.panes.map((p) => {
+        if (p.id !== activePaneId) return p;
+        // Replaces the tab we're navigating away from with the target,
+        // rather than leaving it open alongside — that's what makes this
+        // "the current tab" instead of always-open-a-new-one. If the
+        // target is already open somewhere in this pane, just switch to it.
+        const tabs = p.tabs.includes(path)
+          ? p.tabs
+          : fromPath && p.tabs.includes(fromPath)
+            ? p.tabs.map((t) => (t === fromPath ? path : t))
+            : [...p.tabs, path];
+        return { ...p, ...pushHistory(p, path), view: null, tabs, activePath: path };
+      }),
+    }));
+    useNoteUsageStore.getState().recordOpen(path);
   },
 
   openGraph: (opts) => {
@@ -390,6 +470,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     void get().flush(path);
   },
 
+  jumpToLine: async (path, line) => {
+    await get().openNote(path);
+    const view = getEditor(path);
+    if (view) {
+      jumpEditorToLine(view, line);
+    } else {
+      pendingJump = { path, line };
+    }
+  },
+
   /** Closes every open tab/buffer for `path` itself and, since it may be a
    * folder, anything nested under it. Used both for external removals and
    * for deletions the app itself initiated (those are suppressed from the
@@ -449,6 +539,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         })),
       };
     });
+    useNoteUsageStore.getState().rename(oldPath, newPath);
   },
 
   setMode: (path, mode) => {

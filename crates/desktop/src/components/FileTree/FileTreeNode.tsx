@@ -62,8 +62,19 @@ export function FileTreeNode(props: FileTreeNodeProps) {
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => props.onRenameChange(e.target.value)}
             onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "Enter") props.onRenameCommit();
-              if (e.key === "Escape") props.onRenameCancel();
+              // Without this, the same native keydown keeps bubbling past
+              // React's handling here and can reach a dialog's own
+              // document-level Enter/Escape listener that mounts moments
+              // later (e.g. the rename-confirm dialog this Enter opens),
+              // closing it right back on the same keypress.
+              if (e.key === "Enter") {
+                e.stopPropagation();
+                props.onRenameCommit();
+              }
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                props.onRenameCancel();
+              }
             }}
             onBlur={props.onRenameCommit}
           />

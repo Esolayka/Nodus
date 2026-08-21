@@ -17,7 +17,11 @@
     "newFolder": "New folder",
     "rename": "Rename",
     "delete": "Delete",
-    "confirmDelete": "Move \"{{name}}\" to trash?"
+    "confirmDelete": "Move \"{{name}}\" to trash?",
+    "renameConfirmTitle_one": "Links will be updated in {{count}} note",
+    "renameConfirmTitle_other": "Links will be updated in {{count}} notes",
+    "renameConfirmCancel": "Cancel",
+    "renameConfirmApply": "Rename"
   },
   "titleBar": {
     "minimize": "Minimize",
@@ -58,6 +62,12 @@
   "outline": {
     "title": "Outline",
     "empty": "This note has no headings"
+  },
+  "wikilink": {
+    "createNote": "Create note \"{{name}}\"",
+    "embedCycle": "Circular embed",
+    "embedHeadingMissing": "Heading \"{{heading}}\" not found",
+    "embedLoadError": "Failed to load note"
   },
   "backlinks": {
     "title": "Backlinks",

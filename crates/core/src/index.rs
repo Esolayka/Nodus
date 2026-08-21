@@ -15,6 +15,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 use crate::error::{Error, Result};
+use crate::heading::find_headings;
 use crate::tree::list_markdown_files;
 use crate::vault::Vault;
 use crate::wikilink::{find_wikilinks, LinkKind};
@@ -29,10 +30,24 @@ const SCHEMA: &str = "
         from_path   TEXT NOT NULL,
         to_path     TEXT,
         target_text TEXT NOT NULL,
-        kind        TEXT NOT NULL
+        kind        TEXT NOT NULL,
+        line        INTEGER NOT NULL DEFAULT 0,
+        byte_offset INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS links_to_path ON links(to_path);
     CREATE INDEX IF NOT EXISTS links_from_path ON links(from_path);
+    CREATE TABLE IF NOT EXISTS headings (
+        path     TEXT NOT NULL,
+        level    INTEGER NOT NULL,
+        text     TEXT NOT NULL,
+        position INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS headings_path ON headings(path);
+    CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+        path UNINDEXED,
+        content,
+        tokenize = 'unicode61'
+    );
 ";
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,6 +56,16 @@ pub struct Backlink {
     pub from_path: String,
     pub kind: String,
     pub context: String,
+    /// 1-indexed line number within `from_path`, for click-to-open-at-line.
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadingEntry {
+    pub level: u8,
+    pub text: String,
+    pub position: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -92,6 +117,14 @@ fn mtime_of(vault: &Vault, relative: &str) -> Result<i64> {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0))
+}
+
+/// 1-indexed line number of the line containing byte offset `pos`.
+fn line_of(content: &str, pos: usize) -> usize {
+    1 + content.as_bytes()[..pos.min(content.len())]
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count()
 }
 
 fn context_snippet(content: &str, start: usize, end: usize) -> String {
@@ -179,6 +212,7 @@ impl Index {
         let absolute = vault.resolve(relative)?;
         let content = std::fs::read_to_string(&absolute).unwrap_or_default();
         let links = find_wikilinks(&content);
+        let headings = find_headings(&content);
 
         let conn = self.conn.lock().expect("index mutex poisoned");
         conn.execute(
@@ -189,19 +223,52 @@ impl Index {
         .map_err(index_err)?;
         conn.execute("DELETE FROM links WHERE from_path = ?1", params![relative])
             .map_err(index_err)?;
+        conn.execute(
+            "DELETE FROM headings WHERE path = ?1",
+            params![relative],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "DELETE FROM notes_fts WHERE path = ?1",
+            params![relative],
+        )
+        .map_err(index_err)?;
 
         for link in &links {
-            let to_path = resolve_target_locked(&conn, &link.target);
+            let to_path = resolve_target_locked(&conn, &link.target, relative);
             let kind = match link.kind {
                 LinkKind::Wikilink => "wikilink",
                 LinkKind::Embed => "embed",
             };
             conn.execute(
-                "INSERT INTO links (from_path, to_path, target_text, kind) VALUES (?1, ?2, ?3, ?4)",
-                params![relative, to_path, link.target, kind],
+                "INSERT INTO links (from_path, to_path, target_text, kind, line, byte_offset)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    relative,
+                    to_path,
+                    link.target,
+                    kind,
+                    line_of(&content, link.start),
+                    link.start
+                ],
             )
             .map_err(index_err)?;
         }
+
+        for heading in &headings {
+            conn.execute(
+                "INSERT INTO headings (path, level, text, position) VALUES (?1, ?2, ?3, ?4)",
+                params![relative, heading.level, heading.text, heading.position],
+            )
+            .map_err(index_err)?;
+        }
+
+        conn.execute(
+            "INSERT INTO notes_fts (path, content) VALUES (?1, ?2)",
+            params![relative, content],
+        )
+        .map_err(index_err)?;
+
         Ok(())
     }
 
@@ -211,6 +278,16 @@ impl Index {
             .map_err(index_err)?;
         conn.execute("DELETE FROM links WHERE from_path = ?1", params![relative])
             .map_err(index_err)?;
+        conn.execute(
+            "DELETE FROM headings WHERE path = ?1",
+            params![relative],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "DELETE FROM notes_fts WHERE path = ?1",
+            params![relative],
+        )
+        .map_err(index_err)?;
         Ok(())
     }
 
@@ -222,6 +299,8 @@ impl Index {
         for sql in [
             "DELETE FROM notes WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
             "DELETE FROM links WHERE from_path = ?1 OR from_path LIKE ?2 ESCAPE '\\'",
+            "DELETE FROM headings WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
+            "DELETE FROM notes_fts WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
         ] {
             conn.execute(sql, params![relative, like_pattern])
                 .map_err(index_err)?;
@@ -248,6 +327,16 @@ impl Index {
         .map_err(index_err)?;
         conn.execute(
             "UPDATE links SET to_path = ?2 WHERE to_path = ?1",
+            params![old, new],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "UPDATE headings SET path = ?2 WHERE path = ?1",
+            params![old, new],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "UPDATE notes_fts SET path = ?2 WHERE path = ?1",
             params![old, new],
         )
         .map_err(index_err)?;
@@ -282,10 +371,12 @@ impl Index {
     }
 
     /// Resolves a raw link target (as typed inside `[[...]]`) to a
-    /// vault-relative note path, per the notes currently known to the index.
-    pub fn resolve_target(&self, target: &str) -> Option<String> {
+    /// vault-relative note path, per the notes currently known to the
+    /// index — from the point of view of `from_path`, so an ambiguous
+    /// basename resolves to whichever candidate is closest by folder.
+    pub fn resolve_target(&self, target: &str, from_path: &str) -> Option<String> {
         let conn = self.conn.lock().expect("index mutex poisoned");
-        resolve_target_locked(&conn, target)
+        resolve_target_locked(&conn, target, from_path)
     }
 
     /// Every note and every resolved link, for the graph view.
@@ -341,7 +432,7 @@ impl Index {
             };
             for link in find_wikilinks(&content) {
                 let conn = self.conn.lock().expect("index mutex poisoned");
-                let resolved = resolve_target_locked(&conn, &link.target);
+                let resolved = resolve_target_locked(&conn, &link.target, &from_path);
                 drop(conn);
                 if resolved.as_deref() == Some(target_path) {
                     backlinks.push(Backlink {
@@ -351,6 +442,7 @@ impl Index {
                             LinkKind::Embed => "embed".to_string(),
                         },
                         context: context_snippet(&content, link.start, link.end),
+                        line: line_of(&content, link.start),
                     });
                 }
             }
@@ -359,19 +451,27 @@ impl Index {
     }
 
     /// Other notes whose plain text contains `target_path`'s title, outside
-    /// of any existing `[[link]]`.
-    pub fn unlinked_mentions(&self, vault: &Vault, target_path: &str) -> Result<Vec<Mention>> {
+    /// of any existing `[[link]]`. Candidates are narrowed with the FTS5
+    /// index rather than scanning every file on disk — the exact match
+    /// positions still need a precise substring pass since FTS operates on
+    /// tokens, not byte offsets, but that pass only runs over notes the
+    /// index says actually contain the title.
+    pub fn unlinked_mentions(&self, target_path: &str) -> Result<Vec<Mention>> {
         let title = title_of(target_path);
         if title.trim().is_empty() {
             return Ok(Vec::new());
         }
         let title_lower = title.to_lowercase();
 
-        let all_paths: Vec<String> = {
+        let candidates: Vec<(String, String)> = {
             let conn = self.conn.lock().expect("index mutex poisoned");
-            let mut stmt = conn.prepare("SELECT path FROM notes").map_err(index_err)?;
+            let mut stmt = conn
+                .prepare("SELECT path, content FROM notes_fts WHERE notes_fts MATCH ?1")
+                .map_err(index_err)?;
             let rows = stmt
-                .query_map([], |row| row.get(0))
+                .query_map(params![fts_phrase_query(&title)], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
                 .map_err(index_err)?
                 .collect::<std::result::Result<_, _>>()
                 .map_err(index_err)?;
@@ -379,14 +479,10 @@ impl Index {
         };
 
         let mut mentions = Vec::new();
-        for path in all_paths {
+        for (path, content) in candidates {
             if path == target_path {
                 continue;
             }
-            let absolute = vault.resolve(&path)?;
-            let Ok(content) = std::fs::read_to_string(&absolute) else {
-                continue;
-            };
             let linked_ranges: Vec<(usize, usize)> = find_wikilinks(&content)
                 .into_iter()
                 .map(|l| (l.start, l.end))
@@ -413,9 +509,41 @@ impl Index {
         }
         Ok(mentions)
     }
+
+    /// Headings of a single note, in document order — used to power
+    /// `[[Note#Heading]]` autocomplete for notes other than the one
+    /// currently open (whose headings the editor already has live).
+    pub fn headings(&self, path: &str) -> Result<Vec<HeadingEntry>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn
+            .prepare("SELECT level, text, position FROM headings WHERE path = ?1 ORDER BY position ASC")
+            .map_err(index_err)?;
+        let rows = stmt
+            .query_map(params![path], |row| {
+                Ok(HeadingEntry {
+                    level: row.get(0)?,
+                    text: row.get(1)?,
+                    position: row.get(2)?,
+                })
+            })
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        Ok(rows)
+    }
 }
 
-fn resolve_target_locked(conn: &Connection, target: &str) -> Option<String> {
+/// Quotes `title` as an FTS5 phrase-match query, doubling any embedded
+/// double quotes per FTS5 string-literal escaping rules.
+fn fts_phrase_query(title: &str) -> String {
+    format!("\"{}\"", title.replace('"', "\"\""))
+}
+
+/// Resolves a raw `[[target]]` string to a note path, from the point of
+/// view of the note at `from_path` — when several notes share a basename,
+/// the one closest by folder distance to `from_path` wins (ties broken
+/// alphabetically, for determinism).
+fn resolve_target_locked(conn: &Connection, target: &str, from_path: &str) -> Option<String> {
     let stem = target.strip_suffix(".md").unwrap_or(target);
 
     if stem.contains('/') {
@@ -444,12 +572,43 @@ fn resolve_target_locked(conn: &Connection, target: &str) -> Option<String> {
             Ok((path, title))
         })
         .ok()?;
+
+    let from_dir = dir_components(from_path);
+    let mut best: Option<(usize, String)> = None;
     for row in rows.flatten() {
-        if row.1.to_lowercase() == basename {
-            return Some(row.0);
+        if row.1.to_lowercase() != basename {
+            continue;
+        }
+        let distance = tree_distance(&from_dir, &dir_components(&row.0));
+        let is_better = match &best {
+            None => true,
+            Some((best_distance, best_path)) => {
+                distance < *best_distance || (distance == *best_distance && row.0 < *best_path)
+            }
+        };
+        if is_better {
+            best = Some((distance, row.0));
         }
     }
-    None
+    best.map(|(_, path)| path)
+}
+
+fn dir_components(path: &str) -> Vec<&str> {
+    let mut parts: Vec<&str> = path.split('/').collect();
+    parts.pop(); // drop the filename itself
+    parts
+}
+
+/// Folder-distance between two notes: how many directory levels you'd walk
+/// up from `from` plus back down to reach `candidate`, past their common
+/// ancestor. Siblings in the same folder are distance 0.
+fn tree_distance(from_dir: &[&str], candidate_dir: &[&str]) -> usize {
+    let common = from_dir
+        .iter()
+        .zip(candidate_dir.iter())
+        .take_while(|(a, b)| a == b)
+        .count();
+    (from_dir.len() - common) + (candidate_dir.len() - common)
 }
 
 fn index_err(e: rusqlite::Error) -> Error {
@@ -520,9 +679,68 @@ mod tests {
         .unwrap();
         index.reconcile(&vault).unwrap();
 
-        let mentions = index.unlinked_mentions(&vault, "Target.md").unwrap();
+        let mentions = index.unlinked_mentions("Target.md").unwrap();
         assert_eq!(mentions.len(), 1);
         assert_eq!(mentions[0].from_path, "Mentioner.md");
+    }
+
+    #[test]
+    fn backlinks_report_line_number() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("B.md"), "").unwrap();
+        std::fs::write(dir.path().join("A.md"), "line one\nline two\nsee [[B]] here").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let backlinks = index.backlinks(&vault, "B.md").unwrap();
+        assert_eq!(backlinks.len(), 1);
+        assert_eq!(backlinks[0].line, 3);
+    }
+
+    #[test]
+    fn headings_are_indexed_per_note_in_document_order() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "# Title\n\nintro\n\n## Sub").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let headings = index.headings("A.md").unwrap();
+        assert_eq!(headings.len(), 2);
+        assert_eq!(headings[0].level, 1);
+        assert_eq!(headings[0].text, "Title");
+        assert_eq!(headings[1].level, 2);
+        assert_eq!(headings[1].text, "Sub");
+    }
+
+    #[test]
+    fn ambiguous_basename_resolves_to_closest_by_folder() {
+        let (dir, vault, index) = setup();
+        std::fs::create_dir_all(dir.path().join("A")).unwrap();
+        std::fs::create_dir_all(dir.path().join("B")).unwrap();
+        std::fs::write(dir.path().join("A/Note.md"), "").unwrap();
+        std::fs::write(dir.path().join("B/Note.md"), "").unwrap();
+        std::fs::write(dir.path().join("A/Source.md"), "[[Note]]").unwrap();
+        index.reconcile(&vault).unwrap();
+        index.update_note(&vault, "A/Source.md").unwrap();
+
+        // A/Source.md sits next to A/Note.md (distance 0) and two folders
+        // away from B/Note.md (up to root, down into B) — must resolve to
+        // the sibling, not whichever happened to sort first alphabetically.
+        let backlinks = index.backlinks(&vault, "A/Note.md").unwrap();
+        assert_eq!(backlinks.len(), 1);
+        let backlinks_b = index.backlinks(&vault, "B/Note.md").unwrap();
+        assert!(backlinks_b.is_empty());
+    }
+
+    #[test]
+    fn rename_updates_headings_and_fts_paths() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("B.md"), "# Heading\n\nWord content here.").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        std::fs::rename(dir.path().join("B.md"), dir.path().join("C.md")).unwrap();
+        index.rename_note("B.md", "C.md").unwrap();
+
+        assert_eq!(index.headings("C.md").unwrap().len(), 1);
+        assert!(index.headings("B.md").unwrap().is_empty());
     }
 
     #[test]

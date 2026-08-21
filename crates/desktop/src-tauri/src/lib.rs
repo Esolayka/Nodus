@@ -16,11 +16,13 @@ pub fn run() {
             commands::write_note,
             commands::create_file,
             commands::create_folder,
+            commands::preview_rename,
             commands::rename_entry,
             commands::delete_entry,
             commands::get_backlinks,
             commands::get_unlinked_mentions,
             commands::get_graph,
+            commands::get_note_headings,
             commands::resolve_link_target,
             commands::link_mention,
         ])

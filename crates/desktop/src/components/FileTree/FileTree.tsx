@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { previewRename } from "../../api/vault";
 import { useVaultStore } from "../../store/vaultStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import type { TreeNode } from "../../types/vault";
 import { FileTreeNode } from "./FileTreeNode";
+import { RenameConfirmDialog } from "./RenameConfirmDialog";
 import { displayName } from "../../lib/displayName";
 import "./FileTree.css";
+
+interface PendingRename {
+  oldPath: string;
+  newPath: string;
+  affected: string[];
+}
 
 interface ContextMenuState {
   x: number;
@@ -50,6 +58,7 @@ export function FileTree() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingRename, setPendingRename] = useState<PendingRename | null>(null);
   // Guards against double-committing: pressing Enter unmounts the rename
   // input, and the resulting native blur fires onBlur's commit again.
   const renameCommittedRef = useRef(false);
@@ -86,6 +95,22 @@ export function FileTree() {
     setContextMenu(null);
   }
 
+  // Notes (not folders — folders aren't themselves link targets) go through
+  // a preview first: if other notes reference this one, the user confirms
+  // before any link gets rewritten. Nothing referencing it means nothing to
+  // confirm, so it proceeds immediately.
+  async function requestRename(oldPath: string, newPath: string, isNote: boolean) {
+    if (isNote) {
+      const affected = await previewRename(oldPath);
+      if (affected.length > 0) {
+        setPendingRename({ oldPath, newPath, affected });
+        return;
+      }
+    }
+    await renameEntry(oldPath, newPath);
+    handleRenamed(oldPath, newPath);
+  }
+
   async function commitRename() {
     if (!renamingPath || renameCommittedRef.current) return;
     renameCommittedRef.current = true;
@@ -94,15 +119,23 @@ export function FileTree() {
     setRenamingPath(null);
     if (!name) return;
     const node = tree ? findNode(tree, renamingPath) : null;
-    if (node && !node.isDir) {
+    const isNote = !!node && !node.isDir;
+    if (isNote) {
       const extIdx = originalName.lastIndexOf(".");
       const extension = extIdx > 0 ? originalName.slice(extIdx) : ".md";
       if (!name.includes(".")) name = `${name}${extension}`;
     }
     const newPath = withNewName(renamingPath, name);
     if (newPath === renamingPath) return;
-    await renameEntry(renamingPath, newPath);
-    handleRenamed(renamingPath, newPath);
+    await requestRename(renamingPath, newPath, isNote);
+  }
+
+  async function confirmPendingRename() {
+    if (!pendingRename) return;
+    const { oldPath, newPath } = pendingRename;
+    setPendingRename(null);
+    await renameEntry(oldPath, newPath);
+    handleRenamed(oldPath, newPath);
   }
 
   async function handleNewFile(parentPath: string) {
@@ -129,8 +162,8 @@ export function FileTree() {
     const name = draggedPath.slice(draggedPath.lastIndexOf("/") + 1);
     const newPath = targetFolderPath ? `${targetFolderPath}/${name}` : name;
     if (newPath === draggedPath) return;
-    await renameEntry(draggedPath, newPath);
-    handleRenamed(draggedPath, newPath);
+    const node = tree ? findNode(tree, draggedPath) : null;
+    await requestRename(draggedPath, newPath, !!node && !node.isDir);
   }
 
   return (
@@ -212,6 +245,14 @@ export function FileTree() {
             </>
           )}
         </div>
+      )}
+
+      {pendingRename && (
+        <RenameConfirmDialog
+          affected={pendingRename.affected}
+          onConfirm={() => void confirmPendingRename()}
+          onCancel={() => setPendingRename(null)}
+        />
       )}
     </div>
   );

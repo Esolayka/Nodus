@@ -125,6 +125,11 @@
   color: var(--text-normal);
 }
 
+.outline-item-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .backlinks-panel section {
   margin-bottom: 4px;
 }
@@ -145,6 +150,31 @@
 
 .backlink-item:hover {
   background: var(--bg-hover);
+}
+
+/* Backlink rows are clickable buttons (jump to the source line), but keep
+   looking like the plain list rows they used to be — override the global
+   button skin instead of the pill-button look. */
+button.backlink-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-weight: 400;
+}
+
+.backlinks-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.backlink-group .backlink-source {
+  padding: 0 8px;
 }
 
 .backlink-source {

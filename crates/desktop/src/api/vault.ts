@@ -1,7 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { Backlink, FsChange, GraphData, Mention, TreeNode } from "../types/vault";
+import type {
+  Backlink,
+  FsChange,
+  GraphData,
+  HeadingEntry,
+  Mention,
+  TreeNode,
+} from "../types/vault";
 
 export async function pickVaultFolder(): Promise<string | null> {
   const selection = await openDialog({ directory: true, multiple: false });
@@ -39,6 +46,10 @@ export function createFolder(path: string): Promise<void> {
   return invoke("create_folder", { path });
 }
 
+export function previewRename(oldPath: string): Promise<string[]> {
+  return invoke("preview_rename", { oldPath });
+}
+
 export function renameEntry(oldPath: string, newPath: string): Promise<void> {
   return invoke("rename_entry", { oldPath, newPath });
 }
@@ -53,6 +64,10 @@ export function getBacklinks(path: string): Promise<Backlink[]> {
 
 export function getGraphData(): Promise<GraphData> {
   return invoke("get_graph");
+}
+
+export function getNoteHeadings(path: string): Promise<HeadingEntry[]> {
+  return invoke("get_note_headings", { path });
 }
 
 export function getUnlinkedMentions(path: string): Promise<Mention[]> {

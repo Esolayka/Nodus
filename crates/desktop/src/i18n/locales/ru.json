@@ -17,7 +17,13 @@
     "newFolder": "Новая папка",
     "rename": "Переименовать",
     "delete": "Удалить",
-    "confirmDelete": "Переместить «{{name}}» в корзину?"
+    "confirmDelete": "Переместить «{{name}}» в корзину?",
+    "renameConfirmTitle_one": "Ссылки будут обновлены в {{count}} заметке",
+    "renameConfirmTitle_few": "Ссылки будут обновлены в {{count}} заметках",
+    "renameConfirmTitle_many": "Ссылки будут обновлены в {{count}} заметках",
+    "renameConfirmTitle_other": "Ссылки будут обновлены в {{count}} заметках",
+    "renameConfirmCancel": "Отмена",
+    "renameConfirmApply": "Переименовать"
   },
   "titleBar": {
     "minimize": "Свернуть",
@@ -61,6 +67,12 @@
   "outline": {
     "title": "Оглавление",
     "empty": "В заметке нет заголовков"
+  },
+  "wikilink": {
+    "createNote": "Создать заметку «{{name}}»",
+    "embedCycle": "Циклическое встраивание",
+    "embedHeadingMissing": "Заголовок «{{heading}}» не найден",
+    "embedLoadError": "Не удалось загрузить заметку"
   },
   "backlinks": {
     "title": "Обратные ссылки",

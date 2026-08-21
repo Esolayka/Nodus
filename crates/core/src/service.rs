@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::error::Result;
 use crate::fs_ops;
-use crate::index::{Backlink, GraphData, Index, Mention};
+use crate::index::{Backlink, GraphData, HeadingEntry, Index, Mention};
 use crate::tree::{self, TreeNode};
 use crate::vault::Vault;
 use crate::watcher::{ChangeKind, FsChange, VaultWatcher};
@@ -88,6 +88,16 @@ impl VaultService {
         fs_ops::create_folder(&self.vault, relative)
     }
 
+    /// The vault-relative paths of notes that reference `old_relative` and
+    /// would have their links rewritten by a rename to some other path —
+    /// for showing a confirmation dialog ("links will be updated in N
+    /// notes") before actually committing to the rename.
+    pub fn preview_rename(&self, old_relative: &str) -> Result<Vec<String>> {
+        let mut referencing = self.index.referencing_notes(old_relative)?;
+        referencing.retain(|path| path != old_relative);
+        Ok(referencing)
+    }
+
     /// Renames/moves an entry and, if it's a note other notes link to,
     /// rewrites every `[[old name]]` reference across the vault to the new
     /// name. Returns the vault-relative paths of notes whose *content* was
@@ -133,7 +143,9 @@ impl VaultService {
 
         let mut edits: Vec<((usize, usize), String)> = links
             .iter()
-            .filter(|link| self.index.resolve_target(&link.target).as_deref() == Some(old_target))
+            .filter(|link| {
+                self.index.resolve_target(&link.target, relative).as_deref() == Some(old_target)
+            })
             .map(|link| {
                 (
                     link.target_range,
@@ -173,13 +185,18 @@ impl VaultService {
     }
 
     pub fn unlinked_mentions(&self, target_path: &str) -> Result<Vec<Mention>> {
-        self.index.unlinked_mentions(&self.vault, target_path)
+        self.index.unlinked_mentions(target_path)
+    }
+
+    pub fn headings(&self, path: &str) -> Result<Vec<HeadingEntry>> {
+        self.index.headings(path)
     }
 
     /// Resolves a raw `[[target]]` string (as typed, no `#heading`/`|alias`)
-    /// to a vault-relative note path, if one is known.
-    pub fn resolve_link_target(&self, target: &str) -> Option<String> {
-        self.index.resolve_target(target)
+    /// to a vault-relative note path, if one is known — `from_path` breaks
+    /// ties when several notes share a basename (closest by folder wins).
+    pub fn resolve_link_target(&self, target: &str, from_path: &str) -> Option<String> {
+        self.index.resolve_target(target, from_path)
     }
 
     /// Turns one specific unlinked-mention occurrence into a real
@@ -254,6 +271,72 @@ mod tests {
 
         let a_content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
         assert_eq!(a_content, "[[C#Section|shown text]]");
+    }
+
+    #[test]
+    fn rename_rewrites_embed() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "Intro\n\n![[B]]\n\nMore text.").unwrap();
+        std::fs::write(dir.path().join("B.md"), "embedded content").unwrap();
+        let service = open(dir.path());
+
+        service.rename_entry("B.md", "C.md").unwrap();
+
+        let a_content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(a_content, "Intro\n\n![[C]]\n\nMore text.");
+    }
+
+    #[test]
+    fn rename_does_not_touch_link_in_code_block() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "Real link: [[B]].\n\n```\nExample syntax: [[B]]\n```\n",
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("B.md"), "content").unwrap();
+        let service = open(dir.path());
+
+        service.rename_entry("B.md", "C.md").unwrap();
+
+        let a_content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(
+            a_content,
+            "Real link: [[C]].\n\n```\nExample syntax: [[B]]\n```\n"
+        );
+    }
+
+    #[test]
+    fn rename_rewrites_link_in_frontmatter() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "---\nrelated: \"[[B]]\"\n---\n\nBody.",
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("B.md"), "content").unwrap();
+        let service = open(dir.path());
+
+        service.rename_entry("B.md", "C.md").unwrap();
+
+        let a_content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(a_content, "---\nrelated: \"[[C]]\"\n---\n\nBody.");
+    }
+
+    #[test]
+    fn preview_rename_lists_referencing_notes_without_renaming() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "[[B]]").unwrap();
+        std::fs::write(dir.path().join("B.md"), "content").unwrap();
+        let service = open(dir.path());
+
+        let affected = service.preview_rename("B.md").unwrap();
+
+        assert_eq!(affected, vec!["A.md".to_string()]);
+        // Nothing was actually renamed or rewritten.
+        assert!(dir.path().join("B.md").exists());
+        let a_content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(a_content, "[[B]]");
     }
 
     #[test]

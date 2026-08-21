@@ -1,4 +1,4 @@
-import type { EditorState, Range } from "@codemirror/state";
+import { type EditorState, Facet, type Range } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -9,8 +9,16 @@ import {
 } from "@codemirror/view";
 import { resolveWikilinkTarget } from "../lib/noteIndex";
 import { useVaultStore } from "../store/vaultStore";
+import { codeRanges, inCodeRange } from "./codeRanges";
 
 const WIKILINK_RE = /(!?)\[\[([^\]\n]+)\]\]/g;
+
+/** The path of the note this editor instance is showing — needed so
+ * ambiguous `[[Name]]` targets resolve to the candidate closest by folder
+ * to *this* note, not some arbitrary alphabetical pick. */
+const currentNotePath = Facet.define<string, string>({
+  combine: (values) => values[0] ?? "",
+});
 
 interface ParsedWikilink {
   start: number;
@@ -36,8 +44,10 @@ function cursorLineRange(state: EditorState): { from: number; to: number } {
 
 function buildDecorations(view: EditorView): { decorations: DecorationSet; links: ParsedWikilink[] } {
   const noteIndex = useVaultStore.getState().noteIndex;
+  const fromPath = view.state.facet(currentNotePath);
   const active = cursorLineRange(view.state);
   const text = view.state.doc.toString();
+  const code = codeRanges(view.state);
   const decorations: Range<Decoration>[] = [];
   const links: ParsedWikilink[] = [];
 
@@ -47,13 +57,21 @@ function buildDecorations(view: EditorView): { decorations: DecorationSet; links
     const fullStart = isEmbed ? matchStart : matchStart;
     const fullEnd = matchStart + match[0].length;
     const innerStart = matchStart + match[1].length + 2;
+    if (inCodeRange(code, fullStart)) continue; // literal syntax inside code, not a real link
     const { target, alias } = splitInner(match[2]);
     if (!target) continue;
 
-    const resolvedPath = resolveWikilinkTarget(noteIndex, target);
-    links.push({ start: fullStart, end: fullEnd, target, resolvedPath });
-
+    const resolvedPath = resolveWikilinkTarget(noteIndex, target, fromPath);
     const isActiveLine = fullStart <= active.to && fullEnd >= active.from;
+
+    // Resolved embeds render as a transcluded block via `embeds.ts` instead
+    // (needs a StateField, since it's a multi-line-capable replace — see
+    // that file), which also owns their click handling — so this plugin
+    // stays out of the way entirely while one is collapsed, and doesn't
+    // register it as a click target for the generic handler below.
+    if (isEmbed && resolvedPath && !isActiveLine) continue;
+
+    links.push({ start: fullStart, end: fullEnd, target, resolvedPath });
     const cls = `cm-wikilink${resolvedPath ? "" : " cm-wikilink-unresolved"}${isEmbed ? " cm-wikilink-embed" : ""}`;
 
     if (isActiveLine) {
@@ -99,28 +117,38 @@ class WikilinkPlugin implements PluginValue {
   }
 }
 
-const wikilinkPlugin = ViewPlugin.fromClass(WikilinkPlugin, {
+export const wikilinkPlugin = ViewPlugin.fromClass(WikilinkPlugin, {
   decorations: (plugin) => plugin.decorations,
 });
 
-export type FollowLink = (target: string, resolvedPath: string | null) => void;
+export type FollowLink = (target: string, resolvedPath: string | null, newTab: boolean) => void;
 
+/** Plain click navigates in the current tab; Ctrl/Cmd+click and the middle
+ * mouse button open a new one — but only when the link is actually showing
+ * as a clickable label (not on the cursor's own line, where it's raw,
+ * editable markdown and a click there should just place the cursor). */
 export function wikilinkClickHandler(onFollowLink: FollowLink) {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
-      if (!event.ctrlKey && !event.metaKey) return false;
+      if (event.button !== 0 && event.button !== 1) return false;
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (pos == null) return false;
       const plugin = view.plugin(wikilinkPlugin);
       const link = plugin?.links.find((l) => pos >= l.start && pos <= l.end);
       if (!link) return false;
+
+      const active = cursorLineRange(view.state);
+      const isActiveLine = link.start <= active.to && link.end >= active.from;
+      if (isActiveLine) return false;
+
       event.preventDefault();
-      onFollowLink(link.target, link.resolvedPath);
+      const newTab = event.button === 1 || event.ctrlKey || event.metaKey;
+      onFollowLink(link.target, link.resolvedPath, newTab);
       return true;
     },
   });
 }
 
-export function wikilinks(onFollowLink: FollowLink) {
-  return [wikilinkPlugin, wikilinkClickHandler(onFollowLink)];
+export function wikilinks(path: string, onFollowLink: FollowLink) {
+  return [currentNotePath.of(path), wikilinkPlugin, wikilinkClickHandler(onFollowLink)];
 }

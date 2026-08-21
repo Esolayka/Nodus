@@ -198,4 +198,34 @@ export const editorTheme = EditorView.theme({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  ".cm-embed": {
+    display: "block",
+    margin: "0.5em 0",
+    padding: "2px 14px",
+    borderLeft: "3px solid var(--border)",
+  },
+  ".cm-embed-header": {
+    display: "block",
+    color: "var(--text-muted)",
+    fontSize: "0.85em",
+    fontWeight: "600",
+    textDecoration: "none",
+    cursor: "pointer",
+    margin: "8px 0 4px",
+  },
+  ".cm-embed-header:hover": {
+    color: "var(--accent)",
+  },
+  ".cm-embed-body": {
+    fontSize: "0.95em",
+  },
+  ".cm-embed-body p:first-child, .cm-embed-body h1:first-child, .cm-embed-body h2:first-child, .cm-embed-body h3:first-child":
+    {
+      marginTop: "0",
+    },
+  ".cm-embed-error": {
+    color: "var(--danger)",
+    fontStyle: "italic",
+    padding: "4px 0 10px",
+  },
 });

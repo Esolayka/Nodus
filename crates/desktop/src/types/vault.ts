@@ -16,6 +16,7 @@ export interface Backlink {
   fromPath: string;
   kind: "wikilink" | "embed";
   context: string;
+  line: number;
 }
 
 export interface Mention {
@@ -23,6 +24,12 @@ export interface Mention {
   context: string;
   start: number;
   end: number;
+}
+
+export interface HeadingEntry {
+  level: number;
+  text: string;
+  position: number;
 }
 
 export interface GraphNode {

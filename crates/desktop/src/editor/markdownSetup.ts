@@ -1,3 +1,4 @@
+import { acceptCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -8,11 +9,13 @@ import { EditorView, keymap } from "@codemirror/view";
 import { GFM } from "@lezer/markdown";
 import { codeHighlightStyle } from "./codeHighlightStyle";
 import { editorTheme } from "./editorTheme";
+import { embeds } from "./embeds";
 import { footnotes } from "./footnotes";
 import { toggleBold, toggleItalic, insertLink, pasteAsLink } from "./formatting";
 import { frontmatterPanel } from "./frontmatter";
 import { latex } from "./latex";
 import { linkClickHandler } from "./links";
+import { linkHoverPreview } from "./linkHoverPreview";
 import { listEnter, listIndent, listOutdent } from "./listCommands";
 import { livePreview } from "./livePreview";
 import { editorModeField } from "./modeState";
@@ -24,6 +27,7 @@ import { type FollowLink, wikilinks } from "./wikilinks";
 export const externalUpdate = Annotation.define<boolean>();
 
 export function buildExtensions(
+  path: string,
   onChange: (content: string) => void,
   onSave: () => void,
   onFollowLink: FollowLink,
@@ -38,6 +42,7 @@ export function buildExtensions(
       { key: "Mod-i", run: toggleItalic, preventDefault: true },
       { key: "Mod-k", run: insertLink, preventDefault: true },
       { key: "Enter", run: listEnter },
+      { key: "Tab", run: acceptCompletion },
       { key: "Tab", run: listIndent },
       { key: "Shift-Tab", run: listOutdent },
       indentWithTab,
@@ -50,12 +55,14 @@ export function buildExtensions(
     search({ top: true }),
     EditorView.lineWrapping,
     livePreview,
-    wikilinks(onFollowLink),
-    wikilinkAutocomplete,
+    wikilinks(path, onFollowLink),
+    embeds(path, onFollowLink),
+    wikilinkAutocomplete(path),
     latex,
     footnotes,
     frontmatterPanel,
     linkClickHandler(),
+    linkHoverPreview(),
     pasteAsLink(),
     editorTheme,
     EditorView.domEventHandlers({
