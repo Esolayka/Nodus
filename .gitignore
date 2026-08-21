@@ -1,0 +1,25 @@
+# Rust
+/target/
+crates/*/target/
+
+# Node / frontend
+node_modules/
+dist/
+crates/desktop/.vite/
+
+# Tauri build output (generated bundles)
+crates/desktop/src-tauri/gen/
+crates/desktop/src-tauri/target/
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local Nodus vault runtime data (if this repo is ever opened as a vault)
+.nodus/
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json

@@ -1,0 +1,8 @@
+.note-editor {
+  height: 100%;
+  overflow: hidden;
+}
+
+.note-editor .cm-editor {
+  height: 100%;
+}

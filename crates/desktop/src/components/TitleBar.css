@@ -1,0 +1,43 @@
+.titlebar {
+  grid-area: titlebar;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 40px;
+  background: var(--bg-secondary);
+  user-select: none;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+}
+
+.titlebar-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.titlebar-controls button:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.titlebar-controls .titlebar-close:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.titlebar-controls svg {
+  width: 14px;
+  height: 14px;
+}

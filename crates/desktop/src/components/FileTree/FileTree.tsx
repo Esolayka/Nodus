@@ -1,0 +1,218 @@
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useVaultStore } from "../../store/vaultStore";
+import { useWorkspaceStore } from "../../store/workspaceStore";
+import type { TreeNode } from "../../types/vault";
+import { FileTreeNode } from "./FileTreeNode";
+import { displayName } from "../../lib/displayName";
+import "./FileTree.css";
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  node: TreeNode;
+}
+
+function parentOf(path: string): string {
+  const idx = path.lastIndexOf("/");
+  return idx === -1 ? "" : path.slice(0, idx);
+}
+
+function withNewName(path: string, name: string): string {
+  const parent = parentOf(path);
+  return parent ? `${parent}/${name}` : name;
+}
+
+function findNode(node: TreeNode, path: string): TreeNode | null {
+  if (node.path === path) return node;
+  for (const child of node.children) {
+    const found = findNode(child, path);
+    if (found) return found;
+  }
+  return null;
+}
+
+export function FileTree() {
+  const { t } = useTranslation();
+  const tree = useVaultStore((s) => s.tree);
+  const createFile = useVaultStore((s) => s.createFile);
+  const createFolder = useVaultStore((s) => s.createFolder);
+  const renameEntry = useVaultStore((s) => s.renameEntry);
+  const deleteEntry = useVaultStore((s) => s.deleteEntry);
+  const handleRenamed = useWorkspaceStore((s) => s.handleRenamed);
+  const closePath = useWorkspaceStore((s) => s.closePath);
+  const openNote = useWorkspaceStore((s) => s.openNote);
+  const activePane = useWorkspaceStore((s) =>
+    s.panes.find((p) => p.id === s.activePaneId),
+  );
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  // Guards against double-committing: pressing Enter unmounts the rename
+  // input, and the resulting native blur fires onBlur's commit again.
+  const renameCommittedRef = useRef(false);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [contextMenu]);
+
+  if (!tree) return null;
+
+  // If the vault root holds exactly one folder and nothing else, that folder
+  // is a redundant wrapper — show its contents at level 0 instead.
+  const topLevel =
+    tree.children.length === 1 && tree.children[0].isDir
+      ? tree.children[0].children
+      : tree.children;
+
+  function toggleExpand(path: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  function startRename(node: TreeNode) {
+    renameCommittedRef.current = false;
+    setRenamingPath(node.path);
+    setRenameValue(displayName(node.path));
+    setContextMenu(null);
+  }
+
+  async function commitRename() {
+    if (!renamingPath || renameCommittedRef.current) return;
+    renameCommittedRef.current = true;
+    const originalName = renamingPath.slice(renamingPath.lastIndexOf("/") + 1);
+    let name = renameValue.trim();
+    setRenamingPath(null);
+    if (!name) return;
+    const node = tree ? findNode(tree, renamingPath) : null;
+    if (node && !node.isDir) {
+      const extIdx = originalName.lastIndexOf(".");
+      const extension = extIdx > 0 ? originalName.slice(extIdx) : ".md";
+      if (!name.includes(".")) name = `${name}${extension}`;
+    }
+    const newPath = withNewName(renamingPath, name);
+    if (newPath === renamingPath) return;
+    await renameEntry(renamingPath, newPath);
+    handleRenamed(renamingPath, newPath);
+  }
+
+  async function handleNewFile(parentPath: string) {
+    setContextMenu(null);
+    if (parentPath) setExpanded((prev) => new Set(prev).add(parentPath));
+    const path = await createFile(parentPath, t("fileTree.untitled"));
+    await openNote(path);
+  }
+
+  async function handleNewFolder(parentPath: string) {
+    setContextMenu(null);
+    if (parentPath) setExpanded((prev) => new Set(prev).add(parentPath));
+    await createFolder(parentPath, t("fileTree.newFolderName"));
+  }
+
+  async function handleDelete(node: TreeNode) {
+    setContextMenu(null);
+    if (!window.confirm(t("fileTree.confirmDelete", { name: node.name }))) return;
+    await deleteEntry(node.path);
+    closePath(node.path);
+  }
+
+  async function handleDrop(draggedPath: string, targetFolderPath: string) {
+    const name = draggedPath.slice(draggedPath.lastIndexOf("/") + 1);
+    const newPath = targetFolderPath ? `${targetFolderPath}/${name}` : name;
+    if (newPath === draggedPath) return;
+    await renameEntry(draggedPath, newPath);
+    handleRenamed(draggedPath, newPath);
+  }
+
+  return (
+    <div
+      className="file-tree"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const dragged = e.dataTransfer.getData("text/nodus-path");
+        if (dragged) void handleDrop(dragged, "");
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, node: tree });
+      }}
+    >
+      {topLevel.map((child) => (
+        <FileTreeNode
+          key={child.path}
+          node={child}
+          depth={0}
+          expanded={expanded}
+          activePath={activePane?.activePath ?? null}
+          renamingPath={renamingPath}
+          renameValue={renameValue}
+          onToggleExpand={toggleExpand}
+          onOpen={(path, split) => void openNote(path, { split })}
+          onContextMenu={(e, node) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenu({ x: e.clientX, y: e.clientY, node });
+          }}
+          onRenameChange={setRenameValue}
+          onRenameCommit={() => void commitRename()}
+          onRenameCancel={() => {
+            renameCommittedRef.current = true;
+            setRenamingPath(null);
+          }}
+          onDrop={(dragged, target) => void handleDrop(dragged, target)}
+        />
+      ))}
+
+      {contextMenu && (
+        <div
+          className="tree-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              handleNewFile(contextMenu.node.isDir ? contextMenu.node.path : parentOf(contextMenu.node.path))
+            }
+          >
+            {t("fileTree.newNote")}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              handleNewFolder(
+                contextMenu.node.isDir ? contextMenu.node.path : parentOf(contextMenu.node.path),
+              )
+            }
+          >
+            {t("fileTree.newFolder")}
+          </button>
+          {contextMenu.node.path !== "" && (
+            <>
+              <button type="button" onClick={() => startRename(contextMenu.node)}>
+                {t("fileTree.rename")}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => handleDelete(contextMenu.node)}
+              >
+                {t("fileTree.delete")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

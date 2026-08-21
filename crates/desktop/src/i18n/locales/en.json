@@ -1,0 +1,143 @@
+{
+  "sidebar": {
+    "emptyState": "No vault open yet",
+    "loading": "Opening...",
+    "openFolder": "Open folder",
+    "help": "Help"
+  },
+  "workspace": {
+    "placeholder": "Open a folder of notes to get started",
+    "closeTab": "Close tab",
+    "closePane": "Close pane"
+  },
+  "fileTree": {
+    "untitled": "Untitled",
+    "newFolderName": "New folder",
+    "newNote": "New note",
+    "newFolder": "New folder",
+    "rename": "Rename",
+    "delete": "Delete",
+    "confirmDelete": "Move \"{{name}}\" to trash?"
+  },
+  "titleBar": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
+  "pathBar": {
+    "back": "Back",
+    "forward": "Forward",
+    "readMode": "Read mode",
+    "menu": "Menu",
+    "closeOthers": "Close others",
+    "closeAll": "Close all",
+    "copyPath": "Copy path"
+  },
+  "statusBar": {
+    "backlinks_one": "{{count}} backlink",
+    "backlinks_other": "{{count}} backlinks",
+    "words_one": "{{count}} word",
+    "words_other": "{{count}} words",
+    "chars_one": "{{count}} character",
+    "chars_other": "{{count}} characters",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "saveError": "Save failed"
+  },
+  "editor": {
+    "externalChange": "File changed on disk",
+    "reload": "Reload",
+    "keepMine": "Keep mine"
+  },
+  "rightPanel": {
+    "noNote": "No note open",
+    "outline": "Outline",
+    "backlinks": "Links",
+    "graph": "Graph"
+  },
+  "outline": {
+    "title": "Outline",
+    "empty": "This note has no headings"
+  },
+  "backlinks": {
+    "title": "Backlinks",
+    "empty": "Nothing links here yet",
+    "unlinkedTitle": "Unlinked mentions",
+    "unlinkedEmpty": "No unlinked mentions",
+    "linkButton": "Link"
+  },
+  "graph": {
+    "title": "Graph view",
+    "localTitle": "Local graph",
+    "localMode": "Local",
+    "localModeTitle": "Show only notes linked to the current one",
+    "searchPlaceholder": "Filter",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to screen",
+    "resetLayout": "Reset layout",
+    "loading": "Loading graph...",
+    "empty": "The vault has no notes yet",
+    "collapse": "Collapse panel",
+    "settings": "Graph settings",
+    "nodeCount_one": "{{count}} note",
+    "nodeCount_other": "{{count}} notes",
+    "noLinksHint": "No links between notes yet. Add a [[link]] in the note text."
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "searchPlaceholder": "Search settings",
+    "groupLabel": "Options",
+    "sections": {
+      "general": "General",
+      "editor": "Editor",
+      "graph": "Graph",
+      "vault": "Vault"
+    },
+    "general": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "themeDesc": "The look of the app. Light and dark are fixed; System follows your operating system.",
+      "theme_light": "Light",
+      "theme_dark": "Dark",
+      "theme_system": "System",
+      "language": "Language",
+      "languageDesc": "Interface language. Applies immediately, no restart needed."
+    },
+    "editor": {
+      "title": "Editor",
+      "fontSize": "Font size",
+      "fontSizeDesc": "Text size of the note in pixels. The rest of the interface stays the same."
+    },
+    "graph": {
+      "title": "Graph",
+      "showLabels": "Node labels",
+      "showLabelsDesc": "Show note titles under nodes. Labels only appear at sufficient zoom.",
+      "nodeSize": "Node size",
+      "nodeSizeDesc": "Base scale of nodes. Relative size depends on the note's link count.",
+      "linkDistance": "Link distance",
+      "linkDistanceDesc": "Distance between linked nodes in the layout.",
+      "repulsion": "Repulsion",
+      "repulsionDesc": "How strongly nodes push each other apart. Higher means a roomier layout.",
+      "localDepth": "Local graph depth",
+      "localDepthDesc": "How many link hops from the current note the local graph shows.",
+      "colors": "Graph colors",
+      "colors_background": "Background",
+      "colors_backgroundDesc": "Graph background color. Empty uses the theme default.",
+      "colors_link": "Links",
+      "colors_linkDesc": "Color of the lines between nodes.",
+      "colors_node": "Nodes",
+      "colors_nodeDesc": "Color of the note circles.",
+      "colors_accent": "Accent",
+      "colors_accentDesc": "Color of the hovered node and neighbor highlight.",
+      "resetColor": "Reset",
+      "resetAll": "Reset all graph settings"
+    },
+    "vault": {
+      "title": "Vault",
+      "path": "Vault path",
+      "pathDesc": "The folder that holds your notes. You can switch it at any time."
+    }
+  }
+}
