@@ -4,13 +4,23 @@ import { Tooltip } from "./ui/Tooltip";
 import "./TitleBar.css";
 
 async function windowAction(action: "minimize" | "maximize" | "close") {
+  let appWindow: ReturnType<typeof getCurrentWindow>;
   try {
-    const appWindow = getCurrentWindow();
+    appWindow = getCurrentWindow();
+  } catch {
+    // getCurrentWindow() itself throws synchronously outside a Tauri window
+    // (e.g. plain browser) — nothing to do in that environment.
+    return;
+  }
+  try {
     if (action === "minimize") await appWindow.minimize();
     else if (action === "maximize") await appWindow.toggleMaximize();
     else await appWindow.close();
-  } catch {
-    // Running outside a Tauri window (e.g. plain browser) — ignore.
+  } catch (error) {
+    // A real failure here (permission denied, IPC error, ...) should be
+    // visible, not silently swallowed — that's exactly what made this
+    // class of bug invisible last time.
+    console.error(`[titlebar] ${action} failed:`, error);
   }
 }
 
@@ -18,7 +28,15 @@ export function TitleBar() {
   const { t } = useTranslation();
 
   return (
-    <header className="titlebar" data-tauri-drag-region>
+    <header className="titlebar">
+      {/* The drag region is a separate element from the controls, not an
+          ancestor of them — Tauri's drag-region mousedown handling can
+          trigger on any element inside a `data-tauri-drag-region`
+          container, including descendants like these buttons, which starts
+          a window drag instead of registering the click (a well-known
+          Tauri custom-titlebar gotcha). Keeping it a sibling instead
+          guarantees the buttons never sit inside a draggable area. */}
+      <div className="titlebar-drag-fill" data-tauri-drag-region />
       <div className="titlebar-controls">
         <Tooltip label={t("titleBar.minimize")} placement="bottom">
           <button type="button" onClick={() => void windowAction("minimize")}>

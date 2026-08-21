@@ -2,10 +2,14 @@
   grid-area: titlebar;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   height: 40px;
   background: var(--bg-secondary);
   user-select: none;
+}
+
+.titlebar-drag-fill {
+  flex: 1;
+  height: 100%;
 }
 
 .titlebar-controls {
