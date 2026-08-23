@@ -9,6 +9,7 @@ import {
   Search,
   Settings,
   Trash2,
+  WandSparkles,
   X,
 } from "lucide-react";
 import {
@@ -133,15 +134,24 @@ export function GraphControls({
 
   if (collapsed) {
     return (
-      <button
-        type="button"
-        className="graph-panel-collapsed"
-        title={t("graph.settings")}
-        aria-label={t("graph.settings")}
-        onClick={() => setCollapsed(false)}
-      >
-        <Settings size={17} strokeWidth={1.75} />
-      </button>
+      <div className="graph-quick-actions">
+        <button
+          type="button"
+          title={t("graph.settings")}
+          aria-label={t("graph.settings")}
+          onClick={() => setCollapsed(false)}
+        >
+          <Settings size={17} strokeWidth={1.75} />
+        </button>
+        <button
+          type="button"
+          title={t("graph.animate")}
+          aria-label={t("graph.animate")}
+          onClick={onAnimate}
+        >
+          <WandSparkles size={17} strokeWidth={1.75} />
+        </button>
+      </div>
     );
   }
 

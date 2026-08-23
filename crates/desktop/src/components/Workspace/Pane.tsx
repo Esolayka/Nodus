@@ -10,6 +10,7 @@ import { GraphView } from "../Graph/GraphView";
 import { NoteEditor } from "../Editor/NoteEditor";
 import { PdfViewerTab } from "../Pdf/PdfViewerTab";
 import { EmptyTabPlaceholder } from "./EmptyTabPlaceholder";
+import { GraphPaneHeader } from "./GraphPaneHeader";
 import { PathBar } from "./PathBar";
 import { TabBar } from "./TabBar";
 
@@ -44,6 +45,7 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
           </button>
         </div>
       )}
+      {pane.view === "graph" && <GraphPaneHeader pane={pane} />}
       {pane.view === null && hasRealNote && <PathBar pane={pane} />}
       {pane.view === null && hasRealNote && hasConflict && (
         <ExternalChangeBar path={pane.activePath as string} />

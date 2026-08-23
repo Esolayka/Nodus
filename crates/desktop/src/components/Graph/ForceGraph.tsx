@@ -950,6 +950,13 @@ export function ForceGraph({
     fitPendingRef.current = true;
   }, [compact, localSet]);
 
+  useEffect(() => {
+    if (compact) return;
+    const fit = () => applyFit();
+    document.addEventListener("nodus:graphFit", fit);
+    return () => document.removeEventListener("nodus:graphFit", fit);
+  }, [applyFit, compact]);
+
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const t = transformRef.current;
     return { x: (sx - t.x) / t.k, y: (sy - t.y) / t.k };
