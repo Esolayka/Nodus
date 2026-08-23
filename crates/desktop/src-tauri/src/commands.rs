@@ -69,6 +69,48 @@ pub fn open_vault(
     Ok(tree)
 }
 
+const SANDBOX_WELCOME_NOTE: &str = "# Добро пожаловать в песочницу\n\
+\n\
+Это временное хранилище для экспериментов — здесь можно ничего не бояться сломать.\n\
+\n\
+Попробуйте:\n\
+- перейти по ссылке на [[Пример заметки]]\n\
+- открыть панель \"Теги\" и найти #песочница\n\
+- отметить задачу ниже как выполненную\n\
+\n\
+- [ ] Открыть панель \"Ссылки\" и посмотреть на обратные ссылки этой заметки\n\
+- [ ] Открыть граф заметок\n\
+\n\
+#песочница\n";
+
+const SANDBOX_EXAMPLE_NOTE: &str = "# Пример заметки\n\
+\n\
+На эту заметку ссылается [[Добро пожаловать]] — откройте панель \"Ссылки\" справа, чтобы увидеть обратную ссылку.\n\
+\n\
+## Форматирование\n\
+\n\
+Здесь можно попробовать **жирный текст**, *курсив* и `код`.\n";
+
+fn seed_sandbox_vault(root: &std::path::Path) -> std::io::Result<()> {
+    std::fs::write(root.join("Добро пожаловать.md"), SANDBOX_WELCOME_NOTE)?;
+    std::fs::write(root.join("Пример заметки.md"), SANDBOX_EXAMPLE_NOTE)?;
+    Ok(())
+}
+
+/// A fixed, reused location (not a fresh temp dir each time) so repeat visits
+/// keep whatever the user left there — seeded with a couple of example notes
+/// only the first time it's created.
+#[tauri::command]
+pub fn ensure_sandbox_vault() -> Result<String, String> {
+    let root = std::env::temp_dir().join("nodus-sandbox");
+    let is_new = !root.exists();
+    std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    if is_new {
+        seed_sandbox_vault(&root).map_err(|e| e.to_string())?;
+    }
+    Ok(root.to_string_lossy().into_owned())
+}
+
 /// Called once on startup. Reopens the previously used vault, if any.
 #[tauri::command]
 pub fn restore_last_vault(

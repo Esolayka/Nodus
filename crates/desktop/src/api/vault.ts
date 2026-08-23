@@ -40,6 +40,12 @@ export function openVault(path: string, historySettings: HistorySettings): Promi
   return invoke("open_vault", { path, historySettings });
 }
 
+/** Creates (once) or reuses a fixed sandbox vault seeded with a couple of
+ * example notes, and returns its path — ready to pass to `openVault`. */
+export function ensureSandboxVault(): Promise<string> {
+  return invoke("ensure_sandbox_vault");
+}
+
 export function restoreLastVault(historySettings: HistorySettings): Promise<{
   path: string;
   tree: TreeNode;

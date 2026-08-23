@@ -36,6 +36,7 @@ import { QuickSwitcher } from "./QuickSwitcher/QuickSwitcher";
 import { Ribbon } from "./Ribbon";
 import { RightPanel } from "./RightPanel/RightPanel";
 import { SearchPanel } from "./Search/SearchPanel";
+import { AboutDialog } from "./About/AboutDialog";
 import { SettingsModal } from "./Settings/SettingsModal";
 import { StatusBar } from "./StatusBar";
 import { TagsPanel } from "./Tags/TagsPanel";
@@ -67,6 +68,7 @@ export function AppShell() {
   const settings = useSettingsStore((s) => s.settings);
   const settingsOpen = useUiStore((s) => s.settingsOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const rightPanelCollapsed = useUiStore((s) => s.rightPanelCollapsed);
@@ -398,7 +400,11 @@ export function AppShell() {
             />
             <div className="sidebar-footer-actions">
               <Tooltip label={t("sidebar.help")} placement="top">
-                <button type="button" className="sidebar-icon-btn">
+                <button
+                  type="button"
+                  className="sidebar-icon-btn"
+                  onClick={() => setAboutOpen(true)}
+                >
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
                     <circle cx="8" cy="8" r="6" />
                     <path d="M6.2 6.2a1.8 1.8 0 1 1 2.7 1.6c-.7.4-.9.7-.9 1.4" />
@@ -442,6 +448,7 @@ export function AppShell() {
       )}
       {!rightPanelCollapsed && <RightPanel />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       <CommandPalette />
       <QuickSwitcher />
       {templateDialog && <TemplateFlowDialog mode={templateDialog} onClose={() => setTemplateDialog(null)} />}

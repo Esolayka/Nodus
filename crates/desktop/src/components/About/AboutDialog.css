@@ -1,0 +1,154 @@
+.about-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  animation: about-fade 150ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@keyframes about-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.about-modal {
+  position: relative;
+  width: 440px;
+  max-width: 92vw;
+  max-height: 84vh;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  padding: 32px 28px 28px;
+  animation: about-rise 150ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@keyframes about-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.about-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.about-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.about-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.about-logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 12px;
+}
+
+.about-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.about-version {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-height: 16px;
+}
+
+.about-card {
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.about-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.about-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+.about-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.about-row-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+.about-row-desc {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.about-row-btn {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.about-row-btn:hover {
+  background: var(--bg-active);
+}
+
+.about-row-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

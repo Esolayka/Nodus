@@ -29,6 +29,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::open_vault,
+            commands::ensure_sandbox_vault,
             commands::restore_last_vault,
             commands::get_tree,
             commands::read_note,

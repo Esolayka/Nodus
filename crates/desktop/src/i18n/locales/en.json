@@ -142,6 +142,12 @@
     "noLinksHint": "No links between notes yet. Add a [[link]] in the note text.",
     "nodeCount": "{{count}} notes"
   },
+  "about": {
+    "version": "Version {{version}}",
+    "sandboxTitle": "Sandbox vault",
+    "sandboxDesc": "Play and experiment with features using example notes. Edits here are never your real vault.",
+    "sandboxOpen": "Open"
+  },
   "settings": {
     "title": "Settings",
     "close": "Close",
