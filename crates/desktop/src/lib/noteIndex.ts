@@ -9,6 +9,14 @@ export interface NoteIndex {
   allPaths: Set<string>;
   /** all note paths with their basename, for autocomplete */
   notes: { path: string; title: string }[];
+  /** lowercased exact filename (extension included) -> candidate paths —
+   * for resolving attachment embeds (`![[photo.png]]`), which unlike note
+   * links are looked up by their full filename, not an extension-less
+   * stem. */
+  filesByExactName: Map<string, string[]>;
+  /** Every file in the vault (notes and attachments alike), for resolving
+   * an embed target that already includes a folder path. */
+  allFilePaths: Set<string>;
 }
 
 function titleOf(path: string): string {
@@ -20,24 +28,35 @@ export function buildNoteIndex(tree: TreeNode | null): NoteIndex {
   const byBasename = new Map<string, string[]>();
   const allPaths = new Set<string>();
   const notes: { path: string; title: string }[] = [];
+  const filesByExactName = new Map<string, string[]>();
+  const allFilePaths = new Set<string>();
 
   function walk(node: TreeNode) {
-    if (!node.isDir && node.path.toLowerCase().endsWith(".md")) {
-      allPaths.add(node.path);
-      const title = titleOf(node.path);
-      notes.push({ path: node.path, title });
-      const key = title.toLowerCase();
-      const list = byBasename.get(key) ?? [];
-      list.push(node.path);
-      list.sort();
-      byBasename.set(key, list);
+    if (!node.isDir) {
+      allFilePaths.add(node.path);
+      const isNote = node.path.toLowerCase().endsWith(".md");
+      if (isNote) {
+        allPaths.add(node.path);
+        const title = titleOf(node.path);
+        notes.push({ path: node.path, title });
+        const key = title.toLowerCase();
+        const list = byBasename.get(key) ?? [];
+        list.push(node.path);
+        list.sort();
+        byBasename.set(key, list);
+      }
+      const exactKey = node.name.toLowerCase();
+      const exactList = filesByExactName.get(exactKey) ?? [];
+      exactList.push(node.path);
+      exactList.sort();
+      filesByExactName.set(exactKey, exactList);
     }
     for (const child of node.children) walk(child);
   }
   if (tree) walk(tree);
   notes.sort((a, b) => a.title.localeCompare(b.title));
 
-  return { byBasename, allPaths, notes };
+  return { byBasename, allPaths, notes, filesByExactName, allFilePaths };
 }
 
 function dirComponents(path: string): string[] {
@@ -74,6 +93,32 @@ export function resolveWikilinkTarget(
   }
 
   const matches = index.byBasename.get(stem.toLowerCase());
+  if (!matches || matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  const fromDir = dirComponents(fromPath);
+  let best = matches[0];
+  let bestDistance = treeDistance(fromDir, dirComponents(best));
+  for (const candidate of matches.slice(1)) {
+    const distance = treeDistance(fromDir, dirComponents(candidate));
+    if (distance < bestDistance || (distance === bestDistance && candidate < best)) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** Resolves an attachment embed's target (`photo.png` in `![[photo.png]]`)
+ * by its exact filename, extension included — unlike notes, attachments
+ * aren't referenced by an extension-less stem. Same closest-by-folder
+ * tie-break as note resolution otherwise. */
+export function resolveAssetTarget(index: NoteIndex, target: string, fromPath: string): string | null {
+  if (target.includes("/")) {
+    return index.allFilePaths.has(target) ? target : null;
+  }
+
+  const matches = index.filesByExactName.get(target.toLowerCase());
   if (!matches || matches.length === 0) return null;
   if (matches.length === 1) return matches[0];
 

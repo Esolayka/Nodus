@@ -14,19 +14,22 @@
   flex-shrink: 0;
 }
 
+.right-panel-tabs .tooltip-wrap {
+  flex: 1;
+  display: flex;
+}
+
 .right-panel-tabs button {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 0;
-  padding: 0 8px;
-  font-size: 13px;
-  font-weight: 400;
+  padding: 0;
   color: var(--text-faint);
   position: relative;
   background: transparent;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .right-panel-tabs button:hover {

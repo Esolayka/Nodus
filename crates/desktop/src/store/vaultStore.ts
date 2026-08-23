@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as api from "../api/vault";
 import { buildNoteIndex, type NoteIndex } from "../lib/noteIndex";
+import { useSettingsStore } from "./settingsStore";
 import type { TreeNode } from "../types/vault";
 
 interface VaultState {
@@ -17,6 +18,7 @@ interface VaultState {
   restoreLast: () => Promise<void>;
   refreshTree: () => Promise<void>;
   createFile: (parentPath: string, baseName: string) => Promise<string>;
+  createFileWithExtension: (parentPath: string, baseName: string, extension: string) => Promise<string>;
   createFolder: (parentPath: string, baseName: string) => Promise<string>;
   renameEntry: (oldPath: string, newPath: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
@@ -62,7 +64,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   open: async (path) => {
     set({ isLoading: true, error: null });
     try {
-      const tree = await api.openVault(path);
+      const tree = await api.openVault(path, useSettingsStore.getState().settings.history);
       set({ vaultPath: path, tree, noteIndex: buildNoteIndex(tree), isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
@@ -72,7 +74,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   restoreLast: async () => {
     set({ isLoading: true, error: null });
     try {
-      const restored = await api.restoreLastVault();
+      const restored = await api.restoreLastVault(useSettingsStore.getState().settings.history);
       set({
         tree: restored?.tree ?? null,
         noteIndex: buildNoteIndex(restored?.tree ?? null),
@@ -96,6 +98,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   createFile: async (parentPath, baseName) => {
     const name = uniqueName(get().tree, parentPath, baseName, ".md");
+    const path = join(parentPath, name);
+    await api.createFile(path);
+    await get().refreshTree();
+    return path;
+  },
+
+  createFileWithExtension: async (parentPath, baseName, extension) => {
+    const name = uniqueName(get().tree, parentPath, baseName, extension);
     const path = join(parentPath, name);
     await api.createFile(path);
     await get().refreshTree();

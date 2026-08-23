@@ -24,11 +24,32 @@ export interface Buffer {
 /** A non-file view hosted inside a pane (like Obsidian's graph leaf). */
 export type WorkspaceView = "graph";
 
+/** A leading space plus "empty:" — chosen specifically so it can never
+ * collide with a real vault-relative path (paths never start with a
+ * space), without needing to change `activePath`/`tabs`'s string type
+ * anywhere they're already consumed. Backs the "+"/Ctrl+T blank-tab
+ * pattern: a tab that exists with no file behind it yet. */
+export const EMPTY_TAB_PREFIX = " empty:";
+
+export function isEmptyTab(path: string | null): path is string {
+  return path != null && path.startsWith(EMPTY_TAB_PREFIX);
+}
+
+export function makeEmptyTabId(): string {
+  return `${EMPTY_TAB_PREFIX}${crypto.randomUUID()}`;
+}
+
 export interface Pane {
   id: string;
   tabs: string[];
   activePath: string | null;
   view: WorkspaceView | null;
+  /** Whether a graph tab exists in this pane at all — independent of
+   * `view`, which only tracks which special view is currently in front.
+   * Keeping this separate is what lets the graph be a real tab (closable,
+   * doesn't block other tabs from opening) instead of a pane-wide
+   * exclusive mode. */
+  graphOpen: boolean;
   /** Navigation history for the path bar's back/forward arrows. */
   history: string[];
   historyIndex: number;
@@ -50,8 +71,16 @@ interface WorkspaceState {
    * live/source was active right before. */
   lastEditModes: Record<string, "live" | "source">;
 
-  openNote: (path: string, opts?: { split?: boolean }) => Promise<void>;
+  openNote: (path: string, opts?: { split?: boolean; pdfPage?: number }) => Promise<void>;
+  /** "+" and Ctrl+T: a blank tab with no file behind it yet — replaced
+   * in-place the moment the user actually opens or creates a note from it,
+   * not left orphaned alongside a real one. */
+  openEmptyTab: (opts?: { split?: boolean }) => void;
   openGraph: (opts?: { split?: boolean }) => void;
+  /** Bumped every time a pending PDF-page jump is queued, so `PdfViewerTab`
+   * re-runs its "consume the pending page" effect even when the same page
+   * is requested twice in a row. */
+  pdfJumpVersion: number;
   setActiveView: (paneId: string, view: WorkspaceView) => void;
   closeView: (paneId: string) => void;
   closeTab: (paneId: string, path: string) => void;
@@ -112,6 +141,19 @@ export function consumePendingJump(path: string): PendingJump | null {
   return jump;
 }
 
+// Same idea as `pendingJump`, for the PDF viewer's own notion of position
+// (a page number, not a CodeMirror line) — set by `openNote`'s `pdfPage`
+// option, consumed once `PdfViewerTab` has computed a real row height to
+// scroll to.
+let pendingPdfPage: { path: string; page: number } | null = null;
+
+export function consumePendingPdfPage(path: string): number | null {
+  if (pendingPdfPage?.path !== path) return null;
+  const page = pendingPdfPage.page;
+  pendingPdfPage = null;
+  return page;
+}
+
 const HIGHLIGHT_FLASH_MS = 2000;
 
 export function jumpEditorToLine(view: EditorView, line: number, range?: [number, number]) {
@@ -146,6 +188,7 @@ function firstPane(): Pane {
     tabs: [],
     activePath: null,
     view: null,
+    graphOpen: false,
     history: [],
     historyIndex: -1,
     mru: [],
@@ -193,6 +236,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   buffers: {},
   modes: {},
   lastEditModes: {},
+  pdfJumpVersion: 0,
 
   openNote: async (path, opts) => {
     const state = get();
@@ -224,22 +268,59 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }));
     }
 
+    if (opts?.pdfPage != null) {
+      pendingPdfPage = { path, page: opts.pdfPage };
+      set((s) => ({ pdfJumpVersion: s.pdfJumpVersion + 1 }));
+    }
+
+    set((s) => ({
+      activePaneId: targetPaneId,
+      panes: s.panes.map((pane) => {
+        if (pane.id !== targetPaneId) return pane;
+        // A blank "+"/Ctrl+T tab gets replaced in place instead of leaving
+        // an orphaned empty tab sitting next to the real one — but only
+        // when not explicitly opening in a split, and only the sentinel
+        // itself, never a real path.
+        const replacing = !opts?.split && isEmptyTab(pane.activePath) ? pane.activePath : null;
+        const tabs = replacing
+          ? pane.tabs.map((t) => (t === replacing ? path : t))
+          : pane.tabs.includes(path)
+            ? pane.tabs
+            : [...pane.tabs, path];
+        const mru = replacing ? pane.mru.filter((p) => p !== replacing) : pane.mru;
+        return {
+          ...pane,
+          ...pushHistory(pane, path),
+          view: null,
+          tabs,
+          activePath: path,
+          mru: touchMru({ ...pane, mru }, path),
+        };
+      }),
+    }));
+    useNoteUsageStore.getState().recordOpen(path);
+  },
+
+  openEmptyTab: (opts) => {
+    const state = get();
+    const activePaneId = state.activePaneId || state.panes[0].id;
+
+    let targetPaneId = activePaneId;
+    if (opts?.split) {
+      const newPane: Pane = firstPane();
+      set((s) => ({ panes: [...s.panes, newPane] }));
+      targetPaneId = newPane.id;
+    }
+
+    const tabId = makeEmptyTabId();
     set((s) => ({
       activePaneId: targetPaneId,
       panes: s.panes.map((pane) =>
         pane.id === targetPaneId
-          ? {
-              ...pane,
-              ...pushHistory(pane, path),
-              view: null,
-              tabs: pane.tabs.includes(path) ? pane.tabs : [...pane.tabs, path],
-              activePath: path,
-              mru: touchMru(pane, path),
-            }
+          ? { ...pane, view: null, tabs: [...pane.tabs, tabId], activePath: tabId, mru: touchMru(pane, tabId) }
           : pane,
       ),
     }));
-    useNoteUsageStore.getState().recordOpen(path);
   },
 
   navigateTo: async (path, opts) => {
@@ -306,7 +387,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       activePaneId: targetPaneId,
       panes: s.panes.map((pane) =>
-        pane.id === targetPaneId ? { ...pane, view: "graph" } : pane,
+        pane.id === targetPaneId ? { ...pane, view: "graph", graphOpen: true } : pane,
       ),
     }));
   },

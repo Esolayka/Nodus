@@ -2425,6 +2425,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-range"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21dec9db110f5f872ed9699c3ecf50cf16f423502706ba5c72462e28d3157573"
+
+[[package]]
 name = "http-range-header"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3566,6 +3572,7 @@ dependencies = [
 name = "nodus-desktop"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "nodus-core",
  "serde",
  "serde_json",
@@ -3573,6 +3580,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-shell",
+ "tokio",
 ]
 
 [[package]]
@@ -5892,6 +5900,7 @@ dependencies = [
  "gtk",
  "heck 0.5.0",
  "http",
+ "http-range",
  "jni",
  "libc",
  "log",

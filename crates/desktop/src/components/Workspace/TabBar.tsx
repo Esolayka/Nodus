@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { useVaultStore } from "../../store/vaultStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { displayName } from "../../lib/displayName";
+import { isEmptyTab } from "../../store/workspaceStore";
 import type { Pane } from "../../store/workspaceStore";
 
 function fileIcon() {
@@ -30,21 +30,15 @@ export function TabBar({ pane }: { pane: Pane }) {
   const setActiveView = useWorkspaceStore((s) => s.setActiveView);
   const closeTab = useWorkspaceStore((s) => s.closeTab);
   const closeView = useWorkspaceStore((s) => s.closeView);
-  const openNote = useWorkspaceStore((s) => s.openNote);
-  const createFile = useVaultStore((s) => s.createFile);
-
-  async function handleNewNote() {
-    const path = await createFile("", t("fileTree.untitled"));
-    await openNote(path);
-  }
+  const openEmptyTab = useWorkspaceStore((s) => s.openEmptyTab);
 
   return (
     <div className="tab-bar" role="tablist">
-      {pane.view === "graph" && (
+      {pane.graphOpen && (
         <div
           role="tab"
-          aria-selected="true"
-          className="tab tab-active"
+          aria-selected={pane.view === "graph"}
+          className={`tab${pane.view === "graph" ? " tab-active" : ""}`}
           onClick={() => setActiveView(pane.id, "graph")}
         >
           <span className="tab-icon">{graphIcon()}</span>
@@ -64,56 +58,50 @@ export function TabBar({ pane }: { pane: Pane }) {
           </button>
         </div>
       )}
-      {pane.view === null &&
-        pane.tabs.map((path) => {
-          const dirty = buffers[path]?.dirty;
-          const active = path === pane.activePath;
-          return (
-            <div
-              key={path}
-              role="tab"
-              aria-selected={active}
-              className={`tab${active ? " tab-active" : ""}`}
-              onClick={() => setActiveTab(pane.id, path)}
-              title={path}
+      {pane.tabs.map((path) => {
+        const dirty = buffers[path]?.dirty;
+        const active = pane.view === null && path === pane.activePath;
+        const blank = isEmptyTab(path);
+        return (
+          <div
+            key={path}
+            role="tab"
+            aria-selected={active}
+            className={`tab${active ? " tab-active" : ""}`}
+            onClick={() => setActiveTab(pane.id, path)}
+            title={blank ? undefined : path}
+          >
+            <span className="tab-icon">
+              {!blank && dirty ? <span className="tab-dirty-dot" /> : fileIcon()}
+            </span>
+            <span className="tab-name">{blank ? t("workspace.newTab") : displayName(path)}</span>
+            <button
+              type="button"
+              className="tab-close"
+              aria-label={t("workspace.closeTab")}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(pane.id, path);
+              }}
             >
-              <span className="tab-icon">
-                {dirty ? (
-                  <span className="tab-dirty-dot" />
-                ) : (
-                  fileIcon()
-                )}
-              </span>
-              <span className="tab-name">{displayName(path)}</span>
-              <button
-                type="button"
-                className="tab-close"
-                aria-label={t("workspace.closeTab")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(pane.id, path);
-                }}
-              >
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                  <path d="m4 4 8 8M12 4l-8 8" />
-                </svg>
-              </button>
-            </div>
-          );
-        })}
-      {pane.view === null && (
-        <button
-          type="button"
-          className="tab-add"
-          aria-label={t("fileTree.newNote")}
-          onClick={() => void handleNewNote()}
-          title={t("fileTree.newNote")}
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </button>
-      )}
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="m4 4 8 8M12 4l-8 8" />
+              </svg>
+            </button>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        className="tab-add"
+        aria-label={t("workspace.newTab")}
+        onClick={() => openEmptyTab()}
+        title={t("workspace.newTab")}
+      >
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+          <path d="M8 3v10M3 8h10" />
+        </svg>
+      </button>
     </div>
   );
 }

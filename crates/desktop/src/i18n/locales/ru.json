@@ -4,12 +4,17 @@
     "loading": "Открываем...",
     "openFolder": "Открыть папку",
     "help": "Справка",
-    "filesView": "Файлы"
+    "filesView": "Файлы",
+    "tagsView": "Теги",
+    "tasksView": "Задачи",
+    "calendarView": "Календарь",
+    "syncView": "Синхронизация"
   },
   "workspace": {
     "placeholder": "Откройте папку с заметками, чтобы начать",
     "closeTab": "Закрыть вкладку",
-    "closePane": "Закрыть панель"
+    "closePane": "Закрыть панель",
+    "newTab": "Новая вкладка"
   },
   "fileTree": {
     "untitled": "Без названия",
@@ -24,7 +29,8 @@
     "renameConfirmTitle_many": "Ссылки будут обновлены в {{count}} заметках",
     "renameConfirmTitle_other": "Ссылки будут обновлены в {{count}} заметках",
     "renameConfirmCancel": "Отмена",
-    "renameConfirmApply": "Переименовать"
+    "renameConfirmApply": "Переименовать",
+    "renameConfirmTitle": "Подтверждение переименования"
   },
   "titleBar": {
     "minimize": "Свернуть",
@@ -52,7 +58,11 @@
     "chars_many": "{{count}} символов",
     "saved": "Сохранено",
     "saving": "Сохранение…",
-    "saveError": "Ошибка сохранения"
+    "saveError": "Ошибка сохранения",
+    "backlinks": "Обратных ссылок: {{count}}",
+    "chars": "Символов: {{count}}",
+    "syncDisabled": "Синхр. выкл.",
+    "words": "Слов: {{count}}"
   },
   "editor": {
     "externalChange": "Файл изменён на диске",
@@ -100,7 +110,8 @@
     "nodeCount_few": "{{count}} заметки",
     "nodeCount_many": "{{count}} заметок",
     "nodeCount_other": "{{count}} заметок",
-    "noLinksHint": "Между заметками пока нет ссылок. Добавьте [[ссылку]] в текст заметки."
+    "noLinksHint": "Между заметками пока нет ссылок. Добавьте [[ссылку]] в текст заметки.",
+    "nodeCount": "Заметок: {{count}}"
   },
   "settings": {
     "title": "Настройки",
@@ -112,7 +123,15 @@
       "editor": "Редактор",
       "graph": "Граф",
       "hotkeys": "Горячие клавиши",
-      "vault": "Хранилище"
+      "vault": "Хранилище",
+      "dailyNotes": "Ежедневные заметки",
+      "templates": "Шаблоны",
+      "tasks": "Задачи",
+      "history": "История версий",
+      "attachments": "Вложения",
+      "sync": "Синхронизация",
+      "telegram": "Telegram",
+      "plugins": "Плагины"
     },
     "hotkeys": {
       "searchPlaceholder": "Поиск команды...",
@@ -165,6 +184,129 @@
       "title": "Хранилище",
       "path": "Путь к хранилищу",
       "pathDesc": "Папка, в которой лежат ваши заметки. Содержимое можно заменить в любой момент."
+    },
+    "dailyNotes": {
+      "title": "Ежедневные заметки",
+      "folder": "Папка",
+      "folderDesc": "Папка внутри хранилища для ежедневных заметок.",
+      "filenameFormat": "Формат имени файла",
+      "filenameFormatDesc": "Токены в стиле YYYY-MM-DD.",
+      "templatePath": "Шаблон",
+      "templatePathDesc": "Путь к файлу шаблона внутри хранилища, либо оставьте пустым для пустой заметки.",
+      "templatePathPlaceholder": "Нет",
+      "openOnStartup": "Открывать при запуске",
+      "openOnStartupDesc": "Автоматически открывает сегодняшнюю заметку при запуске Nodus."
+    },
+    "templates": {
+      "title": "Шаблоны",
+      "folder": "Папка",
+      "folderDesc": "Папка внутри хранилища для шаблонов."
+    },
+    "tasks": {
+      "title": "Задачи",
+      "autoCompletionDate": "Добавлять дату завершения",
+      "autoCompletionDateDesc": "Добавляет дату ✅ при отметке задачи выполненной."
+    },
+    "history": {
+      "title": "История версий",
+      "enabled": "Хранить историю версий",
+      "enabledDesc": "Сохраняет снимки заметки по мере редактирования, чтобы можно было вернуться к прошлой версии.",
+      "maxVersionsPerNote": "Макс. версий на заметку",
+      "maxVersionsPerNoteDesc": "Самые старые версии удаляются сверх этого предела.",
+      "maxAgeDays": "Макс. возраст (дней)",
+      "maxAgeDaysDesc": "Версии старше этого срока удаляются.",
+      "maxTotalSizeMb": "Макс. общий размер (МБ)",
+      "maxTotalSizeMbDesc": "Старые версии удаляются, чтобы не превышать этот размер."
+    },
+    "attachments": {
+      "title": "Вложения",
+      "mode": "Место хранения",
+      "modeDesc": "Куда сохраняются новые вложения.",
+      "mode_vaultFolder": "Папка хранилища",
+      "mode_nextToNote": "Рядом с заметкой",
+      "mode_subfolder": "Подпапка",
+      "vaultFolderName": "Имя папки",
+      "vaultFolderNameDesc": "Папка внутри хранилища для всех вложений.",
+      "subfolderName": "Имя подпапки",
+      "subfolderNameDesc": "Именованная подпапка внутри папки самой заметки.",
+      "loadExternalImages": "Загружать внешние изображения",
+      "loadExternalImagesDesc": "Подгружает изображения по ссылке, а не только локальные файлы."
+    },
+    "sync": {
+      "title": "Синхронизация",
+      "mechanism": "Способ",
+      "mechanismDesc": "Как это хранилище синхронизируется между устройствами.",
+      "mechanism_none": "Выключено",
+      "mechanism_git": "Git",
+      "mechanism_server": "Сервер Nodus",
+      "mechanism_cloud": "Облако",
+      "mechanism_cloudComingSoon": "Скоро",
+      "gitEncryptionWarning": "Синхронизация через Git хранит заметки в репозитории в открытом виде.",
+      "git": {
+        "title": "Git",
+        "remoteName": "Имя удалённого репозитория",
+        "remoteNameDesc": "Обычно «origin».",
+        "remoteUrl": "Адрес репозитория",
+        "remoteUrlDesc": "Где размещён Git-репозиторий этого хранилища.",
+        "branch": "Ветка",
+        "branchDesc": "Ветка для синхронизации.",
+        "authorName": "Имя автора",
+        "authorDesc": "Используется для коммитов, которые делает Nodus.",
+        "authorEmail": "Email автора",
+        "autocommit": "Автокоммит",
+        "autocommitDesc": "Когда Nodus сам коммитит изменения.",
+        "autocommit_off": "Выключен",
+        "autocommit_manual": "Вручную",
+        "autocommit_scheduled": "По расписанию",
+        "autocommitInterval": "Коммит каждые (минут)",
+        "autocommitIntervalDesc": "Как часто Nodus коммитит за вас.",
+        "autopullOnStartup": "Забирать изменения при запуске",
+        "autopullOnStartupDesc": "Забирает последние изменения при открытии этого хранилища.",
+        "commitMessageTemplate": "Сообщение коммита",
+        "commitMessageTemplateDesc": "%date% заменяется на текущую дату/время.",
+        "enable": "Включить"
+      },
+      "server": {
+        "title": "Сервер Nodus",
+        "baseUrl": "Адрес сервера",
+        "baseUrlDesc": "Адрес вашего сервера Nodus.",
+        "deviceName": "Имя устройства",
+        "deviceNameDesc": "Показывается при управлении подключёнными устройствами.",
+        "autoSync": "Автосинхронизация",
+        "autoSyncDesc": "Когда Nodus сам синхронизируется с сервером.",
+        "autoSyncInterval": "Синхронизировать каждые (минут)",
+        "autoSyncIntervalDesc": "Как часто Nodus синхронизируется с сервером за вас."
+      }
+    },
+    "telegram": {
+      "enabled": "Включить интеграцию с Telegram",
+      "enabledDesc": "Добавляет Mini App и бота-компаньона для этого хранилища. Нужен способ синхронизации выше, чтобы бот был реально доступен.",
+      "placement": "Размещение",
+      "placementDesc": "Локально: этот компьютер сам обслуживает Mini App, только пока запущен. Сервер: вместо этого его обслуживает ваш сервер Nodus, круглосуточно.",
+      "placement_local": "Локально",
+      "placement_server": "Сервер",
+      "serverPlacementNote": "Настройте токен бота на самом сервере Nodus (флаг запуска --telegram-bot-token) — здесь больше ничего настраивать не нужно.",
+      "localTitle": "Локальное размещение",
+      "botToken": "Токен бота",
+      "botTokenDesc": "От @BotFather, хранится только для проверки подписи Telegram локальным сервером в этой сессии.",
+      "manualAddress": "Адрес вручную",
+      "manualAddressDesc": "Резервный адрес для Mini App, если автоматический туннель недоступен.",
+      "linkTitle": "Привязать аккаунт Telegram",
+      "generateCode": "Создать код привязки",
+      "generateCodeDesc": "Покажет короткий код — введите его в Mini App, чтобы подключить это хранилище к вашему аккаунту Telegram.",
+      "codeHint": "Действителен 10 минут. Введите его в Mini App, чтобы завершить привязку.",
+      "startTunnel": "Запустить туннель",
+      "startTunnelDesc": "Работает не всегда — нужен установленный cloudflared. Без него используйте адрес вручную выше.",
+      "startingTunnel": "Запуск…",
+      "statusTitle": "Статус",
+      "botConfigured": "Токен бота задан",
+      "publicAddress": "Текущий адрес",
+      "notAvailable": "Пока недоступен",
+      "yes": "Да",
+      "no": "Нет"
+    },
+    "plugins": {
+      "loadExternal": "Загрузить внешний плагин…"
     }
   },
   "search": {
@@ -201,7 +343,8 @@
     "renameConfirmTitle_one": "Тег будет изменён в {{count}} заметке",
     "renameConfirmTitle_few": "Тег будет изменён в {{count}} заметках",
     "renameConfirmTitle_many": "Тег будет изменён в {{count}} заметках",
-    "renameConfirmTitle_other": "Тег будет изменён в {{count}} заметках"
+    "renameConfirmTitle_other": "Тег будет изменён в {{count}} заметках",
+    "renameConfirmTitle": "Переименовать тег"
   },
   "commandPalette": {
     "placeholder": "Введите команду...",
@@ -223,6 +366,188 @@
     "findInNote": "Поиск в текущей заметке",
     "commandPalette": "Палитра команд",
     "quickSwitcher": "Быстрое переключение заметок",
-    "openGraph": "Открыть граф"
+    "openGraph": "Открыть граф",
+    "attachFile": "Прикрепить файл",
+    "dailyNotesGotoDate": "Ежедневные заметки: перейти к дате",
+    "dailyNotesOpenNext": "Ежедневные заметки: следующая",
+    "dailyNotesOpenPrevious": "Ежедневные заметки: предыдущая",
+    "dailyNotesOpenToday": "Ежедневные заметки: сегодня",
+    "dailyNotesQuickNote": "Ежедневные заметки: быстрая заметка",
+    "findUnusedAttachments": "Найти неиспользуемые вложения",
+    "newCanvas": "Новый холст",
+    "templatesCreateNote": "Шаблоны: создать заметку",
+    "templatesInsert": "Шаблоны: вставить в курсор"
+  },
+  "attachments": {
+    "deleteSelected": "Удалить выбранные",
+    "noneUnused": "Неиспользуемых вложений нет.",
+    "scanning": "Сканирование…",
+    "unusedTitle": "Неиспользуемые вложения"
+  },
+  "calendar": {
+    "nextMonth": "Следующий месяц",
+    "prevMonth": "Предыдущий месяц",
+    "title": "Календарь"
+  },
+  "canvas": {
+    "addFile": "Добавить файл",
+    "addGroup": "Добавить группу",
+    "addLink": "Добавить ссылку",
+    "addText": "Добавить текст",
+    "linkPrompt": "URL",
+    "newGroupLabel": "Группа",
+    "pickFileEmpty": "Ничего не найдено.",
+    "pickFilePlaceholder": "Поиск файлов…",
+    "pickFileTitle": "Выбрать файл",
+    "untitled": "Новый холст"
+  },
+  "conflict": {
+    "allResolvedHint": "Выберите сторону для каждого выделенного участка, затем завершите слияние.",
+    "finish": "Завершить слияние",
+    "finishing": "Завершение…",
+    "loadFailed": "Не удалось загрузить конфликт этого файла.",
+    "mine": "Моя версия",
+    "resolved": "Решено",
+    "result": "Результат",
+    "takeBoth": "Оставить обе",
+    "takeMine": "Оставить мою",
+    "takeTheirs": "Оставить чужую",
+    "theirs": "Чужая версия",
+    "title": "Разрешение конфликта",
+    "unresolved": "Требуется решение"
+  },
+  "dailyNotes": {
+    "quickNoteAdd": "Добавить",
+    "quickNotePlaceholder": "Быстрая заметка…",
+    "quickNoteTitle": "Быстрая заметка"
+  },
+  "git": {
+    "addRemote": "Добавить удалённый репозиторий",
+    "changes": "Изменения",
+    "commit": "Коммит",
+    "commitPlaceholder": "Сообщение коммита",
+    "committing": "Коммит…",
+    "conflictBanner": "В этом файле конфликт слияния.",
+    "credentialsTitle": "Учётные данные",
+    "noChanges": "Изменений нет.",
+    "notEnabled": "Синхронизация через Git не включена для этого хранилища.",
+    "pull": "Забрать (pull)",
+    "pulling": "Получение…",
+    "push": "Отправить (push)",
+    "pushing": "Отправка…",
+    "remoteSetupTitle": "Удалённый репозиторий",
+    "resolveConflicts": "Разрешить конфликты",
+    "sshKeyPath": "Путь к SSH-ключу",
+    "sshPassphrase": "Пароль ключа",
+    "title": "Git",
+    "token": "Токен",
+    "username": "Имя пользователя"
+  },
+  "history": {
+    "compareTitle": "Сравнить с текущей",
+    "copyButton": "Копировать",
+    "empty": "Прошлых версий пока нет.",
+    "openButton": "Открыть",
+    "restoreButton": "Восстановить",
+    "restoreConfirmApply": "Восстановить",
+    "restoreConfirmTitle": "Восстановить эту версию? Текущее содержимое сначала сохранится как новая версия."
+  },
+  "images": {
+    "saveLocally": "Сохранить локальную копию"
+  },
+  "obsidianImport": {
+    "attachmentFolder": "Папка вложений",
+    "dailyNotes": "Папка ежедневных заметок",
+    "openVault": "Всё равно открыть",
+    "reportNone": "Несовместимостей не найдено.",
+    "reportSummary": "{{count}} конструкций не отобразятся — они зависят от плагина Obsidian, которого нет в Nodus.",
+    "subtitle": "Похоже, это хранилище Obsidian.",
+    "templateFolder": "Папка шаблонов",
+    "title": "Обнаружено хранилище Obsidian"
+  },
+  "pdf": {
+    "loading": "Загрузка…",
+    "page": "Страница",
+    "searching": "Поиск…",
+    "searchPlaceholder": "Поиск по PDF…",
+    "thumbnails": "Миниатюры"
+  },
+  "plugins": {
+    "noteProperties": {
+      "name": "Свойства",
+      "description": "Редактируемая панель свойств вверху каждой заметки и обзор всех свойств по всему хранилищу.",
+      "allTitle": "Все свойства",
+      "loading": "Читаем свойства…",
+      "allEmpty": "Пока ни у одной заметки нет свойств."
+    },
+    "outgoingLinks": {
+      "name": "Исходящие ссылки",
+      "description": "Список ссылок, которые текущая заметка делает на другие заметки.",
+      "tabLabel": "Исходящие",
+      "empty": "Эта заметка пока никуда не ссылается."
+    },
+    "bookmarks": {
+      "name": "Закладки",
+      "description": "Закрепляйте заметки для быстрого доступа из боковой панели.",
+      "title": "Закладки",
+      "empty": "Закладок пока нет.",
+      "remove": "Убрать закладку",
+      "toggleCommand": "Закладка: переключить"
+    },
+    "footnotes": {
+      "name": "Сноски",
+      "description": "Список сносок этой заметки с переходом к каждой.",
+      "tabLabel": "Сноски",
+      "empty": "В этой заметке пока нет сносок."
+    },
+    "randomNote": {
+      "name": "Случайная заметка",
+      "description": "Открывает случайную заметку из хранилища.",
+      "command": "Открыть случайную заметку"
+    },
+    "uniqueNoteNames": {
+      "name": "Уникальные имена заметок",
+      "description": "Новые заметки называются по времени создания вместо «Без названия»."
+    }
+  },
+  "serverSync": {
+    "addDevice": "Добавить устройство",
+    "baseUrlPlaceholder": "Адрес сервера",
+    "codeHint": "Введите этот код на новом устройстве в течение 10 минут.",
+    "codePlaceholder": "Код подключения",
+    "connect": "Подключить",
+    "deviceNamePlaceholder": "Имя устройства",
+    "generateCode": "Создать код подключения",
+    "lastSync": "Последняя синхронизация: {{uploaded}} отправлено, {{downloaded}} получено",
+    "notPaired": "Подключите это хранилище к серверу Nodus.",
+    "pairing": "Подключение…",
+    "storage": "Хранилище на сервере",
+    "syncing": "Синхронизация…",
+    "syncNow": "Синхронизировать"
+  },
+  "syncDetails": {
+    "clearLog": "Очистить",
+    "log": "Журнал действий",
+    "logEmpty": "Пока ничего не записано.",
+    "status": "Статус",
+    "title": "Синхронизация"
+  },
+  "tasks": {
+    "allFolders": "Все папки",
+    "allTags": "Все теги",
+    "empty": "Задачи не найдены.",
+    "sortDate": "По дате",
+    "sortPriority": "По приоритету",
+    "title": "Задачи"
+  },
+  "templates": {
+    "createTitle": "Создать заметку по шаблону",
+    "empty": "Шаблонов пока нет.",
+    "inputPlaceholder": "Значение",
+    "inputsTitle": "Заполните шаблон",
+    "insertApply": "Вставить",
+    "insertTitle": "Вставить шаблон",
+    "noteNamePlaceholder": "Имя заметки",
+    "untitled": "Без названия"
   }
 }

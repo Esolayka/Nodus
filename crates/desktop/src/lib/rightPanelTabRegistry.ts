@@ -6,6 +6,7 @@ import { createRegistry, type RegistryEntry } from "./registry";
  * hardcoded in `RightPanel.tsx`; this registry only carries the rest. */
 export interface RightPanelTabEntry extends RegistryEntry {
   labelKey: string;
+  icon: ComponentType<{ size?: number }>;
   /** Rendered only while a real note is active — same gating the built-in
    * tabs already get from `RightPanel`. */
   component: ComponentType<{ path: string }>;

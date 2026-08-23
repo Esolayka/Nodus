@@ -7,6 +7,7 @@ import type { TreeNode } from "../../types/vault";
 import { FileTreeNode } from "./FileTreeNode";
 import { RenameConfirmDialog } from "./RenameConfirmDialog";
 import { displayName } from "../../lib/displayName";
+import { defaultNoteName } from "../../lib/noteNaming";
 import "./FileTree.css";
 
 interface PendingRename {
@@ -141,7 +142,7 @@ export function FileTree() {
   async function handleNewFile(parentPath: string) {
     setContextMenu(null);
     if (parentPath) setExpanded((prev) => new Set(prev).add(parentPath));
-    const path = await createFile(parentPath, t("fileTree.untitled"));
+    const path = await createFile(parentPath, defaultNoteName(t("fileTree.untitled")));
     await openNote(path);
   }
 

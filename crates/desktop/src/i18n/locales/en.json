@@ -4,12 +4,17 @@
     "loading": "Opening...",
     "openFolder": "Open folder",
     "help": "Help",
-    "filesView": "Files"
+    "filesView": "Files",
+    "tagsView": "Tags",
+    "tasksView": "Tasks",
+    "calendarView": "Calendar",
+    "syncView": "Sync"
   },
   "workspace": {
     "placeholder": "Open a folder of notes to get started",
     "closeTab": "Close tab",
-    "closePane": "Close pane"
+    "closePane": "Close pane",
+    "newTab": "New tab"
   },
   "fileTree": {
     "untitled": "Untitled",
@@ -22,7 +27,8 @@
     "renameConfirmTitle_one": "Links will be updated in {{count}} note",
     "renameConfirmTitle_other": "Links will be updated in {{count}} notes",
     "renameConfirmCancel": "Cancel",
-    "renameConfirmApply": "Rename"
+    "renameConfirmApply": "Rename",
+    "renameConfirmTitle": "Confirm rename"
   },
   "titleBar": {
     "minimize": "Minimize",
@@ -47,7 +53,11 @@
     "chars_other": "{{count}} characters",
     "saved": "Saved",
     "saving": "Saving…",
-    "saveError": "Save failed"
+    "saveError": "Save failed",
+    "backlinks": "{{count}} backlinks",
+    "chars": "{{count}} characters",
+    "syncDisabled": "Sync off",
+    "words": "{{count}} words"
   },
   "editor": {
     "externalChange": "File changed on disk",
@@ -93,7 +103,8 @@
     "settings": "Graph settings",
     "nodeCount_one": "{{count}} note",
     "nodeCount_other": "{{count}} notes",
-    "noLinksHint": "No links between notes yet. Add a [[link]] in the note text."
+    "noLinksHint": "No links between notes yet. Add a [[link]] in the note text.",
+    "nodeCount": "{{count}} notes"
   },
   "settings": {
     "title": "Settings",
@@ -105,7 +116,15 @@
       "editor": "Editor",
       "graph": "Graph",
       "hotkeys": "Hotkeys",
-      "vault": "Vault"
+      "vault": "Vault",
+      "dailyNotes": "Daily notes",
+      "templates": "Templates",
+      "tasks": "Tasks",
+      "history": "Version history",
+      "attachments": "Attachments",
+      "sync": "Sync",
+      "telegram": "Telegram",
+      "plugins": "Plugins"
     },
     "hotkeys": {
       "searchPlaceholder": "Search commands...",
@@ -158,6 +177,129 @@
       "title": "Vault",
       "path": "Vault path",
       "pathDesc": "The folder that holds your notes. You can switch it at any time."
+    },
+    "dailyNotes": {
+      "title": "Daily notes",
+      "folder": "Folder",
+      "folderDesc": "Vault-relative folder daily notes live in.",
+      "filenameFormat": "Filename format",
+      "filenameFormatDesc": "YYYY-MM-DD style tokens.",
+      "templatePath": "Template",
+      "templatePathDesc": "Vault-relative path to a template file, or leave blank for an empty note.",
+      "templatePathPlaceholder": "None",
+      "openOnStartup": "Open on startup",
+      "openOnStartupDesc": "Opens today's note automatically when Nodus starts."
+    },
+    "templates": {
+      "title": "Templates",
+      "folder": "Folder",
+      "folderDesc": "Vault-relative folder templates live in."
+    },
+    "tasks": {
+      "title": "Tasks",
+      "autoCompletionDate": "Add completion date",
+      "autoCompletionDateDesc": "Appends a ✅ date when a task is checked off."
+    },
+    "history": {
+      "title": "Version history",
+      "enabled": "Keep version history",
+      "enabledDesc": "Snapshots each note as it's edited, so old versions can be restored.",
+      "maxVersionsPerNote": "Max versions per note",
+      "maxVersionsPerNoteDesc": "Oldest versions are dropped past this limit.",
+      "maxAgeDays": "Max age (days)",
+      "maxAgeDaysDesc": "Versions older than this are dropped.",
+      "maxTotalSizeMb": "Max total size (MB)",
+      "maxTotalSizeMbDesc": "Oldest versions are dropped to stay under this."
+    },
+    "attachments": {
+      "title": "Attachments",
+      "mode": "Storage location",
+      "modeDesc": "Where new attachments are saved.",
+      "mode_vaultFolder": "Vault folder",
+      "mode_nextToNote": "Next to note",
+      "mode_subfolder": "Subfolder",
+      "vaultFolderName": "Folder name",
+      "vaultFolderNameDesc": "Vault-relative folder every attachment goes into.",
+      "subfolderName": "Subfolder name",
+      "subfolderNameDesc": "Named subfolder inside each note's own folder.",
+      "loadExternalImages": "Load external images",
+      "loadExternalImagesDesc": "Fetches images linked by URL, not just local files."
+    },
+    "sync": {
+      "title": "Sync",
+      "mechanism": "Method",
+      "mechanismDesc": "How this vault stays in sync across devices.",
+      "mechanism_none": "Off",
+      "mechanism_git": "Git",
+      "mechanism_server": "Nodus server",
+      "mechanism_cloud": "Cloud",
+      "mechanism_cloudComingSoon": "Coming soon",
+      "gitEncryptionWarning": "Git sync stores your notes in plain text in the repository.",
+      "git": {
+        "title": "Git",
+        "remoteName": "Remote name",
+        "remoteNameDesc": "Usually \"origin\".",
+        "remoteUrl": "Remote URL",
+        "remoteUrlDesc": "Where this vault's Git repository is hosted.",
+        "branch": "Branch",
+        "branchDesc": "Branch to sync with.",
+        "authorName": "Author name",
+        "authorDesc": "Used for commits Nodus makes.",
+        "authorEmail": "Author email",
+        "autocommit": "Autocommit",
+        "autocommitDesc": "When Nodus commits your changes automatically.",
+        "autocommit_off": "Off",
+        "autocommit_manual": "Manual",
+        "autocommit_scheduled": "Scheduled",
+        "autocommitInterval": "Commit every (minutes)",
+        "autocommitIntervalDesc": "How often Nodus commits for you.",
+        "autopullOnStartup": "Pull on startup",
+        "autopullOnStartupDesc": "Pulls the latest changes when Nodus opens this vault.",
+        "commitMessageTemplate": "Commit message",
+        "commitMessageTemplateDesc": "%date% is replaced with the current date/time.",
+        "enable": "Enable"
+      },
+      "server": {
+        "title": "Nodus server",
+        "baseUrl": "Server URL",
+        "baseUrlDesc": "Address of your Nodus sync server.",
+        "deviceName": "Device name",
+        "deviceNameDesc": "Shown when managing paired devices.",
+        "autoSync": "Auto sync",
+        "autoSyncDesc": "When Nodus syncs with the server automatically.",
+        "autoSyncInterval": "Sync every (minutes)",
+        "autoSyncIntervalDesc": "How often Nodus syncs with the server for you."
+      }
+    },
+    "telegram": {
+      "enabled": "Enable Telegram integration",
+      "enabledDesc": "Adds a Mini App and a companion bot for this vault. Requires a sync method above to actually be reachable.",
+      "placement": "Hosting",
+      "placementDesc": "Local: this computer serves the Mini App itself, only while it's running. Server: your Nodus server serves it around the clock instead.",
+      "placement_local": "Local",
+      "placement_server": "Server",
+      "serverPlacementNote": "Configure the bot token on the Nodus server itself (its --telegram-bot-token startup flag) — there's nothing more to set up here.",
+      "localTitle": "Local hosting",
+      "botToken": "Bot token",
+      "botTokenDesc": "From @BotFather, kept only for this session's local server to verify Telegram's signature.",
+      "manualAddress": "Manual address",
+      "manualAddressDesc": "Fallback address for the Mini App to reach this computer at, if the automatic tunnel isn't available.",
+      "linkTitle": "Link a Telegram account",
+      "generateCode": "Generate linking code",
+      "generateCodeDesc": "Shows a short code — enter it in the Mini App to connect this vault to your Telegram account.",
+      "codeHint": "Valid for 10 minutes. Enter it in the Mini App to finish linking.",
+      "startTunnel": "Start tunnel",
+      "startTunnelDesc": "Best-effort — needs cloudflared installed. Without it, use the manual address above instead.",
+      "startingTunnel": "Starting…",
+      "statusTitle": "Status",
+      "botConfigured": "Bot token set",
+      "publicAddress": "Current address",
+      "notAvailable": "Not available yet",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "plugins": {
+      "loadExternal": "Load external plugin…"
     }
   },
   "search": {
@@ -186,7 +328,8 @@
     "empty": "No tags in this vault yet",
     "renameTitle": "Rename tag \"{{tag}}\"",
     "renameConfirmTitle_one": "The tag will be updated in {{count}} note",
-    "renameConfirmTitle_other": "The tag will be updated in {{count}} notes"
+    "renameConfirmTitle_other": "The tag will be updated in {{count}} notes",
+    "renameConfirmTitle": "Rename tag"
   },
   "commandPalette": {
     "placeholder": "Type a command...",
@@ -208,6 +351,188 @@
     "findInNote": "Search current note",
     "commandPalette": "Command palette",
     "quickSwitcher": "Quick switcher",
-    "openGraph": "Open graph"
+    "openGraph": "Open graph",
+    "attachFile": "Attach file",
+    "dailyNotesGotoDate": "Daily notes: go to date",
+    "dailyNotesOpenNext": "Daily notes: open next",
+    "dailyNotesOpenPrevious": "Daily notes: open previous",
+    "dailyNotesOpenToday": "Daily notes: open today",
+    "dailyNotesQuickNote": "Daily notes: quick note",
+    "findUnusedAttachments": "Find unused attachments",
+    "newCanvas": "New canvas",
+    "templatesCreateNote": "Templates: create note",
+    "templatesInsert": "Templates: insert at cursor"
+  },
+  "attachments": {
+    "deleteSelected": "Delete selected",
+    "noneUnused": "No unused attachments.",
+    "scanning": "Scanning…",
+    "unusedTitle": "Unused attachments"
+  },
+  "calendar": {
+    "nextMonth": "Next month",
+    "prevMonth": "Previous month",
+    "title": "Calendar"
+  },
+  "canvas": {
+    "addFile": "Add file",
+    "addGroup": "Add group",
+    "addLink": "Add link",
+    "addText": "Add text",
+    "linkPrompt": "URL",
+    "newGroupLabel": "Group",
+    "pickFileEmpty": "No matching files.",
+    "pickFilePlaceholder": "Search files…",
+    "pickFileTitle": "Pick a file",
+    "untitled": "Untitled Canvas"
+  },
+  "conflict": {
+    "allResolvedHint": "Pick a side for every highlighted section, then finish the merge.",
+    "finish": "Finish merge",
+    "finishing": "Finishing…",
+    "loadFailed": "Couldn't load this file's conflict.",
+    "mine": "Mine",
+    "resolved": "Resolved",
+    "result": "Result",
+    "takeBoth": "Take both",
+    "takeMine": "Take mine",
+    "takeTheirs": "Take theirs",
+    "theirs": "Theirs",
+    "title": "Resolve conflict",
+    "unresolved": "Needs a decision"
+  },
+  "dailyNotes": {
+    "quickNoteAdd": "Add",
+    "quickNotePlaceholder": "Type a quick note…",
+    "quickNoteTitle": "Quick note"
+  },
+  "git": {
+    "addRemote": "Add remote",
+    "changes": "Changes",
+    "commit": "Commit",
+    "commitPlaceholder": "Commit message",
+    "committing": "Committing…",
+    "conflictBanner": "This file has a merge conflict.",
+    "credentialsTitle": "Credentials",
+    "noChanges": "No changes.",
+    "notEnabled": "Git sync isn't enabled for this vault.",
+    "pull": "Pull",
+    "pulling": "Pulling…",
+    "push": "Push",
+    "pushing": "Pushing…",
+    "remoteSetupTitle": "Remote",
+    "resolveConflicts": "Resolve conflicts",
+    "sshKeyPath": "SSH key path",
+    "sshPassphrase": "Passphrase",
+    "title": "Git",
+    "token": "Token",
+    "username": "Username"
+  },
+  "history": {
+    "compareTitle": "Compare to current",
+    "copyButton": "Copy",
+    "empty": "No earlier versions yet.",
+    "openButton": "Open",
+    "restoreButton": "Restore",
+    "restoreConfirmApply": "Restore",
+    "restoreConfirmTitle": "Restore this version? Your current content will be saved as a new version first."
+  },
+  "images": {
+    "saveLocally": "Save a local copy"
+  },
+  "obsidianImport": {
+    "attachmentFolder": "Attachment folder",
+    "dailyNotes": "Daily notes folder",
+    "openVault": "Open anyway",
+    "reportNone": "No incompatibilities found.",
+    "reportSummary": "{{count}} construct(s) won't render — they depend on an Obsidian plugin Nodus doesn't run.",
+    "subtitle": "This looks like an Obsidian vault.",
+    "templateFolder": "Template folder",
+    "title": "Obsidian vault detected"
+  },
+  "pdf": {
+    "loading": "Loading…",
+    "page": "Page",
+    "searching": "Searching…",
+    "searchPlaceholder": "Search this PDF…",
+    "thumbnails": "Thumbnails"
+  },
+  "plugins": {
+    "noteProperties": {
+      "name": "Properties",
+      "description": "An editable properties panel at the top of each note, plus a vault-wide browser of every property in use.",
+      "allTitle": "All properties",
+      "loading": "Reading properties…",
+      "allEmpty": "No notes have properties yet."
+    },
+    "outgoingLinks": {
+      "name": "Outgoing links",
+      "description": "Lists the links the current note makes out to other notes.",
+      "tabLabel": "Outgoing",
+      "empty": "This note doesn't link out to anything yet."
+    },
+    "bookmarks": {
+      "name": "Bookmarks",
+      "description": "Pin notes for quick access from the sidebar.",
+      "title": "Bookmarks",
+      "empty": "No bookmarks yet.",
+      "remove": "Remove bookmark",
+      "toggleCommand": "Toggle bookmark"
+    },
+    "footnotes": {
+      "name": "Footnotes",
+      "description": "Lists this note's footnote definitions and jumps to them.",
+      "tabLabel": "Footnotes",
+      "empty": "This note has no footnotes yet."
+    },
+    "randomNote": {
+      "name": "Random note",
+      "description": "Opens a random note from the vault.",
+      "command": "Open random note"
+    },
+    "uniqueNoteNames": {
+      "name": "Unique note names",
+      "description": "New notes are named with a timestamp instead of \"Untitled\"."
+    }
+  },
+  "serverSync": {
+    "addDevice": "Add a device",
+    "baseUrlPlaceholder": "Server URL",
+    "codeHint": "Enter this on the new device within 10 minutes.",
+    "codePlaceholder": "Pairing code",
+    "connect": "Connect",
+    "deviceNamePlaceholder": "Device name",
+    "generateCode": "Generate pairing code",
+    "lastSync": "Last sync: {{uploaded}} uploaded, {{downloaded}} downloaded",
+    "notPaired": "Connect this vault to a Nodus server.",
+    "pairing": "Connecting…",
+    "storage": "Storage",
+    "syncing": "Syncing…",
+    "syncNow": "Sync now"
+  },
+  "syncDetails": {
+    "clearLog": "Clear",
+    "log": "Activity log",
+    "logEmpty": "Nothing logged yet.",
+    "status": "Status",
+    "title": "Sync"
+  },
+  "tasks": {
+    "allFolders": "All folders",
+    "allTags": "All tags",
+    "empty": "No tasks found.",
+    "sortDate": "Sort by date",
+    "sortPriority": "Sort by priority",
+    "title": "Tasks"
+  },
+  "templates": {
+    "createTitle": "Create note from template",
+    "empty": "No templates yet.",
+    "inputPlaceholder": "Value",
+    "inputsTitle": "Fill in the template",
+    "insertApply": "Insert",
+    "insertTitle": "Insert template",
+    "noteNamePlaceholder": "Note name",
+    "untitled": "Untitled"
   }
 }

@@ -1,12 +1,27 @@
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+function gitInfo() {
+  try {
+    const hash = execSync("git rev-parse --short HEAD").toString().trim();
+    const dirty = execSync("git status --porcelain").toString().trim().length > 0;
+    return hash + (dirty ? "+" : "");
+  } catch {
+    return "unknown";
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+  define: {
+    __GIT_HASH__: JSON.stringify(gitInfo()),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

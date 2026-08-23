@@ -1,9 +1,13 @@
 import { useTranslation } from "react-i18next";
-import { useWorkspaceStore } from "../../store/workspaceStore";
+import { isPdfPath } from "../../lib/attachments";
+import { isCanvasPath } from "../../lib/canvasTypes";
+import { isEmptyTab, useWorkspaceStore } from "../../store/workspaceStore";
 import type { Pane as PaneModel } from "../../store/workspaceStore";
+import { CanvasTab } from "../Canvas/CanvasTab";
 import { ExternalChangeBar } from "../Editor/ExternalChangeBar";
 import { GraphView } from "../Graph/GraphView";
 import { NoteEditor } from "../Editor/NoteEditor";
+import { PdfViewerTab } from "../Pdf/PdfViewerTab";
 import { PathBar } from "./PathBar";
 import { TabBar } from "./TabBar";
 
@@ -15,6 +19,7 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
   const hasConflict = useWorkspaceStore((s) =>
     pane.activePath ? (s.buffers[pane.activePath]?.externalConflict ?? false) : false,
   );
+  const hasRealNote = pane.activePath != null && !isEmptyTab(pane.activePath);
 
   return (
     <div
@@ -36,15 +41,21 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
           </button>
         )}
       </div>
-      {pane.view === null && pane.activePath && <PathBar pane={pane} />}
-      {pane.view === null && pane.activePath && hasConflict && (
-        <ExternalChangeBar path={pane.activePath} />
+      {pane.view === null && hasRealNote && <PathBar pane={pane} />}
+      {pane.view === null && hasRealNote && hasConflict && (
+        <ExternalChangeBar path={pane.activePath as string} />
       )}
       <div className="pane-body">
         {pane.view === "graph" ? (
           <GraphView />
-        ) : pane.activePath ? (
-          <NoteEditor path={pane.activePath} />
+        ) : hasRealNote ? (
+          isPdfPath(pane.activePath as string) ? (
+            <PdfViewerTab path={pane.activePath as string} />
+          ) : isCanvasPath(pane.activePath as string) ? (
+            <CanvasTab path={pane.activePath as string} />
+          ) : (
+            <NoteEditor path={pane.activePath as string} />
+          )
         ) : (
           <p className="pane-empty">{t("workspace.placeholder")}</p>
         )}

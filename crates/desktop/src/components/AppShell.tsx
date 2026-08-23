@@ -1,22 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { pickVaultFolder } from "../api/vault";
+import { setHistorySettings, telegramSetBotToken, telegramSetManualAddress } from "../api/vault";
 import { displayName } from "../lib/displayName";
 import { registerBuiltinCommands } from "../lib/builtinCommands";
 import { registerCommand } from "../lib/commandRegistry";
+import { openTodayNote } from "../lib/dailyNotes";
 import { labelForKeys } from "../lib/hotkeyRegistry";
+import { defaultNoteName } from "../lib/noteNaming";
+import { sidebarViewRegistry } from "../lib/sidebarViewRegistry";
 import { ensureTagIndexSubscribed } from "../lib/tagIndexCache";
+import { ALL_PLUGINS } from "../plugins";
+import { pluginHost } from "../plugins/host";
+import { useServerSyncStore } from "../store/serverSyncStore";
 import { useSettingsStore } from "../store/settingsStore";
+import { useSyncStore } from "../store/syncStore";
 import { useUiStore } from "../store/uiStore";
 import { useVaultStore } from "../store/vaultStore";
-import { useWorkspaceStore } from "../store/workspaceStore";
+import { useWorkspaceStore, isEmptyTab } from "../store/workspaceStore";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
 import { useMruTabCycling } from "../hooks/useMruTabCycling";
+import { useOpenVaultFolder } from "../hooks/useOpenVaultFolder";
 import { useVaultEvents } from "../hooks/useVaultEvents";
 import "./AppShell.css";
+import { CalendarPanel } from "./Calendar/CalendarPanel";
 import { CommandPalette } from "./CommandPalette/CommandPalette";
+import { UnusedAttachmentsDialog } from "./Attachments/UnusedAttachmentsDialog";
+import { QuickNoteDialog } from "./DailyNotes/QuickNoteDialog";
 import { FileTree } from "./FileTree/FileTree";
+import { GitPanel } from "./Git/GitPanel";
+import { ObsidianImportDialog } from "./Import/ObsidianImportDialog";
+import { ImageLightbox } from "./Media/ImageLightbox";
+import { ServerSyncPanel } from "./ServerSync/ServerSyncPanel";
 import { QuickSwitcher } from "./QuickSwitcher/QuickSwitcher";
 import { Ribbon } from "./Ribbon";
 import { RightPanel } from "./RightPanel/RightPanel";
@@ -24,6 +39,8 @@ import { SearchPanel } from "./Search/SearchPanel";
 import { SettingsModal } from "./Settings/SettingsModal";
 import { StatusBar } from "./StatusBar";
 import { TagsPanel } from "./Tags/TagsPanel";
+import { TasksPanel } from "./Tasks/TasksPanel";
+import { TemplateFlowDialog } from "./Templates/TemplateFlowDialog";
 import { TitleBar } from "./TitleBar";
 import { Tooltip } from "./ui/Tooltip";
 import { PaneGroup } from "./Workspace/PaneGroup";
@@ -48,8 +65,20 @@ export function AppShell() {
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const rightPanelCollapsed = useUiStore((s) => s.rightPanelCollapsed);
+  const templateDialog = useUiStore((s) => s.templateDialog);
+  const setTemplateDialog = useUiStore((s) => s.setTemplateDialog);
+  const quickNoteOpen = useUiStore((s) => s.quickNoteOpen);
+  const setQuickNoteOpen = useUiStore((s) => s.setQuickNoteOpen);
+  const lightboxImageSrc = useUiStore((s) => s.lightboxImageSrc);
+  const setLightboxImageSrc = useUiStore((s) => s.setLightboxImageSrc);
+  const unusedAttachmentsOpen = useUiStore((s) => s.unusedAttachmentsOpen);
+  const { openFolder, obsidianImport, closeObsidianImport } = useOpenVaultFolder();
+  const setUnusedAttachmentsOpen = useUiStore((s) => s.setUnusedAttachmentsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const pluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
+  const activePluginSidebarView = pluginSidebarViews.find((v) => v.id === sidebarView);
 
   useVaultEvents();
   useGlobalHotkeys();
@@ -64,9 +93,11 @@ export function AppShell() {
       hotkeyLabel: labelForKeys("mod+g"),
       run: () => useWorkspaceStore.getState().openGraph(),
     });
+    pluginHost.start(ALL_PLUGINS);
     return () => {
       unregisterBuiltins();
       unregisterGraph();
+      pluginHost.stop();
     };
     // Registers once at startup — commands close over live store getters,
     // not stale snapshots, so they don't need to be re-created on re-render.
@@ -75,7 +106,8 @@ export function AppShell() {
 
   const activeNotePath = useWorkspaceStore((s) => {
     const pane = s.panes.find((p) => p.id === s.activePaneId);
-    return pane?.activePath ?? null;
+    const path = pane?.activePath ?? null;
+    return path && !isEmptyTab(path) ? path : null;
   });
 
   useEffect(() => {
@@ -91,7 +123,11 @@ export function AppShell() {
   }, [activeNotePath]);
 
   useEffect(() => {
-    void restoreLast();
+    void restoreLast().then(() => {
+      if (useSettingsStore.getState().settings.dailyNotes.openOnStartup && useVaultStore.getState().tree) {
+        void openTodayNote();
+      }
+    });
     // Runs once on startup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -133,13 +169,93 @@ export function AppShell() {
     }
   }, [i18n, settings.language]);
 
-  async function handleOpenFolder() {
-    const path = await pickVaultFolder();
-    if (path) await open(path);
-  }
+  useEffect(() => {
+    if (vaultPath) void setHistorySettings(settings.history);
+  }, [vaultPath, settings.history]);
+
+  // Turning Git sync on (or opening a vault while it's already on) opens/
+  // initializes the repo at the vault root and, if configured, pulls once —
+  // a fresh vault's first fetch shouldn't require a manual click.
+  useEffect(() => {
+    if (vaultPath && settings.sync.mechanism === "git") {
+      const git = settings.sync.git;
+      void (async () => {
+        await useSyncStore.getState().enableGit(vaultPath);
+        if (useSyncStore.getState().enabled && git.autopullOnStartup && git.remoteUrl) {
+          await useSyncStore.getState().pull(git.remoteName, git.branch);
+        }
+      })();
+    } else {
+      useSyncStore.getState().reset();
+    }
+    // Only the vault or the chosen mechanism should re-trigger this — editing
+    // other Git settings shouldn't force a fresh enable/pull cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaultPath, settings.sync.mechanism]);
+
+  // Scheduled autocommit — only armed while Git is the active mechanism and
+  // the user explicitly opted into "on a schedule" rather than manual commits.
+  useEffect(() => {
+    const { mechanism, git } = settings.sync;
+    if (mechanism !== "git" || git.autocommit !== "scheduled") return;
+    const intervalMs = Math.max(1, git.autocommitIntervalMinutes) * 60_000;
+    const handle = setInterval(() => {
+      if (!useSyncStore.getState().enabled) return;
+      const message = git.commitMessageTemplate.replace("%date%", new Date().toLocaleString());
+      void useSyncStore.getState().commit(message, git.authorName || "Nodus", git.authorEmail || "nodus@localhost");
+    }, intervalMs);
+    return () => clearInterval(handle);
+  }, [settings.sync]);
+
+  // Enabling the "Nodus server" mechanism (or opening a vault while it's
+  // already on and already paired) connects and syncs once immediately —
+  // matches the Git backend's own "don't require a manual first click"
+  // behavior above.
+  useEffect(() => {
+    const server = settings.sync.server;
+    if (vaultPath && settings.sync.mechanism === "server" && server.token) {
+      void (async () => {
+        await useServerSyncStore.getState().enable(vaultPath, server.baseUrl, server.token, server.deviceName);
+        if (useServerSyncStore.getState().enabled) {
+          await useServerSyncStore.getState().syncOnce();
+        }
+      })();
+    } else {
+      useServerSyncStore.getState().reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaultPath, settings.sync.mechanism, settings.sync.server.token]);
+
+  // Scheduled sync — only armed while the server mechanism is active and
+  // the user opted into "on a schedule" rather than syncing manually.
+  useEffect(() => {
+    const { mechanism, server } = settings.sync;
+    if (mechanism !== "server" || server.autoSync !== "scheduled") return;
+    const intervalMs = Math.max(1, server.autoSyncIntervalMinutes) * 60_000;
+    const handle = setInterval(() => {
+      if (!useServerSyncStore.getState().enabled) return;
+      void useServerSyncStore.getState().syncOnce();
+    }, intervalMs);
+    return () => clearInterval(handle);
+  }, [settings.sync]);
+
+  // Keeps the running local-mode HTTP server's bot token in sync with
+  // settings — it needs the current value to verify every linking
+  // attempt, not just whatever was configured when the app started.
+  useEffect(() => {
+    if (settings.telegram.enabled && settings.telegram.placement === "local" && settings.telegram.botToken) {
+      void telegramSetBotToken(settings.telegram.botToken);
+    }
+  }, [settings.telegram.enabled, settings.telegram.placement, settings.telegram.botToken]);
+
+  useEffect(() => {
+    if (settings.telegram.enabled && settings.telegram.placement === "local" && settings.telegram.manualAddress) {
+      void telegramSetManualAddress(settings.telegram.manualAddress);
+    }
+  }, [settings.telegram.enabled, settings.telegram.placement, settings.telegram.manualAddress]);
 
   async function handleNewNote() {
-    const path = await createFile("", t("fileTree.untitled"));
+    const path = await createFile("", defaultNoteName(t("fileTree.untitled")));
     await openNote(path);
   }
 
@@ -169,9 +285,10 @@ export function AppShell() {
   const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() : "";
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
+  const rightPanelWidth = tree && !rightPanelCollapsed ? "300px" : "0px";
   const columns = tree
-    ? `44px ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr 280px`
-    : `44px 300px 4px 1fr`;
+    ? `44px ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelWidth}`
+    : `44px 300px 4px 1fr 0px`;
 
   return (
     <div
@@ -180,12 +297,20 @@ export function AppShell() {
     >
       <TitleBar />
       <Ribbon
-        onOpenFolder={() => void handleOpenFolder()}
+        onOpenFolder={() => void openFolder()}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       {!sidebarCollapsed && (
         <aside className="sidebar">
-          <div className="sidebar-header">{vaultName}</div>
+          <div className="sidebar-header">
+            {sidebarView === "files" ? (
+              <span>{vaultName}</span>
+            ) : activePluginSidebarView ? (
+              <span>{t(activePluginSidebarView.titleKey)}</span>
+            ) : (
+              <span>{t(`sidebar.${sidebarView}View`) ?? sidebarView}</span>
+            )}
+          </div>
           {sidebarView === "files" && (
             <div className="sidebar-actions">
               <Tooltip label={t("fileTree.newNote")} placement="right">
@@ -208,6 +333,18 @@ export function AppShell() {
             <SearchPanel />
           ) : sidebarView === "tags" ? (
             <TagsPanel />
+          ) : sidebarView === "tasks" ? (
+            <TasksPanel />
+          ) : sidebarView === "calendar" ? (
+            <CalendarPanel />
+          ) : sidebarView === "sync" ? (
+            settings.sync.mechanism === "server" ? (
+              <ServerSyncPanel />
+            ) : (
+              <GitPanel />
+            )
+          ) : activePluginSidebarView ? (
+            <activePluginSidebarView.component />
           ) : tree ? (
             <FileTree />
           ) : (
@@ -252,18 +389,34 @@ export function AppShell() {
         ) : (
           <div className="workspace-empty">
             <p className="workspace-placeholder">{t("workspace.placeholder")}</p>
-            <button type="button" onClick={() => void handleOpenFolder()}>
+            <button type="button" onClick={() => void openFolder()}>
               {t("sidebar.openFolder")}
             </button>
             {error && <p className="workspace-error">{error}</p>}
           </div>
         )}
       </main>
-      {tree && <RightPanel />}
+      {tree && !rightPanelCollapsed && <RightPanel />}
       <StatusBar />
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <CommandPalette />
       <QuickSwitcher />
+      {templateDialog && <TemplateFlowDialog mode={templateDialog} onClose={() => setTemplateDialog(null)} />}
+      {quickNoteOpen && <QuickNoteDialog onClose={() => setQuickNoteOpen(false)} />}
+      {lightboxImageSrc && (
+        <ImageLightbox src={lightboxImageSrc} onClose={() => setLightboxImageSrc(null)} />
+      )}
+      {unusedAttachmentsOpen && (
+        <UnusedAttachmentsDialog onClose={() => setUnusedAttachmentsOpen(false)} />
+      )}
+      {obsidianImport && (
+        <ObsidianImportDialog
+          path={obsidianImport.path}
+          inspection={obsidianImport.inspection}
+          onOpen={(path) => void open(path)}
+          onClose={closeObsidianImport}
+        />
+      )}
     </div>
   );
 }

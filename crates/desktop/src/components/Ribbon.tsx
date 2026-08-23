@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { sidebarViewRegistry } from "../lib/sidebarViewRegistry";
 import { useUiStore } from "../store/uiStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Tooltip } from "./ui/Tooltip";
@@ -19,8 +21,9 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
   const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
+  const pluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
 
-  function showSidebarView(view: "files" | "search" | "tags") {
+  function showSidebarView(view: string) {
     if (!sidebarCollapsed && sidebarView === view) {
       toggleSidebarCollapsed();
     } else {
@@ -72,6 +75,43 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
           </svg>
         </button>
       </Tooltip>
+      <Tooltip label={t("tasks.title")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "tasks" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("tasks")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <path d="M4 6h2l1.5 1.5L10 5M4 12h2l1.5 1.5L10 10M4 18h2l1.5 1.5L10 16M13 6h7M13 12h7M13 18h7" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip label={t("calendar.title")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "calendar" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("calendar")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <rect x="3.5" y="5" width="17" height="16" rx="1.5" />
+            <path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip label={t("git.title")} placement="right">
+        <button
+          type="button"
+          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "sync" ? " ribbon-btn-active" : ""}`}
+          onClick={() => showSidebarView("sync")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <circle cx="6" cy="6" r="2.2" />
+            <circle cx="6" cy="18" r="2.2" />
+            <circle cx="18" cy="12" r="2.2" />
+            <path d="M6 8.2V15.8M8.2 12H15.8M8 6.5c4 0 6 2 6 5.5" />
+          </svg>
+        </button>
+      </Tooltip>
       <Tooltip label={t("graph.title")} placement="right">
         <button
           type="button"
@@ -86,6 +126,17 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
           </svg>
         </button>
       </Tooltip>
+      {pluginSidebarViews.map(({ id, titleKey, icon: Icon }) => (
+        <Tooltip key={id} label={t(titleKey)} placement="right">
+          <button
+            type="button"
+            className={`ribbon-btn${!sidebarCollapsed && sidebarView === id ? " ribbon-btn-active" : ""}`}
+            onClick={() => showSidebarView(id)}
+          >
+            <Icon size={18} />
+          </button>
+        </Tooltip>
+      ))}
       <Tooltip label={t("settings.title")} placement="right">
         <button type="button" className="ribbon-btn" onClick={onOpenSettings}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">

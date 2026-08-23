@@ -1,3 +1,4 @@
+import { Superscript } from "lucide-react";
 import { FootnotesPanel } from "../components/RightPanel/FootnotesPanel";
 import type { NodusPlugin } from "./types";
 
@@ -12,6 +13,7 @@ export const footnotesPlugin: NodusPlugin = {
       id: "core.footnotes",
       order: 60,
       labelKey: "plugins.footnotes.tabLabel",
+      icon: Superscript,
       component: ({ path }) => <FootnotesPanel ctx={ctx} path={path} />,
     });
   },
