@@ -200,6 +200,9 @@ export function ForceGraph({
   const fitPendingRef = useRef(false);
   const dirtyRef = useRef(false);
   const rafRef = useRef(0);
+  const viewAnimationRef = useRef(0);
+  const viewAnimationLastRef = useRef(0);
+  const viewTargetRef = useRef<ZoomTransform | null>(null);
   const focusPathRef = useRef<string | null>(null);
   const timelineRef = useRef<TimelineState | null>(null);
   focusPathRef.current = focusPath ?? null;
@@ -303,6 +306,81 @@ export function ForceGraph({
     }
   }, []);
 
+  const stopViewAnimation = useCallback(() => {
+    if (viewAnimationRef.current !== 0) {
+      cancelAnimationFrame(viewAnimationRef.current);
+      viewAnimationRef.current = 0;
+    }
+    viewTargetRef.current = null;
+  }, []);
+
+  const animateViewTo = useCallback((target: ZoomTransform) => {
+    viewTargetRef.current = target;
+    if (viewAnimationRef.current !== 0) return;
+
+    viewAnimationLastRef.current = performance.now();
+    const step = (now: number) => {
+      const canvas = canvasRef.current;
+      const z = zoomRef.current;
+      const destination = viewTargetRef.current;
+      if (!canvas || !z || !destination) {
+        viewAnimationRef.current = 0;
+        return;
+      }
+
+      const current = transformRef.current;
+      const elapsed = Math.min(48, Math.max(1, now - viewAnimationLastRef.current));
+      viewAnimationLastRef.current = now;
+      const blend = 1 - Math.exp(-elapsed / 72);
+      const nextK = Math.exp(
+        Math.log(current.k) + (Math.log(destination.k) - Math.log(current.k)) * blend,
+      );
+      const next = zoomIdentity
+        .translate(
+          current.x + (destination.x - current.x) * blend,
+          current.y + (destination.y - current.y) * blend,
+        )
+        .scale(nextK);
+      const finished =
+        Math.abs(next.x - destination.x) < 0.08 &&
+        Math.abs(next.y - destination.y) < 0.08 &&
+        Math.abs(next.k - destination.k) < 0.0005;
+
+      select(canvas).call(z.transform, finished ? destination : next);
+      if (finished) {
+        viewAnimationRef.current = 0;
+        viewTargetRef.current = null;
+      } else {
+        viewAnimationRef.current = requestAnimationFrame(step);
+      }
+    };
+    viewAnimationRef.current = requestAnimationFrame(step);
+  }, []);
+
+  const zoomViewAt = useCallback(
+    (factor: number, sx: number, sy: number) => {
+      const base = viewTargetRef.current ?? transformRef.current;
+      const nextK = Math.min(8, Math.max(0.15, base.k * factor));
+      if (Math.abs(nextK - base.k) < 0.00001) return;
+      const worldX = (sx - base.x) / base.k;
+      const worldY = (sy - base.y) / base.k;
+      animateViewTo(
+        zoomIdentity
+          .translate(sx - worldX * nextK, sy - worldY * nextK)
+          .scale(nextK),
+      );
+    },
+    [animateViewTo],
+  );
+
+  const panViewBy = useCallback(
+    (dx: number, dy: number) => {
+      const base = viewTargetRef.current ?? transformRef.current;
+      animateViewTo(zoomIdentity.translate(base.x + dx, base.y + dy).scale(base.k));
+    },
+    [animateViewTo],
+  );
+
   const rebuildQuad = useCallback(() => {
     const pos = positionsRef.current;
     const n = metaRef.current.length;
@@ -340,18 +418,18 @@ export function ForceGraph({
       (view.h - pad * 2) / Math.max(maxY - minY, 1),
       1.6,
     );
-    const k = Math.max(scale, 0.05);
+    const k = Math.max(scale, 0.15);
     const t = zoomIdentity
       .translate(view.w / 2 - ((minX + maxX) / 2) * k, view.h / 2 - ((minY + maxY) / 2) * k)
       .scale(k);
     if (zoomRef.current && canvasRef.current && !compact) {
-      select(canvasRef.current).call(zoomRef.current.transform, t);
+      animateViewTo(t);
     } else {
       transformRef.current = t;
       dirtyRef.current = true;
       requestDraw();
     }
-  }, [compact, requestDraw]);
+  }, [animateViewTo, compact, requestDraw]);
 
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -807,7 +885,9 @@ export function ForceGraph({
     return () => observer.disconnect();
   }, [requestDraw]);
 
-  // d3-zoom: wheel zooms to the cursor, drag on empty space pans.
+  // d3 handles direct pan and pinch. Wheel/trackpad zoom is accumulated into
+  // a target transform and eased on animation frames; applying every wheel
+  // event immediately was the source of the old stepped, jittery motion.
   useEffect(() => {
     if (compact) return;
     const canvas = canvasRef.current;
@@ -815,7 +895,7 @@ export function ForceGraph({
     const z = zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.15, 8])
       .filter((event) => {
-        if (event.type === "dblclick") return false;
+        if (event.type === "dblclick" || event.type === "wheel") return false;
         if (!event.ctrlKey || event.type === "wheel") {
           if (event.type === "mousedown" || event.type === "touchstart") {
             return nodeAtDownRef.current === false;
@@ -824,18 +904,45 @@ export function ForceGraph({
         }
         return false;
       })
+      .on("start", (event) => {
+        if (event.sourceEvent) stopViewAnimation();
+      })
       .on("zoom", (event) => {
         transformRef.current = event.transform;
+        if (viewAnimationRef.current === 0) {
+          viewTargetRef.current = event.transform;
+        }
         dirtyRef.current = true;
         requestDraw();
       });
     zoomRef.current = z;
     select(canvas).call(z);
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const modeScale =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? Math.max(rect.height, 1)
+            : 1;
+      const delta = Math.max(-240, Math.min(240, event.deltaY * modeScale));
+      const sensitivity = event.ctrlKey ? 0.006 : 0.002;
+      zoomViewAt(
+        Math.exp(-delta * sensitivity),
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      );
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      stopViewAnimation();
+      canvas.removeEventListener("wheel", onWheel);
       select(canvas).on(".zoom", null);
       zoomRef.current = null;
     };
-  }, [compact, requestDraw]);
+  }, [compact, requestDraw, stopViewAnimation, zoomViewAt]);
 
   // Compact local graph: refit after every layout settle.
   useEffect(() => {
@@ -944,6 +1051,7 @@ export function ForceGraph({
         requestDraw();
       } else {
         nodeAtDownRef.current = false;
+        canvas.style.cursor = "grabbing";
       }
     };
 
@@ -996,6 +1104,14 @@ export function ForceGraph({
         return;
       }
       nodeAtDownRef.current = null;
+      canvas.style.cursor = "grab";
+    };
+
+    const onDoubleClick = (e: MouseEvent) => {
+      const sx = e.clientX - rect().left;
+      const sy = e.clientY - rect().top;
+      const world = screenToWorld(sx, sy);
+      if (hitTest(world.x, world.y) < 0) applyFit();
     };
 
     const onContextMenu = (e: MouseEvent) => {
@@ -1015,45 +1131,56 @@ export function ForceGraph({
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("dblclick", onDoubleClick);
     canvas.addEventListener("contextmenu", onContextMenu);
     return () => {
       canvas.removeEventListener("pointerdown", onPointerDown, { capture: true });
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("dblclick", onDoubleClick);
       canvas.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [compact, hitTest, onOpenNote, screenToWorld, sendPin, setHoverIndex, requestDraw]);
+  }, [
+    applyFit,
+    compact,
+    hitTest,
+    onOpenNote,
+    requestDraw,
+    screenToWorld,
+    sendPin,
+    setHoverIndex,
+  ]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const z = zoomRef.current;
     if (!canvas || !z) return;
-    const selection = select(canvas);
     if (event.key === "+" || event.key === "=") {
       event.preventDefault();
-      selection.call(z.scaleBy, 1.2);
+      const view = viewRef.current;
+      zoomViewAt(1.25, view.w / 2, view.h / 2);
       return;
     }
     if (event.key === "-" || event.key === "_") {
       event.preventDefault();
-      selection.call(z.scaleBy, 1 / 1.2);
+      const view = viewRef.current;
+      zoomViewAt(1 / 1.25, view.w / 2, view.h / 2);
       return;
     }
     const distance = event.shiftKey ? 80 : 28;
-    const scale = transformRef.current.k;
     const movement: Record<string, [number, number]> = {
-      ArrowLeft: [distance / scale, 0],
-      ArrowRight: [-distance / scale, 0],
-      ArrowUp: [0, distance / scale],
-      ArrowDown: [0, -distance / scale],
+      ArrowLeft: [distance, 0],
+      ArrowRight: [-distance, 0],
+      ArrowUp: [0, distance],
+      ArrowDown: [0, -distance],
     };
     const delta = movement[event.key];
     if (delta) {
       event.preventDefault();
-      selection.call(z.translateBy, delta[0], delta[1]);
+      panViewBy(delta[0], delta[1]);
     }
-  }, []);
+  }, [panViewBy, zoomViewAt]);
 
   const startAnimation = useCallback(() => {
     const times = metaRef.current.map((node) => node.createdAt).filter((value) => value > 0);
