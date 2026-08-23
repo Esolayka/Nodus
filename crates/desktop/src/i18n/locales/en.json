@@ -30,7 +30,9 @@
     "renameConfirmTitle_other": "Links will be updated in {{count}} notes",
     "renameConfirmCancel": "Cancel",
     "renameConfirmApply": "Rename",
-    "renameConfirmTitle": "Confirm rename"
+    "renameConfirmTitle": "Confirm rename",
+    "sort": "Change sort order",
+    "collapseAll": "Collapse all"
   },
   "titleBar": {
     "minimize": "Minimize",

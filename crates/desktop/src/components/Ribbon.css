@@ -29,7 +29,14 @@
 
 .ribbon-btn-active {
   color: var(--text-normal);
-  background: var(--bg-active);
+  /* Deliberately softer than `--bg-active` (used for a selected file/tab
+     elsewhere) — the icon's own color change is what should read as
+     "active" here, not a bright pill behind it. */
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] .ribbon-btn-active {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .ribbon-btn svg {

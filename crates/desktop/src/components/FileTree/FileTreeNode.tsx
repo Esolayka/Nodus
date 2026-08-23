@@ -1,6 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { TreeNode } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
+import { sortChildren } from "../../lib/treeSort";
 
 interface FileTreeNodeProps {
   node: TreeNode;
@@ -9,6 +10,7 @@ interface FileTreeNodeProps {
   activePath: string | null;
   renamingPath: string | null;
   renameValue: string;
+  sortReversed: boolean;
   onToggleExpand: (path: string) => void;
   onOpen: (path: string, split: boolean) => void;
   onContextMenu: (e: MouseEvent, node: TreeNode) => void;
@@ -84,7 +86,7 @@ export function FileTreeNode(props: FileTreeNodeProps) {
       </div>
       {node.isDir && isExpanded && (
         <div className="tree-children" style={{ marginLeft: `${depth * 17 + 18}px` }}>
-          {node.children.map((child) => (
+          {sortChildren(node.children, props.sortReversed).map((child) => (
             <FileTreeNode key={child.path} {...props} node={child} depth={depth + 1} />
           ))}
         </div>

@@ -328,6 +328,20 @@ export function AppShell() {
                   </svg>
                 </button>
               </Tooltip>
+              <Tooltip label={t("fileTree.sort")} placement="right">
+                <button type="button" onClick={() => document.dispatchEvent(new CustomEvent("nodus:toggleSort"))}>
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M4 3v10M4 13 1.5 10.5M4 13l2.5-2.5M12 13V3M12 3l2.5 2.5M12 3 9.5 5.5" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Tooltip label={t("fileTree.collapseAll")} placement="right">
+                <button type="button" onClick={() => document.dispatchEvent(new CustomEvent("nodus:collapseAll"))}>
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+                    <path d="M4 6.5 8 3l4 3.5M4 13l4-3.5 4 3.5" />
+                  </svg>
+                </button>
+              </Tooltip>
             </div>
           )}
           {sidebarView === "search" ? (

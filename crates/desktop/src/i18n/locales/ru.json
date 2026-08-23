@@ -32,7 +32,9 @@
     "renameConfirmTitle_other": "Ссылки будут обновлены в {{count}} заметках",
     "renameConfirmCancel": "Отмена",
     "renameConfirmApply": "Переименовать",
-    "renameConfirmTitle": "Подтверждение переименования"
+    "renameConfirmTitle": "Подтверждение переименования",
+    "sort": "Изменить порядок сортировки",
+    "collapseAll": "Свернуть все"
   },
   "titleBar": {
     "minimize": "Свернуть",

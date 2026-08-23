@@ -8,6 +8,7 @@ import { FileTreeNode } from "./FileTreeNode";
 import { RenameConfirmDialog } from "./RenameConfirmDialog";
 import { displayName } from "../../lib/displayName";
 import { defaultNoteName } from "../../lib/noteNaming";
+import { sortChildren } from "../../lib/treeSort";
 import "./FileTree.css";
 
 interface PendingRename {
@@ -56,6 +57,7 @@ export function FileTree() {
   );
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [sortReversed, setSortReversed] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -71,14 +73,26 @@ export function FileTree() {
     return () => document.removeEventListener("click", close);
   }, [contextMenu]);
 
+  useEffect(() => {
+    const onToggleSort = () => setSortReversed((r) => !r);
+    const onCollapseAll = () => setExpanded(new Set());
+    document.addEventListener("nodus:toggleSort", onToggleSort);
+    document.addEventListener("nodus:collapseAll", onCollapseAll);
+    return () => {
+      document.removeEventListener("nodus:toggleSort", onToggleSort);
+      document.removeEventListener("nodus:collapseAll", onCollapseAll);
+    };
+  }, []);
+
   if (!tree) return null;
 
   // If the vault root holds exactly one folder and nothing else, that folder
   // is a redundant wrapper — show its contents at level 0 instead.
-  const topLevel =
+  const rawTopLevel =
     tree.children.length === 1 && tree.children[0].isDir
       ? tree.children[0].children
       : tree.children;
+  const topLevel = sortChildren(rawTopLevel, sortReversed);
 
   function toggleExpand(path: string) {
     setExpanded((prev) => {
@@ -190,6 +204,7 @@ export function FileTree() {
           activePath={activePane?.activePath ?? null}
           renamingPath={renamingPath}
           renameValue={renameValue}
+          sortReversed={sortReversed}
           onToggleExpand={toggleExpand}
           onOpen={(path, split) => void openNote(path, { split })}
           onContextMenu={(e, node) => {
