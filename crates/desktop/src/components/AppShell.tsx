@@ -303,22 +303,10 @@ export function AppShell() {
       className={tree ? "app-shell" : "app-shell no-vault"}
       style={{ gridTemplateColumns: columns }}
     >
-      <TitleBar />
-      <Ribbon
-        onOpenFolder={() => void openFolder()}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+      <TitleBar onOpenFolder={() => void openFolder()} />
+      <Ribbon onOpenSettings={() => setSettingsOpen(true)} />
       {!sidebarCollapsed && (
         <aside className="sidebar">
-          <div className="sidebar-header">
-            {sidebarView === "files" ? (
-              <span>{t("sidebar.filesView")}</span>
-            ) : activePluginSidebarView ? (
-              <span>{t(activePluginSidebarView.titleKey)}</span>
-            ) : (
-              <span>{t(`sidebar.${sidebarView}View`) ?? sidebarView}</span>
-            )}
-          </div>
           {sidebarView === "files" && (
             <div className="sidebar-actions">
               <Tooltip label={t("fileTree.newNote")} placement="right">

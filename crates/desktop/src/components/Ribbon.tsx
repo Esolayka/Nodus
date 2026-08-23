@@ -7,11 +7,10 @@ import { Tooltip } from "./ui/Tooltip";
 import "./Ribbon.css";
 
 interface RibbonProps {
-  onOpenFolder: () => void;
   onOpenSettings: () => void;
 }
 
-export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
+export function Ribbon({ onOpenSettings }: RibbonProps) {
   const { t } = useTranslation();
   const openGraph = useWorkspaceStore((s) => s.openGraph);
   const graphActive = useWorkspaceStore((s) =>
@@ -21,7 +20,11 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
   const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
-  const pluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
+  const allPluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
+  // Bookmarks moved to the title bar (it's a popover-style action, not a
+  // section switch) — its trigger lives in TitleBar.tsx now, this just
+  // keeps the same registry entry from rendering twice.
+  const pluginSidebarViews = allPluginSidebarViews.filter((v) => v.id !== "core.bookmarks");
 
   function showSidebarView(view: string) {
     if (!sidebarCollapsed && sidebarView === view) {
@@ -34,13 +37,6 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
 
   return (
     <div className="ribbon">
-      <Tooltip label={t("sidebar.openFolder")} placement="right">
-        <button type="button" className="ribbon-btn" onClick={onOpenFolder}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-          </svg>
-        </button>
-      </Tooltip>
       <Tooltip label={t("sidebar.filesView")} placement="right">
         <button
           type="button"
@@ -49,18 +45,6 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
             <path d="M5 4h5l2 2h7a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-          </svg>
-        </button>
-      </Tooltip>
-      <Tooltip label={t("search.title")} placement="right">
-        <button
-          type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "search" ? " ribbon-btn-active" : ""}`}
-          onClick={() => showSidebarView("search")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <circle cx="10.5" cy="10.5" r="6.5" />
-            <path d="M20 20l-5-5" />
           </svg>
         </button>
       </Tooltip>
