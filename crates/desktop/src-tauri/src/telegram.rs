@@ -49,6 +49,23 @@ impl TelegramState {
     }
 }
 
+/// Where the Mini App's built assets live during `cargo tauri dev` — Vite
+/// writes `miniapp.html` (and its own chunks) into the same `dist/` folder
+/// as the main app, right next to `index.html` (see `vite.config.ts`'s
+/// `build.rollupOptions.input`). `CARGO_MANIFEST_DIR` is
+/// `crates/desktop/src-tauri`, so one level up is `crates/desktop`, where
+/// `dist/` sits — matching `tauri.conf.json`'s own `frontendDist: "../dist"`.
+///
+/// This only resolves in a dev checkout with the source tree present; a
+/// packaged build has no `crates/` to look inside and needs its own
+/// bundled-resource path instead (not wired up yet — a real installer for
+/// this app is a separate, later concern from "the Mini App is reachable
+/// at all", which is what this unblocks today).
+pub fn dev_miniapp_dist_dir() -> Option<std::path::PathBuf> {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../dist");
+    dir.join("miniapp.html").is_file().then_some(dir)
+}
+
 /// Binds the local-mode HTTP server to an OS-assigned loopback port and
 /// runs it for the rest of the process's lifetime. Safe to leave running
 /// even when Telegram linking isn't in use — every route refuses to do
@@ -56,9 +73,8 @@ impl TelegramState {
 ///
 /// `miniapp_dist_dir` should point at the Mini App's built assets so the
 /// same tunnel serves both the API and the page the phone loads; `None`
-/// until that's wired into the app's bundled resources (still pending —
-/// see the Mini App stage notes), which just means the tunnel exposes the
-/// API alone for now.
+/// means the tunnel exposes the API alone, with no page for a phone to
+/// actually load.
 pub fn start_local_server(state: LocalServerState, miniapp_dist_dir: Option<std::path::PathBuf>) -> std::io::Result<u16> {
     let std_listener = std::net::TcpListener::bind("127.0.0.1:0")?;
     std_listener.set_nonblocking(true)?;

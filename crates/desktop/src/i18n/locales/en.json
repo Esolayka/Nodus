@@ -153,7 +153,10 @@
     "forwardedFromChat": "Forwarded from {{name}}:",
     "emptyMessage": "(empty message)",
     "savedConfirmation": "✅ Added to today's note",
-    "saveFailed": "⚠️ Couldn't save that — try again in a moment"
+    "saveFailed": "⚠️ Couldn't save that — try again in a moment",
+    "startWelcome": "Hi! Tap below to open your vault.",
+    "openMiniApp": "Open Nodus",
+    "startNoAddress": "The Mini App isn't reachable yet — open Settings → Telegram on your computer and start the tunnel (or set a manual address), then send /start again."
   },
   "settings": {
     "title": "Settings",

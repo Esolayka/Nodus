@@ -22,6 +22,7 @@ export function MiniApp() {
   const [tab, setTab] = useState<Tab>("notes");
   const [screen, setScreen] = useState<Screen>({ view: "main" });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     applyTelegramTheme();
@@ -57,8 +58,17 @@ export function MiniApp() {
       <SyncIndicator />
       <div className="miniapp-content">
         {tab === "notes" && <NoteListScreen onOpen={(path) => setScreen({ view: "editor", path })} />}
-        {tab === "search" && <SearchScreen onOpen={(path) => setScreen({ view: "editor", path })} />}
-        {tab === "tags" && <TagsScreen onOpenTag={() => setTab("search")} />}
+        {tab === "search" && (
+          <SearchScreen initialQuery={searchQuery} onOpen={(path) => setScreen({ view: "editor", path })} />
+        )}
+        {tab === "tags" && (
+          <TagsScreen
+            onOpenTag={(tag) => {
+              setSearchQuery(`tag:${tag}`);
+              setTab("search");
+            }}
+          />
+        )}
         {tab === "tasks" && <TasksScreen onOpen={(path) => setScreen({ view: "editor", path })} />}
       </div>
       <TabBar current={tab} onChange={setTab} onQuickAdd={() => setQuickAddOpen(true)} />

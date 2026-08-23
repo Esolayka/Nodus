@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SearchFileResult } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import { readSearch } from "../sync";
 
-export function SearchScreen({ onOpen }: { onOpen: (path: string) => void }) {
-  const [query, setQuery] = useState("");
+export function SearchScreen({
+  onOpen,
+  initialQuery,
+}: {
+  onOpen: (path: string) => void;
+  /** Set when arriving here from a tag tap — runs immediately, and again
+   * whenever a new one comes in (tapping a different tag while already on
+   * this screen shouldn't require clearing the field by hand first). */
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [results, setResults] = useState<SearchFileResult[] | null>(null);
   const [searching, setSearching] = useState(false);
 
@@ -21,6 +30,11 @@ export function SearchScreen({ onOpen }: { onOpen: (path: string) => void }) {
       setSearching(false);
     }
   }
+
+  useEffect(() => {
+    if (initialQuery) void runSearch(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
 
   return (
     <div className="search-screen">

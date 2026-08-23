@@ -1,3 +1,4 @@
+import * as api from "../api/vault";
 import i18next from "../i18n";
 import { attachBytes } from "./attachments";
 import { appendToDailyNote, dailyNotePath } from "./dailyNotes";
@@ -10,6 +11,12 @@ import { appendToDailyNote, dailyNotePath } from "./dailyNotes";
 // tauri.conf.json's csp is null) rather than needing a native backend
 // process: the desktop app already has to be running for local-mode
 // Telegram to work at all, per the spec's own degradation story.
+//
+// `/start` is the one message that's *not* content to save — it gets a
+// welcome reply with a button that opens the Mini App (a `web_app`
+// inline-keyboard button needs no BotFather-side setup to work, unlike a
+// persistent menu button), or an explanation if there's no reachable
+// address yet.
 
 interface TgUser {
   id: number;
@@ -241,6 +248,35 @@ export function stopTelegramBotPolling(): void {
   activeToken = null;
 }
 
+function isStartCommand(text: string | undefined): boolean {
+  // Telegram sends "/start" as typed, but deep-linked starts arrive as
+  // "/start <payload>" and group chats can send "/start@YourBotName" —
+  // all three should still count.
+  return !!text && /^\/start(@\S+)?(\s|$)/.test(text.trim());
+}
+
+async function handleStartCommand(token: string, chatId: number): Promise<void> {
+  const status = await api.telegramStatus().catch(() => null);
+  const address = status?.publicAddress;
+
+  if (!address) {
+    await callTelegramApi(token, "sendMessage", {
+      chat_id: chatId,
+      text: i18next.t("telegramBot.startNoAddress"),
+    }).catch(() => {});
+    return;
+  }
+
+  const miniAppUrl = `${address.replace(/\/+$/, "")}/miniapp.html`;
+  await callTelegramApi(token, "sendMessage", {
+    chat_id: chatId,
+    text: i18next.t("telegramBot.startWelcome"),
+    reply_markup: {
+      inline_keyboard: [[{ text: i18next.t("telegramBot.openMiniApp"), web_app: { url: miniAppUrl } }]],
+    },
+  }).catch(() => {});
+}
+
 async function runPollingLoop(token: string): Promise<void> {
   let offset = loadOffset(token);
 
@@ -261,6 +297,11 @@ async function runPollingLoop(token: string): Promise<void> {
       saveOffset(token, offset);
       const msg = update.message;
       if (!msg) continue;
+
+      if (isStartCommand(msg.text)) {
+        await handleStartCommand(token, msg.chat.id);
+        continue;
+      }
 
       try {
         const content = await renderMessage(token, msg);
