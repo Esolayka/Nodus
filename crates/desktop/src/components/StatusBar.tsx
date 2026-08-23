@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as api from "../api/vault";
 import { charCount, wordCount } from "../editor/textStats";
+import { isCanvasPath, parseCanvasWithError } from "../lib/canvasTypes";
 import { useUiStore } from "../store/uiStore";
 import { useVaultStore } from "../store/vaultStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
@@ -26,13 +27,19 @@ export function StatusBar() {
   );
   const changeVersion = useVaultStore((s) => s.changeVersion);
   const setRightPanelTab = useUiStore((s) => s.setRightPanelTab);
+  const isCanvas = !!activePath && isCanvasPath(activePath);
+  const canvasCounts = useMemo(() => {
+    if (!isCanvas) return null;
+    const parsed = parseCanvasWithError(content);
+    return parsed.error ? null : { nodes: parsed.data.nodes.length, edges: parsed.data.edges.length };
+  }, [content, isCanvas]);
 
   const [backlinks, setBacklinks] = useState(0);
   const [counts, setCounts] = useState({ words: 0, chars: 0 });
 
   useEffect(() => {
     let cancelled = false;
-    if (!activePath) {
+    if (!activePath || isCanvas) {
       setBacklinks(0);
       return;
     }
@@ -42,7 +49,7 @@ export function StatusBar() {
     return () => {
       cancelled = true;
     };
-  }, [activePath, changeVersion]);
+  }, [activePath, changeVersion, isCanvas]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -59,16 +66,25 @@ export function StatusBar() {
 
   return (
     <footer className="status-bar">
-      <button
-        type="button"
-        className="status-item"
-        onClick={() => setRightPanelTab("backlinks")}
-        disabled={!activePath}
-      >
-        {t("statusBar.backlinks", { count: backlinks })}
-      </button>
-      <span className="status-item">{t("statusBar.words", { count: counts.words })}</span>
-      <span className="status-item">{t("statusBar.chars", { count: counts.chars })}</span>
+      {isCanvas ? (
+        <>
+          <span className="status-item">{t("canvas.nodeCount", { count: canvasCounts?.nodes ?? 0 })}</span>
+          <span className="status-item">{t("canvas.edgeCount", { count: canvasCounts?.edges ?? 0 })}</span>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="status-item"
+            onClick={() => setRightPanelTab("backlinks")}
+            disabled={!activePath}
+          >
+            {t("statusBar.backlinks", { count: backlinks })}
+          </button>
+          <span className="status-item">{t("statusBar.words", { count: counts.words })}</span>
+          <span className="status-item">{t("statusBar.chars", { count: counts.chars })}</span>
+        </>
+      )}
       <span
         className={`status-item${saveError ? " status-item-error" : ""}`}
         title={saveError ?? undefined}

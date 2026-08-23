@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { displayName } from "../../lib/displayName";
+import { isCanvasPath } from "../../lib/canvasTypes";
 import { useWorkspaceStore, type Pane } from "../../store/workspaceStore";
 
 export function PathBar({ pane }: { pane: Pane }) {
@@ -11,6 +12,7 @@ export function PathBar({ pane }: { pane: Pane }) {
   const toggleReading = useWorkspaceStore((s) => s.toggleReading);
   const [menuOpen, setMenuOpen] = useState(false);
   const path = pane.activePath;
+  const isCanvas = !!path && isCanvasPath(path);
   const readMode = useWorkspaceStore((s) => (path ? s.modes[path] === "reading" : false));
 
   useEffect(() => {
@@ -92,23 +94,25 @@ export function PathBar({ pane }: { pane: Pane }) {
         ))}
       </div>
       <div className="path-bar-actions">
-        <button
-          type="button"
-          className={`path-bar-btn${readMode ? " path-bar-btn-active" : ""}`}
-          onClick={() => path && toggleReading(path)}
-          title={t("pathBar.readMode")}
-        >
-          {readMode ? (
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z" />
-              <path d="M8 6.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.8 3.2a7 7 0 0 1 0 9.6M5.5 5.5a3.5 3.5 0 0 0 0 5M3.2 3.2a7 7 0 0 0 0 9.6" />
-            </svg>
-          )}
-        </button>
+        {!isCanvas && (
+          <button
+            type="button"
+            className={`path-bar-btn${readMode ? " path-bar-btn-active" : ""}`}
+            onClick={() => path && toggleReading(path)}
+            title={t("pathBar.readMode")}
+          >
+            {readMode ? (
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z" />
+                <path d="M8 6.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.8 3.2a7 7 0 0 1 0 9.6M5.5 5.5a3.5 3.5 0 0 0 0 5M3.2 3.2a7 7 0 0 0 0 9.6" />
+              </svg>
+            )}
+          </button>
+        )}
         <div className="path-bar-menu-wrap">
           <button
             type="button"
