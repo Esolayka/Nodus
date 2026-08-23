@@ -24,7 +24,7 @@ export function SyncIndicator() {
   return (
     <div className={`miniapp-sync-indicator miniapp-sync-${status}`} title={lastError ?? undefined}>
       {ICONS[status] ?? null}
-      {status !== "synced" && <span>{LABELS[status] ?? status}</span>}
+      <span>{LABELS[status] ?? status}</span>
     </div>
   );
 }

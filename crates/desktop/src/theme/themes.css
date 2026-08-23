@@ -121,17 +121,20 @@ button.btn-accent:hover {
 
 button:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-input {
+input,
+textarea {
   font-family: inherit;
   color: var(--text-normal);
 }
 
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: var(--text-faint);
 }
 

@@ -13,7 +13,9 @@ pub fn read_note(vault: &Vault, relative: &str) -> Result<String> {
     })
 }
 
-/// Overwrites a note's content, creating the file if it doesn't exist yet.
+/// Overwrites a note's content, creating the file (and any missing parent
+/// folders — e.g. a daily-notes folder that doesn't exist yet) if it
+/// doesn't exist yet.
 ///
 /// Writes atomically: the new content lands in a temp file next to `path`
 /// first, then an atomic rename swaps it into place. A crash or power loss
@@ -21,6 +23,9 @@ pub fn read_note(vault: &Vault, relative: &str) -> Result<String> {
 /// truncated file.
 pub fn write_note(vault: &Vault, relative: &str, content: &str) -> Result<()> {
     let path = vault.resolve(relative)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     write_atomic(&path, content)
 }
 
@@ -204,6 +209,21 @@ mod tests {
             .filter(|name| name.contains("nodus-tmp"))
             .collect();
         assert!(leftovers.is_empty(), "leftover temp files: {leftovers:?}");
+    }
+
+    #[test]
+    fn write_note_creates_missing_parent_folders() {
+        // A daily note (or anything else) written for the first time into a
+        // folder that hasn't been created yet — e.g. the Mini App appending
+        // to today's note before that folder exists — used to fail with
+        // "No such file or directory" instead of creating it, unlike every
+        // sibling write function in this file.
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+
+        write_note(&vault, "Daily Notes/2026-08-23.md", "hello").unwrap();
+
+        assert_eq!(read_note(&vault, "Daily Notes/2026-08-23.md").unwrap(), "hello");
     }
 
     #[test]
