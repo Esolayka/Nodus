@@ -65,6 +65,7 @@
 }
 
 .sidebar-footer {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -74,8 +75,14 @@
   flex-shrink: 0;
 }
 
-.sidebar-vault-path {
+.vault-switcher {
+  position: relative;
   flex: 1;
+  min-width: 0;
+}
+
+.sidebar-vault-path {
+  width: 100%;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -93,9 +100,62 @@
   text-align: left;
 }
 
+.sidebar-vault-path > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-vault-path:hover {
   background: var(--bg-hover);
   color: var(--text-normal);
+}
+
+.sidebar-vault-path.active {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.vault-switcher-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 150;
+  width: 234px;
+  padding: 6px;
+  color: var(--text-normal);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+}
+
+.vault-switcher-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--text-normal);
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-ui);
+  font-weight: 400;
+  text-align: left;
+}
+
+.vault-switcher-menu button:hover {
+  background: var(--bg-hover);
+}
+
+.vault-switcher-menu .vault-switcher-current {
+  justify-content: space-between;
+}
+
+.vault-switcher-separator {
+  height: 1px;
+  margin: 5px -6px;
+  background: var(--border);
 }
 
 .sidebar-vault-icon {

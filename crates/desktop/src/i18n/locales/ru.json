@@ -3,6 +3,7 @@
     "emptyState": "Хранилище ещё не открыто",
     "loading": "Открываем...",
     "openFolder": "Открыть папку",
+    "openAnotherVault": "Открыть другое хранилище…",
     "help": "Справка",
     "filesView": "Файлы",
     "tagsView": "Теги",
@@ -367,7 +368,14 @@
     "replacePlaceholder": "Заменить на...",
     "skipCodeBlocks": "Не трогать блоки кода",
     "caseSensitive": "Учитывать регистр",
-    "syntaxHelp": "Синтаксис поиска",
+    "syntaxHelp": "Настройки поиска",
+    "backToSearch": "Вернуться к поиску",
+    "openReplace": "Открыть поиск и замену",
+    "operatorPath": "совпадение в пути к файлу",
+    "operatorFile": "совпадение в имени файла",
+    "operatorTag": "совпадение в тегах",
+    "operatorLine": "ключевые слова на одной строке",
+    "noResults": "Совпадений не найдено",
     "resultsSummary_one": "{{count}} совпадение в {{files}} заметках",
     "resultsSummary_few": "{{count}} совпадения в {{files}} заметках",
     "resultsSummary_many": "{{count}} совпадений в {{files}} заметках",
@@ -402,8 +410,14 @@
     "empty": "Команды не найдены"
   },
   "quickSwitcher": {
-    "placeholder": "Перейти к заметке...",
-    "createNote": "Создать заметку «{{name}}»"
+    "placeholder": "Введите имя файла для создания или перехода…",
+    "createNote": "Создать заметку «{{name}}»",
+    "navigate": "навигация",
+    "open": "открыть",
+    "openNewTab": "открыть в новой вкладке",
+    "openRight": "открыть в области справа",
+    "create": "создать",
+    "cancel": "отмена"
   },
   "commands": {
     "newNote": "Новая заметка",
@@ -592,6 +606,11 @@
     "empty": "Задачи не найдены.",
     "sortDate": "По дате",
     "sortPriority": "По приоритету",
+    "status_all": "Все",
+    "status_today": "Сегодня",
+    "status_overdue": "Просроченные",
+    "status_week": "На неделе",
+    "status_completed": "Выполненные",
     "title": "Задачи"
   },
   "templates": {

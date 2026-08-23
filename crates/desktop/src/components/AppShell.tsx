@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ChevronDown } from "lucide-react";
 import { setHistorySettings, telegramSetBotToken, telegramSetManualAddress } from "../api/vault";
 import { displayName } from "../lib/displayName";
 import { registerBuiltinCommands } from "../lib/builtinCommands";
@@ -44,6 +43,7 @@ import { TasksPanel } from "./Tasks/TasksPanel";
 import { TemplateFlowDialog } from "./Templates/TemplateFlowDialog";
 import { TitleBar } from "./TitleBar";
 import { Tooltip } from "./ui/Tooltip";
+import { VaultSwitcher } from "./VaultSwitcher";
 import { PaneGroup } from "./Workspace/PaneGroup";
 
 const SIDEBAR_MIN = 180;
@@ -318,8 +318,6 @@ export function AppShell() {
     window.addEventListener("mouseup", onUp);
   }
 
-  const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() : "";
-
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
   const effectiveRightPanelWidth = tree && !rightPanelCollapsed ? rightPanelWidth : 0;
   const columns = tree
@@ -397,15 +395,10 @@ export function AppShell() {
             </div>
           )}
           <div className="sidebar-footer">
-            <button
-              type="button"
-              className="sidebar-vault-path"
-              title={vaultPath ?? ""}
-              onClick={() => void openFolder()}
-            >
-              <ChevronDown size={14} className="sidebar-vault-icon" />
-              {vaultName || "Vault"}
-            </button>
+            <VaultSwitcher
+              vaultPath={vaultPath}
+              onOpenAnother={() => void openFolder()}
+            />
             <div className="sidebar-footer-actions">
               <Tooltip label={t("sidebar.help")} placement="top">
                 <button type="button" className="sidebar-icon-btn">

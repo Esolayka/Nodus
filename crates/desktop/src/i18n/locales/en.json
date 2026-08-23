@@ -3,6 +3,7 @@
     "emptyState": "No vault open yet",
     "loading": "Opening...",
     "openFolder": "Open folder",
+    "openAnotherVault": "Open another vault…",
     "help": "Help",
     "filesView": "Files",
     "tagsView": "Tags",
@@ -360,7 +361,14 @@
     "replacePlaceholder": "Replace with...",
     "skipCodeBlocks": "Don't touch code blocks",
     "caseSensitive": "Match case",
-    "syntaxHelp": "Search syntax",
+    "syntaxHelp": "Search settings",
+    "backToSearch": "Back to search",
+    "openReplace": "Open search and replace",
+    "operatorPath": "match in the file path",
+    "operatorFile": "match in the file name",
+    "operatorTag": "match in tags",
+    "operatorLine": "keywords on the same line",
+    "noResults": "No matches found",
     "resultsSummary_one": "{{count}} match in {{files}} notes",
     "resultsSummary_other": "{{count}} matches in {{files}} notes",
     "replaceDone_one": "Replaced in {{count}} note",
@@ -387,8 +395,14 @@
     "empty": "No commands found"
   },
   "quickSwitcher": {
-    "placeholder": "Go to note...",
-    "createNote": "Create note \"{{name}}\""
+    "placeholder": "Enter a file name to create or navigate…",
+    "createNote": "Create note \"{{name}}\"",
+    "navigate": "navigate",
+    "open": "open",
+    "openNewTab": "open in new tab",
+    "openRight": "open in right pane",
+    "create": "create",
+    "cancel": "cancel"
   },
   "commands": {
     "newNote": "New note",
@@ -577,6 +591,11 @@
     "empty": "No tasks found.",
     "sortDate": "Sort by date",
     "sortPriority": "Sort by priority",
+    "status_all": "All",
+    "status_today": "Today",
+    "status_overdue": "Overdue",
+    "status_week": "This week",
+    "status_completed": "Completed",
     "title": "Tasks"
   },
   "templates": {
