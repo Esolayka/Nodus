@@ -3,9 +3,15 @@ import { createPortal } from "react-dom";
 import { open as openShell } from "@tauri-apps/plugin-shell";
 import {
   Boxes,
+  Check,
+  ClipboardPaste,
   Copy,
+  ExternalLink,
   FilePlus2,
-  Globe2,
+  Grid3X3,
+  ImagePlus,
+  Lock,
+  Magnet,
   Maximize,
   Minus,
   Palette,
@@ -37,7 +43,7 @@ import { useUiStore } from "../../store/uiStore";
 import { useVaultStore } from "../../store/vaultStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { Tooltip } from "../ui/Tooltip";
-import { FilePickerDialog } from "./FilePickerDialog";
+import { FilePickerDialog, type CanvasFilePickerKind } from "./FilePickerDialog";
 import {
   anchorPoint,
   distanceToEdge,
@@ -99,6 +105,29 @@ type Mode =
 
 function snap(value: number): number {
   return Math.round(value / GRID) * GRID;
+}
+
+function alignmentValues(rect: Rect): number[] {
+  return [rect.x, rect.x + rect.width / 2, rect.x + rect.width];
+}
+
+function verticalAlignmentValues(rect: Rect): number[] {
+  return [rect.y, rect.y + rect.height / 2, rect.y + rect.height];
+}
+
+function nearestAlignmentOffset(moving: number[], stationary: number[], threshold: number): number | null {
+  let best = 0;
+  let distance = threshold + 1;
+  for (const source of moving) {
+    for (const target of stationary) {
+      const candidate = target - source;
+      if (Math.abs(candidate) < distance) {
+        best = candidate;
+        distance = Math.abs(candidate);
+      }
+    }
+  }
+  return distance <= threshold ? best : null;
 }
 
 function themeColors() {
@@ -234,13 +263,16 @@ export function CanvasTab({ path }: { path: string }) {
   const editingRef = useRef<EditTarget | null>(null);
   editingRef.current = editing;
   const [editDraft, setEditDraft] = useState("");
-  const [filePickerOpen, setFilePickerOpen] = useState(false);
+  const [filePickerKind, setFilePickerKind] = useState<CanvasFilePickerKind | null>(null);
   const [linkDialog, setLinkDialog] = useState<LinkDialogState | null>(null);
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const [colorPaletteOpen, setColorPaletteOpen] = useState(false);
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [draggingEdge, setDraggingEdge] = useState<{ fromNode: string; fromSide: Side; x: number; y: number } | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [snapToObjects, setSnapToObjects] = useState(true);
+  const [readOnly, setReadOnly] = useState(false);
 
   const modeRef = useRef<Mode>({ kind: "idle" });
   const previewsRef = useRef<Map<string, NodePreview>>(new Map());
@@ -280,7 +312,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function commit(next: CanvasData) {
-    if (parseError) return;
+    if (parseError || readOnly) return;
     dataRef.current = next;
     setData(next);
     historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -291,7 +323,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function undo() {
-    if (historyIndexRef.current <= 0) return;
+    if (readOnly || historyIndexRef.current <= 0) return;
     historyIndexRef.current -= 1;
     const snapshot = historyRef.current[historyIndexRef.current];
     dataRef.current = snapshot;
@@ -302,7 +334,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function redo() {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    if (readOnly || historyIndexRef.current >= historyRef.current.length - 1) return;
     historyIndexRef.current += 1;
     const snapshot = historyRef.current[historyIndexRef.current];
     dataRef.current = snapshot;
@@ -453,6 +485,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function startEditing(target: EditTarget) {
+    if (readOnly) return;
     if (target.kind === "text") {
       const node = dataRef.current.nodes.find((candidate): candidate is TextNode => candidate.id === target.id && candidate.type === "text");
       if (!node) return;
@@ -476,6 +509,7 @@ export function CanvasTab({ path }: { path: string }) {
     if (!target) return;
     editingRef.current = null;
     setEditing(null);
+    if (readOnly) return;
     if (target.kind === "text") {
       commit({ ...dataRef.current, nodes: dataRef.current.nodes.map((node) => node.id === target.id ? { ...node, text: editDraft } : node) });
     } else if (target.kind === "group") {
@@ -486,6 +520,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function deleteSelection() {
+    if (readOnly) return;
     const nodeIds = selectionRef.current;
     const edgeIds = selectedEdgesRef.current;
     if (nodeIds.size === 0 && edgeIds.size === 0) return;
@@ -508,13 +543,13 @@ export function CanvasTab({ path }: { path: string }) {
     return copied;
   }
 
-  function duplicate(source: ClipboardData, offset: number): { data: CanvasData; nodeIds: Set<string> } | null {
+  function duplicate(source: ClipboardData, offsetX: number, offsetY = offsetX): { data: CanvasData; nodeIds: Set<string> } | null {
     if (source.nodes.length === 0) return null;
     const idMap = new Map<string, string>();
     const nodes = source.nodes.map((node) => {
       const id = newNodeId();
       idMap.set(node.id, id);
-      return { ...node, id, x: node.x + offset, y: node.y + offset };
+      return { ...node, id, x: node.x + offsetX, y: node.y + offsetY };
     });
     const edges = source.edges.flatMap((edge) => {
       const fromNode = idMap.get(edge.fromNode);
@@ -528,12 +563,31 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function duplicateCurrentSelection(offset = GRID): Set<string> {
+    if (readOnly) return new Set();
     const result = duplicate(copySelection(), offset);
     if (!result) return new Set();
     commit(result.data);
     setSelection(result.nodeIds);
     setSelectedEdges(new Set());
     return result.nodeIds;
+  }
+
+  function pasteClipboard(point: Point) {
+    if (readOnly) return;
+    const source = clipboardRef.current;
+    const bounds = boundsOf(source.nodes);
+    if (!bounds) return;
+    let offsetX = point.x - (bounds.x + bounds.width / 2);
+    let offsetY = point.y - (bounds.y + bounds.height / 2);
+    if (snapToGrid) {
+      offsetX = snap(offsetX);
+      offsetY = snap(offsetY);
+    }
+    const result = duplicate(source, offsetX, offsetY);
+    if (!result) return;
+    commit(result.data);
+    setSelection(result.nodeIds);
+    setSelectedEdges(new Set());
   }
 
   function movementIds(clicked: CanvasNode, baseSelection: Set<string>): Set<string> {
@@ -577,7 +631,7 @@ export function CanvasTab({ path }: { path: string }) {
     const singleSelected = selectionRef.current.size === 1
       ? dataRef.current.nodes.find((node) => selectionRef.current.has(node.id))
       : null;
-    if (singleSelected) {
+    if (singleSelected && !readOnly) {
       const handle = hitTestHandle(point, singleSelected);
       if (handle) {
         modeRef.current = {
@@ -592,7 +646,7 @@ export function CanvasTab({ path }: { path: string }) {
       }
     }
 
-    const anchor = hitTestAnchor(point);
+    const anchor = readOnly ? null : hitTestAnchor(point);
     if (anchor) {
       modeRef.current = { kind: "connecting", fromNode: anchor.node.id, fromSide: anchor.side };
       setDraggingEdge({ fromNode: anchor.node.id, fromSide: anchor.side, x: point.x, y: point.y });
@@ -608,6 +662,12 @@ export function CanvasTab({ path }: { path: string }) {
         else next.add(hitNode.id);
         setSelection(next);
         setSelectedEdges(new Set());
+        modeRef.current = { kind: "idle" };
+        return;
+      }
+
+      if (readOnly) {
+        selectOnlyNode(hitNode.id);
         modeRef.current = { kind: "idle" };
         return;
       }
@@ -680,15 +740,34 @@ export function CanvasTab({ path }: { path: string }) {
       return;
     }
     if (mode.kind === "dragging") {
-      let dx = point.x - mode.startWorld.x;
-      let dy = point.y - mode.startWorld.y;
+      let rawDx = point.x - mode.startWorld.x;
+      let rawDy = point.y - mode.startWorld.y;
       if (event.shiftKey) {
-        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
-        else dx = 0;
+        if (Math.abs(rawDx) >= Math.abs(rawDy)) rawDy = 0;
+        else rawDx = 0;
       }
-      if (!spaceHeldRef.current) {
+      let dx = rawDx;
+      let dy = rawDy;
+      if (!spaceHeldRef.current && snapToGrid) {
         dx = snap(dx);
         dy = snap(dy);
+      }
+      if (!spaceHeldRef.current && snapToObjects) {
+        const movingNodes = dataRef.current.nodes.filter((node) => mode.startPositions.has(node.id));
+        const startBounds = boundsOf(movingNodes.map((node) => {
+          const start = mode.startPositions.get(node.id)!;
+          return { ...node, x: start.x, y: start.y };
+        }));
+        const stationary = dataRef.current.nodes.filter((node) => !mode.startPositions.has(node.id));
+        if (startBounds && stationary.length > 0) {
+          const stationaryX = stationary.flatMap((node) => alignmentValues(node));
+          const stationaryY = stationary.flatMap((node) => verticalAlignmentValues(node));
+          const moved = { ...startBounds, x: startBounds.x + rawDx, y: startBounds.y + rawDy };
+          const alignX = nearestAlignmentOffset(alignmentValues(moved), stationaryX, 8 / transformRef.current.k);
+          const alignY = nearestAlignmentOffset(verticalAlignmentValues(moved), stationaryY, 8 / transformRef.current.k);
+          if (alignX !== null) dx = rawDx + alignX;
+          if (alignY !== null) dy = rawDy + alignY;
+        }
       }
       if (dx === 0 && dy === 0 && !mode.changed) return;
       mode.changed = true;
@@ -711,8 +790,18 @@ export function CanvasTab({ path }: { path: string }) {
       let y = startRect.y;
       let width = startRect.width;
       let height = startRect.height;
-      const candidateX = spaceHeldRef.current ? point.x : snap(point.x);
-      const candidateY = spaceHeldRef.current ? point.y : snap(point.y);
+      let candidateX = !spaceHeldRef.current && snapToGrid ? snap(point.x) : point.x;
+      let candidateY = !spaceHeldRef.current && snapToGrid ? snap(point.y) : point.y;
+      if (!spaceHeldRef.current && snapToObjects) {
+        const stationary = dataRef.current.nodes.filter((node) => node.id !== mode.nodeId);
+        const threshold = 8 / transformRef.current.k;
+        const stationaryX = stationary.flatMap((node) => alignmentValues(node));
+        const stationaryY = stationary.flatMap((node) => verticalAlignmentValues(node));
+        const alignX = nearestAlignmentOffset([point.x], stationaryX, threshold);
+        const alignY = nearestAlignmentOffset([point.y], stationaryY, threshold);
+        if (alignX !== null) candidateX = point.x + alignX;
+        if (alignY !== null) candidateY = point.y + alignY;
+      }
       if (handle.includes("l")) {
         x = Math.min(candidateX, right - MIN_NODE_WIDTH);
         width = right - x;
@@ -747,11 +836,11 @@ export function CanvasTab({ path }: { path: string }) {
     const selectedNode = selectionRef.current.size === 1
       ? dataRef.current.nodes.find((node) => selectionRef.current.has(node.id))
       : null;
-    const handle = selectedNode ? hitTestHandle(point, selectedNode) : null;
+    const handle = !readOnly && selectedNode ? hitTestHandle(point, selectedNode) : null;
     if (handle === "tl" || handle === "br") canvas.style.cursor = "nwse-resize";
     else if (handle === "tr" || handle === "bl") canvas.style.cursor = "nesw-resize";
-    else if (hitTestAnchor(point)) canvas.style.cursor = "crosshair";
-    else if (hitTestNode(point)) canvas.style.cursor = "grab";
+    else if (!readOnly && hitTestAnchor(point)) canvas.style.cursor = "crosshair";
+    else if (hitTestNode(point)) canvas.style.cursor = readOnly ? "default" : "grab";
     else if (hitTestEdge(point)) canvas.style.cursor = "pointer";
     else canvas.style.cursor = spaceHeldRef.current ? "grab" : "default";
   }
@@ -791,8 +880,8 @@ export function CanvasTab({ path }: { path: string }) {
         const node: TextNode = {
           id: newNodeId(),
           type: "text",
-          x: snap(point.x - 120),
-          y: snap(point.y - 50),
+          x: snapToGrid ? snap(point.x - 120) : point.x - 120,
+          y: snapToGrid ? snap(point.y - 50) : point.y - 50,
           width: 240,
           height: 100,
           text: "",
@@ -840,12 +929,15 @@ export function CanvasTab({ path }: { path: string }) {
     }
     const node = hitTestNode(point);
     if (!node) {
-      addTextCard(point);
+      if (!readOnly) addTextCard(point);
       return;
     }
     selectOnlyNode(node.id);
-    if (node.type === "text") startEditing({ kind: "text", id: node.id });
-    else if (node.type === "group") startEditing({ kind: "group", id: node.id });
+    if (node.type === "text") {
+      if (!readOnly) startEditing({ kind: "text", id: node.id });
+    } else if (node.type === "group") {
+      if (!readOnly) startEditing({ kind: "group", id: node.id });
+    }
     else if (node.type === "file") {
       if (node.file.toLowerCase().endsWith(".md") || isPdfPath(node.file)) void openNote(node.file);
       else if (mediaKindOf(node.file) === "image") setLightboxImageSrc(assetUrlFor(node.file));
@@ -929,6 +1021,14 @@ export function CanvasTab({ path }: { path: string }) {
     if (editing || parseError) return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
+    const mutatingShortcut = event.key === "Delete" || event.key === "Backspace"
+      || (mod && ["x", "v", "d", "z", "y"].includes(key))
+      || ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+      || event.key === "Enter";
+    if (readOnly && mutatingShortcut) {
+      event.preventDefault();
+      return;
+    }
     if ((event.key === "Delete" || event.key === "Backspace") && (selectionRef.current.size > 0 || selectedEdgesRef.current.size > 0)) {
       event.preventDefault();
       deleteSelection();
@@ -954,12 +1054,7 @@ export function CanvasTab({ path }: { path: string }) {
       deleteSelection();
     } else if (mod && key === "v") {
       event.preventDefault();
-      const duplicated = duplicate(clipboardRef.current, GRID);
-      if (duplicated) {
-        commit(duplicated.data);
-        setSelection(duplicated.nodeIds);
-        setSelectedEdges(new Set());
-      }
+      pasteClipboard(centerPoint());
     } else if (mod && key === "d") {
       event.preventDefault();
       duplicateCurrentSelection();
@@ -1014,11 +1109,12 @@ export function CanvasTab({ path }: { path: string }) {
   }, [flush, path]);
 
   function addTextCard(point = insertPointRef.current ?? centerPoint()) {
+    if (readOnly) return;
     const node: TextNode = {
       id: newNodeId(),
       type: "text",
-      x: snap(point.x - 125),
-      y: snap(point.y - 60),
+      x: snapToGrid ? snap(point.x - 125) : point.x - 125,
+      y: snapToGrid ? snap(point.y - 60) : point.y - 60,
       width: 250,
       height: 120,
       text: "",
@@ -1029,21 +1125,23 @@ export function CanvasTab({ path }: { path: string }) {
     insertPointRef.current = null;
   }
 
-  function openFilePicker(point = centerPoint()) {
+  function openFilePicker(kind: CanvasFilePickerKind, point = centerPoint()) {
+    if (readOnly) return;
     insertPointRef.current = point;
-    setFilePickerOpen(true);
+    setFilePickerKind(kind);
     setContextMenu(null);
   }
 
   function addFileCard(filePath: string, point = insertPointRef.current ?? centerPoint()) {
-    setFilePickerOpen(false);
+    if (readOnly) return;
+    setFilePickerKind(null);
     const kind = mediaKindOf(filePath);
     const size = kind === "image" ? { width: 320, height: 240 } : { width: 300, height: 200 };
     const node: CanvasNode = {
       id: newNodeId(),
       type: "file",
-      x: snap(point.x - size.width / 2),
-      y: snap(point.y - size.height / 2),
+      x: snapToGrid ? snap(point.x - size.width / 2) : point.x - size.width / 2,
+      y: snapToGrid ? snap(point.y - size.height / 2) : point.y - size.height / 2,
       ...size,
       file: filePath,
     };
@@ -1053,19 +1151,20 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function openLinkDialog(point = centerPoint()) {
+    if (readOnly) return;
     setLinkDialog({ point, value: "" });
     setContextMenu(null);
   }
 
   function submitLink() {
-    if (!linkDialog) return;
+    if (!linkDialog || readOnly) return;
     const url = normalizeUrl(linkDialog.value);
     if (!url) return;
     const node: CanvasNode = {
       id: newNodeId(),
       type: "link",
-      x: snap(linkDialog.point.x - 140),
-      y: snap(linkDialog.point.y - 70),
+      x: snapToGrid ? snap(linkDialog.point.x - 140) : linkDialog.point.x - 140,
+      y: snapToGrid ? snap(linkDialog.point.y - 70) : linkDialog.point.y - 70,
       width: 280,
       height: 140,
       url,
@@ -1076,16 +1175,17 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function addGroup(point = centerPoint()) {
+    if (readOnly) return;
     const selected = dataRef.current.nodes.filter((node) => selectionRef.current.has(node.id) && node.type !== "group");
     const bounds = boundsOf(selected) ?? { x: point.x - 180, y: point.y - 120, width: 360, height: 240 };
     const padding = 30;
     const node: GroupNode = {
       id: newNodeId(),
       type: "group",
-      x: snap(bounds.x - padding),
-      y: snap(bounds.y - padding),
-      width: snap(bounds.width + padding * 2),
-      height: snap(bounds.height + padding * 2),
+      x: snapToGrid ? snap(bounds.x - padding) : bounds.x - padding,
+      y: snapToGrid ? snap(bounds.y - padding) : bounds.y - padding,
+      width: snapToGrid ? snap(bounds.width + padding * 2) : bounds.width + padding * 2,
+      height: snapToGrid ? snap(bounds.height + padding * 2) : bounds.height + padding * 2,
       label: t("canvas.newGroupLabel"),
     };
     commit({ ...dataRef.current, nodes: [node, ...dataRef.current.nodes] });
@@ -1094,6 +1194,7 @@ export function CanvasTab({ path }: { path: string }) {
   }
 
   function applyColor(color: string | null) {
+    if (readOnly) return;
     const nodeIds = selectionRef.current;
     const edgeIds = selectedEdgesRef.current;
     commit({
@@ -1122,7 +1223,7 @@ export function CanvasTab({ path }: { path: string }) {
 
   function onDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    if (parseError) return;
+    if (parseError || readOnly) return;
     const point = worldFromClient(event.clientX, event.clientY);
     const vaultPath = event.dataTransfer.getData("text/nodus-path");
     if (vaultPath && allFilePaths.has(vaultPath)) {
@@ -1216,23 +1317,26 @@ export function CanvasTab({ path }: { path: string }) {
 
         <div className="canvas-add-toolbar" role="toolbar" aria-label={t("canvas.addToolbar")}>
           <Tooltip label={t("canvas.addText")} placement="top">
-            <button type="button" aria-label={t("canvas.addText")} disabled={!!parseError} onClick={() => addTextCard()}><StickyNote size={18} /></button>
+            <button type="button" aria-label={t("canvas.addText")} disabled={!!parseError || readOnly} onClick={() => addTextCard()}><StickyNote size={18} /></button>
           </Tooltip>
           <Tooltip label={t("canvas.addFile")} placement="top">
-            <button type="button" aria-label={t("canvas.addFile")} disabled={!!parseError} onClick={() => openFilePicker()}><FilePlus2 size={18} /></button>
+            <button type="button" aria-label={t("canvas.addFile")} disabled={!!parseError || readOnly} onClick={() => openFilePicker("note")}><FilePlus2 size={18} /></button>
+          </Tooltip>
+          <Tooltip label={t("canvas.addMedia")} placement="top">
+            <button type="button" aria-label={t("canvas.addMedia")} disabled={!!parseError || readOnly} onClick={() => openFilePicker("media")}><ImagePlus size={18} /></button>
           </Tooltip>
           <Tooltip label={t("canvas.addLink")} placement="top">
-            <button type="button" aria-label={t("canvas.addLink")} disabled={!!parseError} onClick={() => openLinkDialog()}><Globe2 size={18} /></button>
+            <button type="button" aria-label={t("canvas.addLink")} disabled={!!parseError || readOnly} onClick={() => openLinkDialog()}><ExternalLink size={18} /></button>
           </Tooltip>
           <Tooltip label={t("canvas.addGroup")} placement="top">
-            <button type="button" aria-label={t("canvas.addGroup")} disabled={!!parseError} onClick={() => addGroup()}><Boxes size={18} /></button>
+            <button type="button" aria-label={t("canvas.addGroup")} disabled={!!parseError || readOnly} onClick={() => addGroup()}><Boxes size={18} /></button>
           </Tooltip>
           <div className="canvas-toolbar-divider" />
           <Tooltip label={t("canvas.undo")} placement="top">
-            <button type="button" aria-label={t("canvas.undo")} disabled={historyIndexRef.current <= 0} onClick={undo}><Undo2 size={18} /></button>
+            <button type="button" aria-label={t("canvas.undo")} disabled={readOnly || historyIndexRef.current <= 0} onClick={undo}><Undo2 size={18} /></button>
           </Tooltip>
           <Tooltip label={t("canvas.redo")} placement="top">
-            <button type="button" aria-label={t("canvas.redo")} disabled={historyIndexRef.current >= historyRef.current.length - 1} onClick={redo}><Redo2 size={18} /></button>
+            <button type="button" aria-label={t("canvas.redo")} disabled={readOnly || historyIndexRef.current >= historyRef.current.length - 1} onClick={redo}><Redo2 size={18} /></button>
           </Tooltip>
         </div>
 
@@ -1252,7 +1356,7 @@ export function CanvasTab({ path }: { path: string }) {
           </Tooltip>
         </div>
 
-        {toolbarPosition && !editing && (
+        {toolbarPosition && !editing && !readOnly && (
           <div className={`canvas-selection-toolbar${toolbarPosition.below ? " below" : ""}`} style={{ left: toolbarPosition.x, top: toolbarPosition.y }}>
             {(selectedNode?.type === "text" || selectedNode?.type === "group" || selectedEdge) && (
               <Tooltip label={t("canvas.editLabel")} placement="top">
@@ -1364,43 +1468,60 @@ export function CanvasTab({ path }: { path: string }) {
         <div
           className="canvas-context-menu"
           style={{
-            left: Math.min(Math.max(8, contextMenu.x), window.innerWidth - 228),
-            top: Math.min(Math.max(8, contextMenu.y), window.innerHeight - (contextMenu.nodeId || contextMenu.edgeId ? 210 : 250)),
+            left: Math.min(Math.max(8, contextMenu.x), window.innerWidth - 292),
+            top: Math.min(Math.max(8, contextMenu.y), window.innerHeight - 356),
           }}
           onContextMenu={(event) => event.preventDefault()}
         >
           {!contextMenu.nodeId && !contextMenu.edgeId && (
             <>
-              <button type="button" onClick={() => { setContextMenu(null); addTextCard(contextMenu.world); }}><StickyNote size={16} />{t("canvas.addText")}</button>
-              <button type="button" onClick={() => openFilePicker(contextMenu.world)}><FilePlus2 size={16} />{t("canvas.addFile")}</button>
-              <button type="button" onClick={() => openLinkDialog(contextMenu.world)}><Globe2 size={16} />{t("canvas.addLink")}</button>
-              <button type="button" onClick={() => addGroup(contextMenu.world)}><Boxes size={16} />{t("canvas.addGroup")}</button>
+              <button type="button" disabled={readOnly} onClick={() => { setContextMenu(null); addTextCard(contextMenu.world); }}><StickyNote size={16} />{t("canvas.addText")}</button>
+              <button type="button" disabled={readOnly} onClick={() => openFilePicker("note", contextMenu.world)}><FilePlus2 size={16} />{t("canvas.addFile")}</button>
+              <button type="button" disabled={readOnly} onClick={() => openFilePicker("media", contextMenu.world)}><ImagePlus size={16} />{t("canvas.addMedia")}</button>
+              <button type="button" disabled={readOnly} onClick={() => openLinkDialog(contextMenu.world)}><ExternalLink size={16} />{t("canvas.addLink")}</button>
+              <button type="button" disabled={readOnly} onClick={() => addGroup(contextMenu.world)}><Boxes size={16} />{t("canvas.addGroup")}</button>
+              <div className="canvas-context-separator" />
+              <button
+                type="button"
+                disabled={readOnly || clipboardRef.current.nodes.length === 0}
+                onClick={() => { pasteClipboard(contextMenu.world); setContextMenu(null); }}
+              ><ClipboardPaste size={16} />{t("canvas.paste")}</button>
             </>
           )}
           {(contextMenu.nodeId || contextMenu.edgeId) && (
             <>
               {(selectedNode?.type === "text" || selectedNode?.type === "group" || selectedEdge) && (
-                <button type="button" onClick={() => selectedNode?.type === "text"
+                <button type="button" disabled={readOnly} onClick={() => selectedNode?.type === "text"
                   ? startEditing({ kind: "text", id: selectedNode.id })
                   : selectedNode?.type === "group"
                     ? startEditing({ kind: "group", id: selectedNode.id })
                     : selectedEdge && startEditing({ kind: "edge", id: selectedEdge.id })}
                 ><Pencil size={16} />{t("canvas.editLabel")}</button>
               )}
-              {selection.size > 0 && <button type="button" onClick={() => { duplicateCurrentSelection(); setContextMenu(null); }}><Copy size={16} />{t("canvas.duplicate")}</button>}
-              {selection.size > 0 && <button type="button" onClick={() => addGroup()}><Boxes size={16} />{t("canvas.groupSelected")}</button>}
+              {selection.size > 0 && <button type="button" disabled={readOnly} onClick={() => { duplicateCurrentSelection(); setContextMenu(null); }}><Copy size={16} />{t("canvas.duplicate")}</button>}
+              {selection.size > 0 && <button type="button" disabled={readOnly} onClick={() => addGroup()}><Boxes size={16} />{t("canvas.groupSelected")}</button>}
               <div className="canvas-context-separator" />
-              <button type="button" className="danger" onClick={() => { deleteSelection(); setContextMenu(null); }}><Trash2 size={16} />{t("canvas.delete")}</button>
+              <button type="button" disabled={readOnly} className="danger" onClick={() => { deleteSelection(); setContextMenu(null); }}><Trash2 size={16} />{t("canvas.delete")}</button>
+              <div className="canvas-context-separator" />
+              <button type="button" onClick={() => { fitAll(); setContextMenu(null); }}><Maximize size={16} />{t("canvas.zoomToFit")}</button>
+              {selection.size > 0 && <button type="button" onClick={() => { fitSelection(); setContextMenu(null); }}><Maximize size={16} />{t("canvas.zoomSelection")}</button>}
             </>
           )}
           <div className="canvas-context-separator" />
-          <button type="button" onClick={() => { fitAll(); setContextMenu(null); }}><Maximize size={16} />{t("canvas.zoomToFit")}</button>
-          {selection.size > 0 && <button type="button" onClick={() => { fitSelection(); setContextMenu(null); }}><Maximize size={16} />{t("canvas.zoomSelection")}</button>}
+          <button type="button" className="canvas-context-toggle" aria-pressed={snapToGrid} onClick={() => setSnapToGrid((value) => !value)}>
+            <Grid3X3 size={16} /><span>{t("canvas.snapToGrid")}</span>{snapToGrid && <Check className="canvas-context-check" size={16} />}
+          </button>
+          <button type="button" className="canvas-context-toggle" aria-pressed={snapToObjects} onClick={() => setSnapToObjects((value) => !value)}>
+            <Magnet size={16} /><span>{t("canvas.snapToObjects")}</span>{snapToObjects && <Check className="canvas-context-check" size={16} />}
+          </button>
+          <button type="button" className="canvas-context-toggle" aria-pressed={readOnly} onClick={() => { setReadOnly((value) => !value); setColorPaletteOpen(false); }}>
+            <Lock size={16} /><span>{t("canvas.readOnly")}</span>{readOnly && <Check className="canvas-context-check" size={16} />}
+          </button>
         </div>,
         document.body,
       )}
 
-      {filePickerOpen && <FilePickerDialog onPick={addFileCard} onClose={() => { setFilePickerOpen(false); insertPointRef.current = null; }} />}
+      {filePickerKind && <FilePickerDialog kind={filePickerKind} onPick={addFileCard} onClose={() => { setFilePickerKind(null); insertPointRef.current = null; }} />}
       {linkDialog && (
         <CanvasLinkDialog
           state={linkDialog}

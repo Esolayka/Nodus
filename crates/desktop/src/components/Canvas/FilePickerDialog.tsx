@@ -2,20 +2,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { fuzzyMatch } from "../../lib/fuzzyMatch";
+import { mediaKindOf } from "../../lib/attachments";
 import { useVaultStore } from "../../store/vaultStore";
 import "../FileTree/RenameConfirmDialog.css";
 
-/** A generic vault-file picker (any file, not just notes) — used for
- * canvas "add card from a vault file" (works for a note, an image, or a
- * PDF alike; the canvas renders each according to its own type). */
-export function FilePickerDialog({ onPick, onClose }: { onPick: (path: string) => void; onClose: () => void }) {
+export type CanvasFilePickerKind = "note" | "media";
+
+/** Vault picker used by the two distinct JSON Canvas actions: adding a
+ * Markdown note, and adding an image/PDF/audio/video attachment. */
+export function FilePickerDialog({ kind, onPick, onClose }: {
+  kind: CanvasFilePickerKind;
+  onPick: (path: string) => void;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   // Zustand selectors used through useSyncExternalStore must return a stable
   // snapshot. Spreading the Set inside the selector created a fresh array on
   // every read, which React treated as a store change and re-rendered until
   // the entire application hit "Maximum update depth exceeded".
   const allFilePaths = useVaultStore((s) => s.noteIndex.allFilePaths);
-  const allFiles = useMemo(() => [...allFilePaths].sort((a, b) => a.localeCompare(b)), [allFilePaths]);
+  const allFiles = useMemo(() => [...allFilePaths]
+    .filter((path) => kind === "note" ? path.toLowerCase().endsWith(".md") : mediaKindOf(path) !== null)
+    .sort((a, b) => a.localeCompare(b)), [allFilePaths, kind]);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -40,7 +48,7 @@ export function FilePickerDialog({ onPick, onClose }: { onPick: (path: string) =
   return createPortal(
     <div className="settings-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="rename-confirm-modal" role="dialog" aria-modal="true">
-        <p className="rename-confirm-title">{t("canvas.pickFileTitle")}</p>
+        <p className="rename-confirm-title">{t(kind === "note" ? "canvas.pickNoteTitle" : "canvas.pickMediaTitle")}</p>
         <input
           ref={inputRef}
           className="field"

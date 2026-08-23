@@ -229,7 +229,7 @@
   z-index: 500;
   display: flex;
   flex-direction: column;
-  width: 220px;
+  width: 284px;
   padding: 5px;
   color: var(--text-normal);
   background: var(--bg-tertiary);
@@ -257,14 +257,34 @@
   background: var(--bg-hover);
 }
 
+.canvas-context-menu button:disabled {
+  color: var(--text-faint);
+  background: transparent;
+  cursor: default;
+}
+
 .canvas-context-menu button.danger {
   color: var(--danger);
+}
+
+.canvas-context-menu button.danger:disabled {
+  color: var(--text-faint);
 }
 
 .canvas-context-menu svg {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.canvas-context-menu .canvas-context-toggle span {
+  min-width: 0;
+  flex: 1;
+}
+
+.canvas-context-menu .canvas-context-check {
+  margin-left: auto;
+  color: var(--text-normal);
 }
 
 .canvas-context-separator {
