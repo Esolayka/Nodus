@@ -10,7 +10,12 @@ import "../FileTree/RenameConfirmDialog.css";
  * PDF alike; the canvas renders each according to its own type). */
 export function FilePickerDialog({ onPick, onClose }: { onPick: (path: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
-  const allFiles = useVaultStore((s) => [...s.noteIndex.allFilePaths]);
+  // Zustand selectors used through useSyncExternalStore must return a stable
+  // snapshot. Spreading the Set inside the selector created a fresh array on
+  // every read, which React treated as a store change and re-rendered until
+  // the entire application hit "Maximum update depth exceeded".
+  const allFilePaths = useVaultStore((s) => s.noteIndex.allFilePaths);
+  const allFiles = useMemo(() => [...allFilePaths].sort((a, b) => a.localeCompare(b)), [allFilePaths]);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
