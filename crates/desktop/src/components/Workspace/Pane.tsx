@@ -8,6 +8,7 @@ import { ExternalChangeBar } from "../Editor/ExternalChangeBar";
 import { GraphView } from "../Graph/GraphView";
 import { NoteEditor } from "../Editor/NoteEditor";
 import { PdfViewerTab } from "../Pdf/PdfViewerTab";
+import { EmptyTabPlaceholder } from "./EmptyTabPlaceholder";
 import { PathBar } from "./PathBar";
 import { TabBar } from "./TabBar";
 
@@ -60,7 +61,7 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
             <NoteEditor path={pane.activePath as string} />
           )
         ) : (
-          <p className="pane-empty">{t("workspace.placeholder")}</p>
+          <EmptyTabPlaceholder pane={pane} />
         )}
       </div>
     </div>

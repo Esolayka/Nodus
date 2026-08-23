@@ -16,7 +16,10 @@
     "closeTab": "Close tab",
     "closePane": "Close pane",
     "newTab": "New tab",
-    "tabList": "List tabs"
+    "tabList": "List tabs",
+    "emptyTabNewFile": "Create new file",
+    "emptyTabGoToFile": "Go to file",
+    "emptyTabCloseAction": "Close"
   },
   "fileTree": {
     "untitled": "Untitled",

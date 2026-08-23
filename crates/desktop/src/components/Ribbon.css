@@ -4,7 +4,10 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 0;
+  /* Lines up with the sidebar's own content (below its ~26px header row),
+     not the header text itself — otherwise the two rows visually collide
+     at the same height. */
+  padding: 26px 0 6px;
   background: var(--bg-secondary);
 }
 

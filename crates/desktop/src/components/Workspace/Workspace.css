@@ -332,3 +332,31 @@
   color: var(--text-faint);
   font-size: 13px;
 }
+
+.pane-empty-tab {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pane-empty-action {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 220px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--fs-ui);
+}
+
+.pane-empty-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.pane-empty-hotkey {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: var(--fs-small);
+}

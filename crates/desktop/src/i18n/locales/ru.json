@@ -16,7 +16,10 @@
     "closeTab": "Закрыть вкладку",
     "closePane": "Закрыть панель",
     "newTab": "Новая вкладка",
-    "tabList": "Список вкладок"
+    "tabList": "Список вкладок",
+    "emptyTabNewFile": "Создать новый файл",
+    "emptyTabGoToFile": "Перейти к файлу",
+    "emptyTabCloseAction": "Закрыть"
   },
   "fileTree": {
     "untitled": "Без названия",
