@@ -319,10 +319,11 @@ export function AppShell() {
   }
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
-  const effectiveRightPanelWidth = tree && !rightPanelCollapsed ? rightPanelWidth : 0;
-  const columns = tree
-    ? `var(--ribbon-width) ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelCollapsed ? "0px" : "4px"} ${effectiveRightPanelWidth}px`
-    : `var(--ribbon-width) var(--sidebar-width) 4px 1fr 0px 0px`;
+  // The right sidebar is application chrome, not vault content. Its toggle
+  // is always present in the title bar, so the panel itself must also be
+  // available while a vault is loading or when no vault is open yet.
+  const effectiveRightPanelWidth = rightPanelCollapsed ? 0 : rightPanelWidth;
+  const columns = `var(--ribbon-width) ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelCollapsed ? "0px" : "4px"} ${effectiveRightPanelWidth}px`;
 
   return (
     <div
@@ -331,7 +332,7 @@ export function AppShell() {
     >
       <TitleBar
         leftPanelWidth={RIBBON_WIDTH + effectiveSidebarWidth + (sidebarCollapsed ? 0 : 4)}
-        rightPanelWidth={effectiveRightPanelWidth + (tree && !rightPanelCollapsed ? 4 : 0)}
+        rightPanelWidth={effectiveRightPanelWidth + (rightPanelCollapsed ? 0 : 4)}
       />
       <Ribbon
         onOpenFolder={() => void openFolder()}
@@ -440,10 +441,10 @@ export function AppShell() {
         )}
         <StatusBar />
       </main>
-      {tree && !rightPanelCollapsed && (
+      {!rightPanelCollapsed && (
         <div className="right-panel-resizer" onMouseDown={startRightResize} />
       )}
-      {tree && !rightPanelCollapsed && <RightPanel />}
+      {!rightPanelCollapsed && <RightPanel />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <CommandPalette />
       <QuickSwitcher />
