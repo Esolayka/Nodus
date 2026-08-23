@@ -9,6 +9,7 @@ import { Tooltip } from "../ui/Tooltip";
 import { BacklinksPanel } from "./BacklinksPanel";
 import { HistoryPanel } from "./HistoryPanel";
 import { OutlinePanel } from "./OutlinePanel";
+import { RightPanelTabs } from "./RightPanelTabs";
 import "./RightPanel.css";
 
 export function RightPanel() {
@@ -31,43 +32,44 @@ export function RightPanel() {
 
   return (
     <aside className="right-panel">
-      <div className="right-panel-toolbar">
-        {hasListTools && (
-          <>
-            <Tooltip label={t("fileTree.sort")} placement="bottom">
-              <button
-                type="button"
-                aria-label={t("fileTree.sort")}
-                className={sortReversed ? "active" : ""}
-                onClick={() => setSortReversed((value) => !value)}
-              >
-                {sortReversed ? (
-                  <ArrowUpAZ size={16} strokeWidth={1.75} />
-                ) : (
-                  <ArrowDownAZ size={16} strokeWidth={1.75} />
-                )}
-              </button>
-            </Tooltip>
-            <Tooltip label={t("search.title")} placement="bottom">
-              <button
-                type="button"
-                aria-label={t("search.title")}
-                className={searchOpen ? "active" : ""}
-                onClick={() => {
-                  setSearchOpen((value) => !value);
-                  if (searchOpen) setQuery("");
-                }}
-              >
-                {searchOpen ? (
-                  <X size={16} strokeWidth={1.75} />
-                ) : (
-                  <Search size={16} strokeWidth={1.75} />
-                )}
-              </button>
-            </Tooltip>
-          </>
-        )}
+      <div className="right-panel-tabs">
+        <RightPanelTabs />
       </div>
+      {hasListTools && (
+        <div className="right-panel-toolbar">
+          <Tooltip label={t("fileTree.sort")} placement="bottom">
+            <button
+              type="button"
+              aria-label={t("fileTree.sort")}
+              className={sortReversed ? "active" : ""}
+              onClick={() => setSortReversed((value) => !value)}
+            >
+              {sortReversed ? (
+                <ArrowUpAZ size={16} strokeWidth={1.75} />
+              ) : (
+                <ArrowDownAZ size={16} strokeWidth={1.75} />
+              )}
+            </button>
+          </Tooltip>
+          <Tooltip label={t("search.title")} placement="bottom">
+            <button
+              type="button"
+              aria-label={t("search.title")}
+              className={searchOpen ? "active" : ""}
+              onClick={() => {
+                setSearchOpen((value) => !value);
+                if (searchOpen) setQuery("");
+              }}
+            >
+              {searchOpen ? (
+                <X size={16} strokeWidth={1.75} />
+              ) : (
+                <Search size={16} strokeWidth={1.75} />
+              )}
+            </button>
+          </Tooltip>
+        </div>
+      )}
       {searchOpen && hasListTools && (
         <label className="right-panel-search">
           <input

@@ -29,6 +29,8 @@ interface UiState {
   setSearchQuery: (query: string) => void;
   searchPanelMode: SearchPanelMode;
   setSearchPanelMode: (mode: SearchPanelMode) => void;
+  searchOptionsOpen: boolean;
+  setSearchOptionsOpen: (open: boolean) => void;
 
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
@@ -64,7 +66,10 @@ export const useUiStore = create<UiState>((set) => ({
   setRightPanelCollapsed: (collapsed) => set({ rightPanelCollapsed: collapsed }),
 
   sidebarView: "files",
-  setSidebarView: (view) => set({ sidebarView: view }),
+  setSidebarView: (view) => set({
+    sidebarView: view,
+    ...(view === "search" ? {} : { searchOptionsOpen: false }),
+  }),
   sidebarCollapsed: false,
   toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
@@ -72,6 +77,8 @@ export const useUiStore = create<UiState>((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   searchPanelMode: "search",
   setSearchPanelMode: (mode) => set({ searchPanelMode: mode }),
+  searchOptionsOpen: false,
+  setSearchOptionsOpen: (open) => set({ searchOptionsOpen: open }),
 
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
@@ -98,5 +105,6 @@ export const useUiStore = create<UiState>((set) => ({
       sidebarCollapsed: false,
       searchPanelMode: "search",
       searchQuery: query,
+      searchOptionsOpen: false,
     }),
 }));

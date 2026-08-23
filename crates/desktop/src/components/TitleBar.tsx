@@ -7,7 +7,6 @@ import { isEmptyTab, useWorkspaceStore } from "../store/workspaceStore";
 import { useUiStore } from "../store/uiStore";
 import { Tooltip } from "./ui/Tooltip";
 import { TabBar } from "./Workspace/TabBar";
-import { RightPanelTabs } from "./RightPanel/RightPanelTabs";
 import "./TitleBar.css";
 
 async function windowAction(action: "minimize" | "maximize" | "close") {
@@ -85,8 +84,8 @@ export function TitleBar({
   const toggleRightPanelCollapsed = useUiStore((s) => s.toggleRightPanelCollapsed);
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
-  const rightPanelCollapsed = useUiStore((s) => s.rightPanelCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
+  const setSearchOptionsOpen = useUiStore((s) => s.setSearchOptionsOpen);
   const panes = useWorkspaceStore((s) => s.panes);
   const singlePane = panes.length === 1 ? panes[0] : null;
 
@@ -130,7 +129,11 @@ export function TitleBar({
           <button
             type="button"
             className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "search" ? " active" : ""}`}
-            onClick={() => showSidebarView("search")}
+            onClick={() => {
+              const opening = sidebarCollapsed || sidebarView !== "search";
+              showSidebarView("search");
+              setSearchOptionsOpen(opening);
+            }}
           >
             <Search size={16} strokeWidth={1.75} />
           </button>
@@ -159,7 +162,6 @@ export function TitleBar({
         </Tooltip>
       </div>
       <div className="titlebar-right">
-        {!rightPanelCollapsed && <RightPanelTabs />}
         <div className="titlebar-drag-fill" data-tauri-drag-region />
         <div className="titlebar-controls">
           <Tooltip label={t("titleBar.minimize")} placement="bottom">

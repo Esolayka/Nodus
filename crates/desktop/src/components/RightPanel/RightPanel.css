@@ -7,6 +7,23 @@
   overflow: hidden;
 }
 
+.right-panel-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 8px;
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+}
+
+.right-panel-tab-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
 .right-panel-toolbar {
   display: flex;
   align-items: center;

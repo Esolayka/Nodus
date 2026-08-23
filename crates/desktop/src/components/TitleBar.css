@@ -32,13 +32,6 @@
   padding-right: 2px;
 }
 
-.titlebar-right-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
 .titlebar-drag-fill {
   flex: 1 1 40px;
   min-width: 8px;

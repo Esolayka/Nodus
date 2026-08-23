@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CaseSensitive,
@@ -59,15 +59,37 @@ export function SearchPanel() {
   const setQuery = useUiStore((s) => s.setSearchQuery);
   const mode = useUiStore((s) => s.searchPanelMode);
   const setMode = useUiStore((s) => s.setSearchPanelMode);
+  const helpForced = useUiStore((s) => s.searchOptionsOpen);
+  const setHelpForced = useUiStore((s) => s.setSearchOptionsOpen);
   const jumpToLine = useWorkspaceStore((s) => s.jumpToLine);
 
   const [results, setResults] = useState<SearchFileResult[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [caseSensitive, setCaseSensitive] = useState(false);
-  const [helpForced, setHelpForced] = useState(false);
+  const helpRef = useRef<HTMLDivElement | null>(null);
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const debouncedQuery = useDebounced(query, DEBOUNCE_MS);
   const showHelp = mode === "search" && helpForced;
+
+  useEffect(() => {
+    if (!showHelp) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!helpRef.current?.contains(target) && !helpButtonRef.current?.contains(target)) {
+        setHelpForced(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHelpForced(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [setHelpForced, showHelp]);
 
   const [replaceWith, setReplaceWith] = useState("");
   const [skipCodeBlocks, setSkipCodeBlocks] = useState(true);
@@ -206,11 +228,12 @@ export function SearchPanel() {
         {mode === "search" && (
           <Tooltip label={t("search.syntaxHelp")} placement="top">
             <button
+              ref={helpButtonRef}
               type="button"
               className={`search-settings-btn${helpForced ? " active" : ""}`}
               aria-label={t("search.syntaxHelp")}
               aria-expanded={showHelp}
-              onClick={() => setHelpForced((v) => !v)}
+              onClick={() => setHelpForced(!helpForced)}
             >
               <SlidersHorizontal size={16} strokeWidth={1.75} />
             </button>
@@ -219,7 +242,7 @@ export function SearchPanel() {
       </div>
 
       {showHelp && (
-        <div className="search-syntax-help" role="dialog" aria-label={t("search.syntaxHelp")}>
+        <div ref={helpRef} className="search-syntax-help" role="dialog" aria-label={t("search.syntaxHelp")}>
           <div className="search-syntax-title">
             <span>{t("search.syntaxHelp")}</span>
             <Info size={16} strokeWidth={1.75} />

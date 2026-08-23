@@ -29,7 +29,7 @@ export function RightPanelTabs() {
   const tabs: TabDescriptor[] = [...BUILTIN_TABS, ...pluginTabs];
 
   return (
-    <div className="titlebar-right-tabs" role="tablist">
+    <div className="right-panel-tab-list" role="tablist">
       {tabs.map(({ id, labelKey, icon: Icon }) => (
         <Tooltip key={id} label={t(labelKey)} placement="bottom">
           <button
