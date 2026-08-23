@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Network } from "lucide-react";
 import { sidebarViewRegistry } from "../lib/sidebarViewRegistry";
 import { useUiStore } from "../store/uiStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
@@ -15,9 +15,6 @@ interface RibbonProps {
 export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
   const { t } = useTranslation();
   const openGraph = useWorkspaceStore((s) => s.openGraph);
-  const graphActive = useWorkspaceStore((s) =>
-    s.panes.some((p) => p.id === s.activePaneId && p.view === "graph"),
-  );
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
@@ -99,15 +96,10 @@ export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
       <Tooltip label={t("graph.title")} placement="right">
         <button
           type="button"
-          className={`ribbon-btn${graphActive ? " ribbon-btn-active" : ""}`}
+          className="ribbon-btn"
           onClick={() => openGraph()}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <circle cx="5.5" cy="17" r="2.5" />
-            <circle cx="18.5" cy="6" r="2.5" />
-            <circle cx="12" cy="18" r="2.5" />
-            <path d="M7.5 15.5 16.5 7.5M8 17.5l2.5-1.2M15.5 7l-2 2.5" />
-          </svg>
+          <Network size={18} strokeWidth={1.75} />
         </button>
       </Tooltip>
       {pluginSidebarViews.map(({ id, titleKey, icon: Icon }) => (
