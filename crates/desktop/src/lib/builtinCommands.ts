@@ -44,7 +44,10 @@ export function registerBuiltinCommands(): () => void {
   // Unlike Ctrl+N, this creates nothing on disk — just a blank tab
   // showing the same empty-pane placeholder, until the user actually
   // picks "create new file" (or a file) from it.
-  reg("app.newTab", i18next.t("commands.newTab"), () => useWorkspaceStore.getState().openEmptyTab());
+  reg("app.newTab", i18next.t("commands.newTab"), () => {
+    useWorkspaceStore.getState().openEmptyTab();
+    useUiStore.getState().setQuickSwitcherOpen(true);
+  });
 
   reg("app.save", i18next.t("commands.save"), () => {
     const pane = activePane();

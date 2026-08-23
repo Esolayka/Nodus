@@ -1,6 +1,7 @@
 import { FileText, Network, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "../../store/workspaceStore";
+import { useUiStore } from "../../store/uiStore";
 import { displayName } from "../../lib/displayName";
 import { isEmptyTab } from "../../store/workspaceStore";
 import type { Pane } from "../../store/workspaceStore";
@@ -21,6 +22,7 @@ export function TabBar({ pane }: { pane: Pane }) {
   const closeTab = useWorkspaceStore((s) => s.closeTab);
   const closeView = useWorkspaceStore((s) => s.closeView);
   const openEmptyTab = useWorkspaceStore((s) => s.openEmptyTab);
+  const setQuickSwitcherOpen = useUiStore((s) => s.setQuickSwitcherOpen);
 
   return (
     <div className="tab-bar" role="tablist">
@@ -83,7 +85,10 @@ export function TabBar({ pane }: { pane: Pane }) {
         type="button"
         className="tab-add"
         aria-label={t("workspace.newTab")}
-        onClick={() => openEmptyTab()}
+        onClick={() => {
+          openEmptyTab();
+          setQuickSwitcherOpen(true);
+        }}
         title={t("workspace.newTab")}
       >
         <Plus size={14} strokeWidth={1.75} />
