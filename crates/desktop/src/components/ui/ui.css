@@ -80,13 +80,23 @@
 }
 
 .select-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 120;
+  /* Portaled to <body> and positioned with fixed coordinates computed from
+     the trigger's own rect (see Select.tsx) — an ancestor scroll container
+     (the settings list, a sidebar panel, ...) would otherwise clip an
+     absolutely-positioned menu that opens near its bottom edge, showing
+     only a sliver of it instead of the real list. */
+  position: fixed;
+  /* Higher than any overlay/modal it might be opened from (settings modal
+     is 200, the image lightbox and sync details panel are 1000) — since
+     it's now portaled to <body>, its z-index is compared directly against
+     theirs, not scoped inside them. */
+  z-index: 1100;
   display: flex;
   flex-direction: column;
+  width: max-content;
+  max-width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
   padding: 4px;
   background: var(--bg-tertiary);
   border-radius: 8px;
