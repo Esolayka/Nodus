@@ -188,6 +188,31 @@ body,
   background: var(--accent-hover);
 }
 
+.note-list-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 32px);
+  height: auto;
+  min-height: 48px;
+  margin: 14px 16px 0;
+  padding: 10px 14px;
+  background: var(--miniapp-accent-soft);
+  border-radius: var(--radius-lg);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-align: left;
+}
+
+.note-list-new-btn:active {
+  opacity: 0.7;
+}
+
+.note-list-new-btn .miniapp-row-icon {
+  color: var(--accent);
+}
+
 /* Note list */
 
 .note-row {
@@ -646,6 +671,15 @@ input.search-input {
   margin: 4px 0 0;
   font-size: 16px;
   font-weight: 600;
+}
+
+input.new-note-input {
+  height: 50px;
+  padding: 0 14px;
+  font-size: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
 }
 
 textarea.quick-add-input {

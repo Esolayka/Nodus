@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
 import type { TreeNode } from "../../types/vault";
+import { NewNoteSheet } from "../components/NewNoteSheet";
 import { readTree } from "../sync";
 
 function FolderRow({
@@ -51,6 +52,7 @@ function FolderRow({
 export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,13 +70,29 @@ export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
 
   if (error) return <p className="miniapp-empty">{error}</p>;
   if (!tree) return <p className="miniapp-empty">Loading…</p>;
-  if (tree.children.length === 0) return <p className="miniapp-empty">No notes yet.</p>;
+
+  const existingRootNames = new Set(tree.children.filter((c) => !c.isDir).map((c) => c.name));
 
   return (
-    <div className="note-list miniapp-card">
-      {tree.children.map((child) => (
-        <FolderRow key={child.path} node={child} depth={0} onOpen={onOpen} />
-      ))}
+    <div>
+      <button type="button" className="note-list-new-btn" onClick={() => setCreating(true)}>
+        <span className="miniapp-row-icon">
+          <Plus size={17} />
+        </span>
+        <span>New note</span>
+      </button>
+      {tree.children.length === 0 ? (
+        <p className="miniapp-empty">No notes yet.</p>
+      ) : (
+        <div className="note-list miniapp-card">
+          {tree.children.map((child) => (
+            <FolderRow key={child.path} node={child} depth={0} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+      {creating && (
+        <NewNoteSheet existingNames={existingRootNames} onClose={() => setCreating(false)} onCreated={(path) => onOpen(path)} />
+      )}
     </div>
   );
 }
