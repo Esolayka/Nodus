@@ -35,6 +35,7 @@ export function TelegramSettings() {
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [code, setCode] = useState<{ token: string; expiresAt: number } | null>(null);
   const [tunnelStarting, setTunnelStarting] = useState(false);
+  const [tunnelError, setTunnelError] = useState<string | null>(null);
 
   const refreshStatus = () => {
     void api.telegramStatus().then(setStatus);
@@ -51,8 +52,11 @@ export function TelegramSettings() {
 
   async function handleStartTunnel() {
     setTunnelStarting(true);
+    setTunnelError(null);
     try {
       await api.telegramStartTunnel();
+    } catch (error) {
+      setTunnelError(String(error));
     } finally {
       setTunnelStarting(false);
       refreshStatus();
@@ -158,6 +162,11 @@ export function TelegramSettings() {
                 </button>
               }
             />
+            {tunnelError && (
+              <div className="settings-row" style={{ display: "block" }}>
+                <p className="settings-warning">{tunnelError}</p>
+              </div>
+            )}
           </div>
 
           {status && (

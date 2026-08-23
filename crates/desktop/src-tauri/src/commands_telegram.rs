@@ -53,14 +53,14 @@ pub struct TelegramStatus {
 }
 
 /// Explicit opt-in only — never started just because a vault is open.
-/// Best-effort: if `cloudflared` isn't installed or the tunnel doesn't
-/// come up, `telegram_status`'s `publicAddress` simply never gets set
-/// this way, and the user falls back to `telegram_set_manual_address`.
+/// Downloads `cloudflared` first if it isn't already installed or cached
+/// (see `ensure_cloudflared_binary`); if that download or the tunnel spawn
+/// itself fails, the error comes back here for the UI to show, and the
+/// user can still fall back to `telegram_set_manual_address`.
 #[tauri::command]
 pub fn telegram_start_tunnel(app: AppHandle, state: State<TelegramState>) -> Result<(), String> {
     let port = state.local_port.lock().expect("mutex poisoned").ok_or_else(|| "local server is not running".to_string())?;
-    crate::telegram::spawn_cloudflared_tunnel(&app, port, state.public_address.clone());
-    Ok(())
+    crate::telegram::spawn_cloudflared_tunnel(&app, port, state.public_address.clone())
 }
 
 #[tauri::command]
