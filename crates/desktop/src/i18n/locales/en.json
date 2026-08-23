@@ -12,6 +12,15 @@
     "syncView": "Sync",
     "toggle": "Toggle sidebar"
   },
+  "ribbon": {
+    "navigation": "Command ribbon",
+    "quickSwitcher": "Open quick switcher",
+    "graph": "Graph view",
+    "newCanvas": "Create new canvas",
+    "todayNote": "Open today's note",
+    "insertTemplate": "Insert template",
+    "commandPalette": "Open command palette"
+  },
   "workspace": {
     "placeholder": "Open a folder of notes to get started",
     "closeTab": "Close tab",

@@ -1,28 +1,56 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderOpen, Network } from "lucide-react";
+import {
+  Calendar,
+  CalendarDays,
+  CopyPlus,
+  FileSearch2,
+  GitBranch,
+  GitFork,
+  Hash,
+  LayoutDashboard,
+  ListChecks,
+  Terminal,
+} from "lucide-react";
+import { runCommand } from "../lib/commandRegistry";
 import { sidebarViewRegistry } from "../lib/sidebarViewRegistry";
 import { useUiStore } from "../store/uiStore";
-import { useWorkspaceStore } from "../store/workspaceStore";
 import { Tooltip } from "./ui/Tooltip";
 import "./Ribbon.css";
 
-interface RibbonProps {
-  onOpenFolder: () => void;
+interface RibbonButtonProps {
+  label: string;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  active?: boolean;
+  onClick: () => void;
 }
 
-export function Ribbon({ onOpenFolder }: RibbonProps) {
+function RibbonButton({ label, icon: Icon, active = false, onClick }: RibbonButtonProps) {
+  return (
+    <Tooltip label={label} placement="right" delay={350}>
+      <button
+        type="button"
+        className={`ribbon-btn${active ? " ribbon-btn-active" : ""}`}
+        aria-label={label}
+        aria-pressed={active || undefined}
+        onClick={onClick}
+      >
+        <Icon size={18} strokeWidth={1.75} />
+      </button>
+    </Tooltip>
+  );
+}
+
+export function Ribbon() {
   const { t } = useTranslation();
-  const openGraph = useWorkspaceStore((s) => s.openGraph);
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
   const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
   const allPluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
-  // Bookmarks moved to the title bar (it's a popover-style action, not a
-  // section switch) — its trigger lives in TitleBar.tsx now, this just
-  // keeps the same registry entry from rendering twice.
-  const pluginSidebarViews = allPluginSidebarViews.filter((v) => v.id !== "core.bookmarks");
+  // Bookmarks live in the title bar. Every other plugin view stays
+  // reachable below the built-in ribbon actions.
+  const pluginSidebarViews = allPluginSidebarViews.filter((view) => view.id !== "core.bookmarks");
 
   function showSidebarView(view: string) {
     if (!sidebarCollapsed && sidebarView === view) {
@@ -34,84 +62,77 @@ export function Ribbon({ onOpenFolder }: RibbonProps) {
   }
 
   return (
-    <div className="ribbon">
-      <Tooltip label={t("sidebar.openFolder")} placement="right">
-        <button
-          type="button"
-          className="ribbon-btn"
-          onClick={onOpenFolder}
-        >
-          <FolderOpen size={18} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
-      <Tooltip label={t("tags.title")} placement="right">
-        <button
-          type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "tags" ? " ribbon-btn-active" : ""}`}
+    <nav className="ribbon" aria-label={t("ribbon.navigation")}>
+      <div className="ribbon-group ribbon-command-group">
+        <RibbonButton
+          label={t("ribbon.quickSwitcher")}
+          icon={FileSearch2}
+          onClick={() => runCommand("app.quickSwitcher")}
+        />
+        <RibbonButton
+          label={t("ribbon.graph")}
+          icon={GitFork}
+          onClick={() => runCommand("app.openGraph")}
+        />
+        <RibbonButton
+          label={t("ribbon.newCanvas")}
+          icon={LayoutDashboard}
+          onClick={() => runCommand("canvas.new")}
+        />
+        <RibbonButton
+          label={t("ribbon.todayNote")}
+          icon={CalendarDays}
+          onClick={() => runCommand("dailyNotes.openToday")}
+        />
+        <RibbonButton
+          label={t("ribbon.insertTemplate")}
+          icon={CopyPlus}
+          onClick={() => runCommand("templates.insertAtCursor")}
+        />
+        <RibbonButton
+          label={t("ribbon.commandPalette")}
+          icon={Terminal}
+          onClick={() => runCommand("app.commandPalette")}
+        />
+      </div>
+
+      <div className="ribbon-separator" aria-hidden="true" />
+
+      <div className="ribbon-group ribbon-view-group">
+        <RibbonButton
+          label={t("tags.title")}
+          icon={Hash}
+          active={!sidebarCollapsed && sidebarView === "tags"}
           onClick={() => showSidebarView("tags")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M9 3 7.5 21M16.5 3 15 21M3.5 8.5h17M2.5 15.5h17" />
-          </svg>
-        </button>
-      </Tooltip>
-      <Tooltip label={t("tasks.title")} placement="right">
-        <button
-          type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "tasks" ? " ribbon-btn-active" : ""}`}
+        />
+        <RibbonButton
+          label={t("tasks.title")}
+          icon={ListChecks}
+          active={!sidebarCollapsed && sidebarView === "tasks"}
           onClick={() => showSidebarView("tasks")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M4 6h2l1.5 1.5L10 5M4 12h2l1.5 1.5L10 10M4 18h2l1.5 1.5L10 16M13 6h7M13 12h7M13 18h7" />
-          </svg>
-        </button>
-      </Tooltip>
-      <Tooltip label={t("calendar.title")} placement="right">
-        <button
-          type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "calendar" ? " ribbon-btn-active" : ""}`}
+        />
+        <RibbonButton
+          label={t("calendar.title")}
+          icon={Calendar}
+          active={!sidebarCollapsed && sidebarView === "calendar"}
           onClick={() => showSidebarView("calendar")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <rect x="3.5" y="5" width="17" height="16" rx="1.5" />
-            <path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" />
-          </svg>
-        </button>
-      </Tooltip>
-      <Tooltip label={t("git.title")} placement="right">
-        <button
-          type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "sync" ? " ribbon-btn-active" : ""}`}
+        />
+        <RibbonButton
+          label={t("git.title")}
+          icon={GitBranch}
+          active={!sidebarCollapsed && sidebarView === "sync"}
           onClick={() => showSidebarView("sync")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <circle cx="6" cy="6" r="2.2" />
-            <circle cx="6" cy="18" r="2.2" />
-            <circle cx="18" cy="12" r="2.2" />
-            <path d="M6 8.2V15.8M8.2 12H15.8M8 6.5c4 0 6 2 6 5.5" />
-          </svg>
-        </button>
-      </Tooltip>
-      <Tooltip label={t("graph.title")} placement="right">
-        <button
-          type="button"
-          className="ribbon-btn"
-          onClick={() => openGraph()}
-        >
-          <Network size={18} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
-      {pluginSidebarViews.map(({ id, titleKey, icon: Icon }) => (
-        <Tooltip key={id} label={t(titleKey)} placement="right">
-          <button
-            type="button"
-            className={`ribbon-btn${!sidebarCollapsed && sidebarView === id ? " ribbon-btn-active" : ""}`}
+        />
+        {pluginSidebarViews.map(({ id, titleKey, icon }) => (
+          <RibbonButton
+            key={id}
+            label={t(titleKey)}
+            icon={icon}
+            active={!sidebarCollapsed && sidebarView === id}
             onClick={() => showSidebarView(id)}
-          >
-            <Icon size={18} />
-          </button>
-        </Tooltip>
-      ))}
-    </div>
+          />
+        ))}
+      </div>
+    </nav>
   );
 }
