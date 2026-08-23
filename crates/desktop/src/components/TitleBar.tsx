@@ -146,7 +146,6 @@ export function TitleBar() {
           <Bookmark size={16} strokeWidth={1.75} />
         </button>
       </Tooltip>
-      <div className="titlebar-drag-fill" data-tauri-drag-region />
       {singlePane && <TabBar pane={singlePane} />}
       <div className="titlebar-drag-fill" data-tauri-drag-region />
       {/* Everything from here on is one adjacent cluster pinned to the true
