@@ -17,7 +17,15 @@ function groupByFile(backlinks: Backlink[]): [string, Backlink[]][] {
   return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-export function BacklinksPanel({ path }: { path: string }) {
+export function BacklinksPanel({
+  path,
+  query = "",
+  reversed = false,
+}: {
+  path: string;
+  query?: string;
+  reversed?: boolean;
+}) {
   const { t } = useTranslation();
   const changeVersion = useVaultStore((s) => s.changeVersion);
   const jumpToLine = useWorkspaceStore((s) => s.jumpToLine);
@@ -40,6 +48,28 @@ export function BacklinksPanel({ path }: { path: string }) {
   }, [path, changeVersion]);
 
   const grouped = useMemo(() => groupByFile(backlinks), [backlinks]);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleGroups = useMemo(() => {
+    const filtered = grouped
+      .map(([fromPath, items]) => [
+        fromPath,
+        normalizedQuery
+          ? items.filter((item) =>
+              `${fromPath} ${item.context}`.toLocaleLowerCase().includes(normalizedQuery),
+            )
+          : items,
+      ] as [string, Backlink[]])
+      .filter(([, items]) => items.length > 0);
+    return reversed ? filtered.reverse() : filtered;
+  }, [grouped, normalizedQuery, reversed]);
+  const visibleMentions = useMemo(() => {
+    const filtered = normalizedQuery
+      ? mentions.filter((mention) =>
+          `${mention.fromPath} ${mention.context}`.toLocaleLowerCase().includes(normalizedQuery),
+        )
+      : [...mentions];
+    return reversed ? filtered.reverse() : filtered;
+  }, [mentions, normalizedQuery, reversed]);
 
   async function link(mention: Mention) {
     await api.linkMention(mention.fromPath, mention.start, mention.end, displayName(path));
@@ -50,13 +80,14 @@ export function BacklinksPanel({ path }: { path: string }) {
     <div className="backlinks-panel">
       <section>
         <h3 className="side-panel-heading">
-          {t("backlinks.title")} ({backlinks.length})
+          <span>{t("backlinks.title")}</span>
+          <span className="side-panel-count">{visibleGroups.reduce((sum, [, items]) => sum + items.length, 0)}</span>
         </h3>
-        {grouped.length === 0 ? (
+        {visibleGroups.length === 0 ? (
           <p className="side-panel-empty">{t("backlinks.empty")}</p>
         ) : (
           <ul className="backlinks-group-list">
-            {grouped.map(([fromPath, items]) => (
+            {visibleGroups.map(([fromPath, items]) => (
               <li key={fromPath} className="backlink-group">
                 <div className="backlink-source">{displayName(fromPath)}</div>
                 <ul className="backlinks-list">
@@ -80,13 +111,14 @@ export function BacklinksPanel({ path }: { path: string }) {
 
       <section>
         <h3 className="side-panel-heading">
-          {t("backlinks.unlinkedTitle")} ({mentions.length})
+          <span>{t("backlinks.unlinkedTitle")}</span>
+          <span className="side-panel-count">{visibleMentions.length}</span>
         </h3>
-        {mentions.length === 0 ? (
+        {visibleMentions.length === 0 ? (
           <p className="side-panel-empty">{t("backlinks.unlinkedEmpty")}</p>
         ) : (
           <ul className="backlinks-list">
-            {mentions.map((m, i) => (
+            {visibleMentions.map((m, i) => (
               <li key={`${m.fromPath}-${i}`} className="backlink-item">
                 <div className="backlink-source">{displayName(m.fromPath)}</div>
                 <div className="backlink-context">{m.context}</div>

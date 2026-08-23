@@ -6,7 +6,15 @@ import { useWorkspaceStore } from "../../store/workspaceStore";
 
 const DEBOUNCE_MS = 300;
 
-export function OutlinePanel({ path }: { path: string }) {
+export function OutlinePanel({
+  path,
+  query = "",
+  reversed = false,
+}: {
+  path: string;
+  query?: string;
+  reversed?: boolean;
+}) {
   const { t } = useTranslation();
   const content = useWorkspaceStore((s) => s.buffers[path]?.content ?? "");
   const [debouncedContent, setDebouncedContent] = useState(content);
@@ -18,6 +26,13 @@ export function OutlinePanel({ path }: { path: string }) {
   }, [content]);
 
   const headings = useMemo(() => extractOutline(debouncedContent), [debouncedContent]);
+  const visibleHeadings = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    const filtered = normalized
+      ? headings.filter((heading) => heading.text.toLocaleLowerCase().includes(normalized))
+      : headings;
+    return reversed ? [...filtered].reverse() : filtered;
+  }, [headings, query, reversed]);
 
   // Scroll-spy: highlight whichever heading is at or just above the top of
   // the editor's visible area, mirroring what's actually on screen.
@@ -59,13 +74,13 @@ export function OutlinePanel({ path }: { path: string }) {
     view.focus();
   }
 
-  if (headings.length === 0) {
+  if (visibleHeadings.length === 0) {
     return <p className="side-panel-empty">{t("outline.empty")}</p>;
   }
 
   return (
     <ul className="outline-list">
-      {headings.map((h) => (
+      {visibleHeadings.map((h) => (
         <li key={h.position}>
           <button
             type="button"

@@ -89,8 +89,8 @@
     "embedLoadError": "Failed to load note"
   },
   "backlinks": {
-    "title": "Backlinks",
-    "empty": "Nothing links here yet",
+    "title": "Linked mentions",
+    "empty": "No linked mentions found.",
     "unlinkedTitle": "Unlinked mentions",
     "unlinkedEmpty": "No unlinked mentions",
     "linkButton": "Link"

@@ -1,8 +1,8 @@
 /* Размеры каркаса и типографика — одинаковые в обеих темах. */
 :root {
-  --ribbon-width: 44px;
-  --sidebar-width: 300px;
-  --titlebar-h: 40px;
+  --ribbon-width: 38px;
+  --sidebar-width: 270px;
+  --titlebar-h: 42px;
   --tabbar-h: 40px;
   --breadcrumb-h: 38px;
   --statusbar-h: 24px;
@@ -27,6 +27,8 @@
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-tertiary: #ececec;
+  --bg-sidebar: #f3f3f3;
+  --bg-titlebar: #e7e7e7;
   --bg-hover: rgba(0, 0, 0, 0.055);
   --bg-active: rgba(0, 0, 0, 0.09);
   --text-normal: #1a1a1a;
@@ -51,6 +53,8 @@
   --bg-primary: #1e1e1e;
   --bg-secondary: #161616;
   --bg-tertiary: #242424;
+  --bg-sidebar: #242424;
+  --bg-titlebar: #303030;
   --bg-hover: rgba(255, 255, 255, 0.055);
   --bg-active: rgba(255, 255, 255, 0.09);
   --text-normal: #dadada;

@@ -4,11 +4,9 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  /* Lines up with .sidebar-actions, the sidebar's first real row now that
-     the section-title header is gone (both are 32px tall with the same
-     top inset, so their centers land on the same line). */
-  padding: 6px 0;
-  background: var(--bg-secondary);
+  /* Lines up with the 38px file-toolbar row at the top of the sidebar. */
+  padding: 4px 0;
+  background: var(--bg-sidebar);
 }
 
 .ribbon-btn {

@@ -2,25 +2,25 @@
   display: grid;
   grid-template-rows: var(--titlebar-h) 1fr;
   grid-template-areas:
-    "titlebar titlebar titlebar titlebar titlebar"
-    "ribbon sidebar resizer workspace rightpanel";
+    "titlebar titlebar titlebar titlebar titlebar titlebar"
+    "ribbon sidebar resizer workspace rightresizer rightpanel";
   height: 100vh;
   overflow: hidden;
   /* The dark backdrop the lighter `.workspace` surface sits on top of —
      its own `border-top-left-radius` reveals this color through the
      geometric corner cut, instead of a third tone or a border/shadow. */
-  background: var(--bg-secondary);
+  background: var(--bg-sidebar);
 }
 
 .app-shell.no-vault {
   grid-template-areas:
-    "titlebar titlebar titlebar titlebar"
-    "ribbon sidebar resizer workspace";
+    "titlebar titlebar titlebar titlebar titlebar titlebar"
+    "ribbon sidebar resizer workspace rightresizer rightpanel";
 }
 
 .sidebar {
   grid-area: sidebar;
-  background: var(--bg-secondary);
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -30,8 +30,9 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 32px;
-  margin-top: 6px;
+  justify-content: flex-end;
+  margin-top: 0;
+  height: 38px;
   padding: 0 8px;
   flex-shrink: 0;
 }
@@ -131,6 +132,13 @@
 
 .sidebar-resizer {
   grid-area: resizer;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.right-panel-resizer {
+  grid-area: rightresizer;
   width: 4px;
   cursor: col-resize;
   background: transparent;

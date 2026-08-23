@@ -48,7 +48,11 @@ import { PaneGroup } from "./Workspace/PaneGroup";
 
 const SIDEBAR_MIN = 180;
 const SIDEBAR_MAX = 500;
-const SIDEBAR_DEFAULT = 300;
+const SIDEBAR_DEFAULT = 270;
+const RIGHT_PANEL_MIN = 220;
+const RIGHT_PANEL_MAX = 500;
+const RIGHT_PANEL_DEFAULT = 290;
+const RIBBON_WIDTH = 38;
 
 export function AppShell() {
   const { t, i18n } = useTranslation();
@@ -78,6 +82,8 @@ export function AppShell() {
   const setUnusedAttachmentsOpen = useUiStore((s) => s.setUnusedAttachmentsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_DEFAULT);
+  const rightResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const pluginSidebarViews = useSyncExternalStore(sidebarViewRegistry.subscribe, sidebarViewRegistry.getSnapshot);
   const activePluginSidebarView = pluginSidebarViews.find((v) => v.id === sidebarView);
 
@@ -290,20 +296,46 @@ export function AppShell() {
     window.addEventListener("mouseup", onUp);
   }
 
+  function startRightResize(e: React.MouseEvent) {
+    rightResizeRef.current = { startX: e.clientX, startWidth: rightPanelWidth };
+    const onMove = (ev: MouseEvent) => {
+      if (!rightResizeRef.current) return;
+      const width = Math.min(
+        RIGHT_PANEL_MAX,
+        Math.max(
+          RIGHT_PANEL_MIN,
+          rightResizeRef.current.startWidth + rightResizeRef.current.startX - ev.clientX,
+        ),
+      );
+      setRightPanelWidth(width);
+    };
+    const onUp = () => {
+      rightResizeRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() : "";
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
-  const rightPanelWidth = tree && !rightPanelCollapsed ? "280px" : "0px";
+  const effectiveRightPanelWidth = tree && !rightPanelCollapsed ? rightPanelWidth : 0;
   const columns = tree
-    ? `var(--ribbon-width) ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelWidth}`
-    : `var(--ribbon-width) var(--sidebar-width) 4px 1fr 0px`;
+    ? `var(--ribbon-width) ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelCollapsed ? "0px" : "4px"} ${effectiveRightPanelWidth}px`
+    : `var(--ribbon-width) var(--sidebar-width) 4px 1fr 0px 0px`;
 
   return (
     <div
       className={tree ? "app-shell" : "app-shell no-vault"}
       style={{ gridTemplateColumns: columns }}
     >
-      <TitleBar onOpenFolder={() => void openFolder()} />
+      <TitleBar
+        onOpenFolder={() => void openFolder()}
+        leftPanelWidth={RIBBON_WIDTH + effectiveSidebarWidth + (sidebarCollapsed ? 0 : 4)}
+        rightPanelWidth={effectiveRightPanelWidth + (tree && !rightPanelCollapsed ? 4 : 0)}
+      />
       <Ribbon onOpenSettings={() => setSettingsOpen(true)} />
       {!sidebarCollapsed && (
         <aside className="sidebar">
@@ -413,6 +445,9 @@ export function AppShell() {
         )}
         <StatusBar />
       </main>
+      {tree && !rightPanelCollapsed && (
+        <div className="right-panel-resizer" onMouseDown={startRightResize} />
+      )}
       {tree && !rightPanelCollapsed && <RightPanel />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <CommandPalette />

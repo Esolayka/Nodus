@@ -1,55 +1,57 @@
 .right-panel {
   grid-area: rightpanel;
-  background: var(--bg-secondary);
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
 }
 
-.right-panel-tabs {
+.right-panel-toolbar {
   display: flex;
-  height: 36px;
-  background: var(--bg-secondary);
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 38px;
+  padding: 0 8px;
+  background: var(--bg-sidebar);
   flex-shrink: 0;
 }
 
-.right-panel-tabs .tooltip-wrap {
-  flex: 1;
-  display: flex;
-}
-
-.right-panel-tabs button {
-  flex: 1;
-  display: flex;
+.right-panel-toolbar button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  border-radius: 0;
+  width: 28px;
+  height: 28px;
   padding: 0;
   color: var(--text-faint);
-  position: relative;
   background: transparent;
+  border-radius: var(--radius-md);
 }
 
-.right-panel-tabs button:hover {
+.right-panel-toolbar button:hover,
+.right-panel-toolbar button.active {
+  color: var(--text-normal);
   background: var(--bg-hover);
-  color: var(--text-normal);
 }
 
-.right-panel-tabs button.active {
-  color: var(--text-normal);
+.right-panel-search {
+  height: 32px;
+  padding: 2px 8px 4px;
+  background: var(--bg-sidebar);
 }
 
-.right-panel-tabs button.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
+.right-panel-search input {
+  width: 100%;
+  height: 28px;
+  padding: 0 9px;
+  color: var(--text-normal);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-small);
+  outline: none;
 }
 
 .right-panel-body {
@@ -93,14 +95,29 @@
 }
 
 .side-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
   margin: 0 0 8px;
 }
 
+.side-panel-count {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
 .right-panel-body section {
-  padding: 12px;
+  padding: 12px 20px;
+}
+
+.backlinks-panel .side-panel-empty {
+  display: block;
+  padding: 0;
+  text-align: left;
 }
 
 .outline-list {

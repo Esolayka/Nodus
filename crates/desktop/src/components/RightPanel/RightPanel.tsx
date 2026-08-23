@@ -1,8 +1,8 @@
-import { useSyncExternalStore, type ComponentType } from "react";
-import { List, Link2, History as HistoryIcon, Network } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { ArrowDownAZ, ArrowUpAZ, Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { rightPanelTabRegistry } from "../../lib/rightPanelTabRegistry";
-import { useUiStore, type RightPanelTab } from "../../store/uiStore";
+import { useUiStore } from "../../store/uiStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { LocalGraph } from "../Graph/LocalGraph";
 import { Tooltip } from "../ui/Tooltip";
@@ -11,23 +11,12 @@ import { HistoryPanel } from "./HistoryPanel";
 import { OutlinePanel } from "./OutlinePanel";
 import "./RightPanel.css";
 
-interface TabDescriptor {
-  id: RightPanelTab;
-  labelKey: string;
-  icon: ComponentType<{ size?: number }>;
-}
-
-const BUILTIN_TABS: TabDescriptor[] = [
-  { id: "outline", labelKey: "rightPanel.outline", icon: List },
-  { id: "backlinks", labelKey: "rightPanel.backlinks", icon: Link2 },
-  { id: "history", labelKey: "rightPanel.history", icon: HistoryIcon },
-  { id: "graph", labelKey: "rightPanel.graph", icon: Network },
-];
-
 export function RightPanel() {
   const { t } = useTranslation();
   const tab = useUiStore((s) => s.rightPanelTab);
-  const setTab = useUiStore((s) => s.setRightPanelTab);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sortReversed, setSortReversed] = useState(false);
   const pluginTabs = useSyncExternalStore(
     rightPanelTabRegistry.subscribe,
     rightPanelTabRegistry.getSnapshot,
@@ -37,35 +26,68 @@ export function RightPanel() {
     return pane?.activePath ?? null;
   });
 
-  const tabs: TabDescriptor[] = [...BUILTIN_TABS, ...pluginTabs];
-
   const activePluginTab = pluginTabs.find((entry) => entry.id === tab);
+  const hasListTools = tab === "outline" || tab === "backlinks";
 
   return (
     <aside className="right-panel">
-      <div className="right-panel-tabs">
-        {tabs.map(({ id, labelKey, icon: Icon }) => (
-          <Tooltip key={id} label={t(labelKey)} placement="bottom">
-            <button
-              type="button"
-              aria-label={t(labelKey)}
-              className={tab === id ? "active" : ""}
-              onClick={() => setTab(id)}
-            >
-              <Icon size={16} />
-            </button>
-          </Tooltip>
-        ))}
+      <div className="right-panel-toolbar">
+        {hasListTools && (
+          <>
+            <Tooltip label={t("fileTree.sort")} placement="bottom">
+              <button
+                type="button"
+                aria-label={t("fileTree.sort")}
+                className={sortReversed ? "active" : ""}
+                onClick={() => setSortReversed((value) => !value)}
+              >
+                {sortReversed ? (
+                  <ArrowUpAZ size={16} strokeWidth={1.75} />
+                ) : (
+                  <ArrowDownAZ size={16} strokeWidth={1.75} />
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip label={t("search.title")} placement="bottom">
+              <button
+                type="button"
+                aria-label={t("search.title")}
+                className={searchOpen ? "active" : ""}
+                onClick={() => {
+                  setSearchOpen((value) => !value);
+                  if (searchOpen) setQuery("");
+                }}
+              >
+                {searchOpen ? (
+                  <X size={16} strokeWidth={1.75} />
+                ) : (
+                  <Search size={16} strokeWidth={1.75} />
+                )}
+              </button>
+            </Tooltip>
+          </>
+        )}
       </div>
+      {searchOpen && hasListTools && (
+        <label className="right-panel-search">
+          <input
+            autoFocus
+            type="search"
+            value={query}
+            placeholder={t("graph.searchPlaceholder")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      )}
       <div className="right-panel-body right-panel-body-nopad">
         {tab === "graph" ? (
           <LocalGraph />
         ) : !activePath ? (
           <p className="right-panel-empty">{t("rightPanel.noNote")}</p>
         ) : tab === "outline" ? (
-          <OutlinePanel path={activePath} />
+          <OutlinePanel path={activePath} query={query} reversed={sortReversed} />
         ) : tab === "backlinks" ? (
-          <BacklinksPanel path={activePath} />
+          <BacklinksPanel path={activePath} query={query} reversed={sortReversed} />
         ) : tab === "history" ? (
           <HistoryPanel path={activePath} />
         ) : activePluginTab ? (
