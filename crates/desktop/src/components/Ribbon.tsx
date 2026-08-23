@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { FolderOpen } from "lucide-react";
 import { sidebarViewRegistry } from "../lib/sidebarViewRegistry";
 import { useUiStore } from "../store/uiStore";
 import { useWorkspaceStore } from "../store/workspaceStore";
@@ -7,10 +8,11 @@ import { Tooltip } from "./ui/Tooltip";
 import "./Ribbon.css";
 
 interface RibbonProps {
+  onOpenFolder: () => void;
   onOpenSettings: () => void;
 }
 
-export function Ribbon({ onOpenSettings }: RibbonProps) {
+export function Ribbon({ onOpenFolder, onOpenSettings }: RibbonProps) {
   const { t } = useTranslation();
   const openGraph = useWorkspaceStore((s) => s.openGraph);
   const graphActive = useWorkspaceStore((s) =>
@@ -37,15 +39,13 @@ export function Ribbon({ onOpenSettings }: RibbonProps) {
 
   return (
     <div className="ribbon">
-      <Tooltip label={t("sidebar.filesView")} placement="right">
+      <Tooltip label={t("sidebar.openFolder")} placement="right">
         <button
           type="button"
-          className={`ribbon-btn${!sidebarCollapsed && sidebarView === "files" ? " ribbon-btn-active" : ""}`}
-          onClick={() => showSidebarView("files")}
+          className="ribbon-btn"
+          onClick={onOpenFolder}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M5 4h5l2 2h7a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-          </svg>
+          <FolderOpen size={18} strokeWidth={1.75} />
         </button>
       </Tooltip>
       <Tooltip label={t("tags.title")} placement="right">

@@ -332,11 +332,13 @@ export function AppShell() {
       style={{ gridTemplateColumns: columns }}
     >
       <TitleBar
-        onOpenFolder={() => void openFolder()}
         leftPanelWidth={RIBBON_WIDTH + effectiveSidebarWidth + (sidebarCollapsed ? 0 : 4)}
         rightPanelWidth={effectiveRightPanelWidth + (tree && !rightPanelCollapsed ? 4 : 0)}
       />
-      <Ribbon onOpenSettings={() => setSettingsOpen(true)} />
+      <Ribbon
+        onOpenFolder={() => void openFolder()}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       {!sidebarCollapsed && (
         <aside className="sidebar">
           {sidebarView === "files" && (

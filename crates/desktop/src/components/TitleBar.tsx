@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Bookmark, ChevronDown, FolderOpen, Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
+import { Bookmark, ChevronDown, Folder, Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
 import { displayName } from "../lib/displayName";
 import { isEmptyTab, useWorkspaceStore } from "../store/workspaceStore";
 import { useUiStore } from "../store/uiStore";
@@ -74,11 +74,9 @@ function TabListMenu({ paneId, tabs }: { paneId: string; tabs: string[] }) {
 }
 
 export function TitleBar({
-  onOpenFolder,
   leftPanelWidth,
   rightPanelWidth,
 }: {
-  onOpenFolder: () => void;
   leftPanelWidth: number;
   rightPanelWidth: number;
 }) {
@@ -92,10 +90,8 @@ export function TitleBar({
   const panes = useWorkspaceStore((s) => s.panes);
   const singlePane = panes.length === 1 ? panes[0] : null;
 
-  // Actions that open something *over* the current view (a sidebar panel
-  // swap counts, since it isn't switching which section of the workspace
-  // you're in the way Files/Graph/Tags do) live in the top bar, next to the
-  // tabs — not in the left column, which is reserved for section switches.
+  // The primary file view follows Obsidian's placement in the top bar;
+  // auxiliary sidebar views remain in the vertical ribbon.
   function showSidebarView(view: string) {
     if (!sidebarCollapsed && sidebarView === view) {
       toggleSidebarCollapsed();
@@ -121,9 +117,13 @@ export function TitleBar({
             <PanelLeft size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
-        <Tooltip label={t("sidebar.openFolder")} placement="bottom">
-          <button type="button" className="titlebar-app-btn" onClick={onOpenFolder}>
-            <FolderOpen size={16} strokeWidth={1.75} />
+        <Tooltip label={t("sidebar.filesView")} placement="bottom">
+          <button
+            type="button"
+            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "files" ? " active" : ""}`}
+            onClick={() => showSidebarView("files")}
+          >
+            <Folder size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
         <Tooltip label={t("search.title")} placement="bottom">
