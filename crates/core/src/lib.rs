@@ -30,8 +30,8 @@ pub use git_sync::{
 pub use heading::Heading;
 pub use history::{DisplayLine, DisplayLineKind, HistorySettings, VersionInfo};
 pub use index::{
-    Backlink, GraphData, GraphLink, GraphNode, HeadingEntry, Mention, OutgoingLink, PropertyRow,
-    TagCount, TaskRow,
+    Backlink, GraphData, GraphLink, GraphNode, GraphNodeKind, HeadingEntry, Mention, OutgoingLink,
+    PropertyRow, TagCount, TaskRow,
 };
 pub use replace::{ReplaceFilePreview, ReplaceLineMatch, ReplaceSelection};
 pub use search::{SearchFileResult, SearchLineMatch};

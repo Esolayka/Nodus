@@ -35,6 +35,8 @@ export interface HeadingEntry {
 export interface GraphNode {
   path: string;
   title: string;
+  kind: "note" | "tag" | "attachment" | "unresolved";
+  createdAt: number;
 }
 
 export interface GraphLink {

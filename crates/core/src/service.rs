@@ -285,7 +285,7 @@ impl VaultService {
     }
 
     pub fn graph(&self) -> Result<GraphData> {
-        self.index.graph()
+        self.index.graph(&self.vault)
     }
 
     pub fn unlinked_mentions(&self, target_path: &str) -> Result<Vec<Mention>> {

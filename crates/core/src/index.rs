@@ -7,6 +7,7 @@
 //! stale row can at worst mean a missed candidate, never a wrong on-screen
 //! snippet or a corrupted rewrite.
 
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
@@ -155,11 +156,24 @@ pub struct Mention {
     pub end: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GraphNodeKind {
+    Note,
+    Tag,
+    Attachment,
+    Unresolved,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphNode {
     pub path: String,
     pub title: String,
+    pub kind: GraphNodeKind,
+    /// Unix timestamp used by the graph's chronological animation. On
+    /// filesystems that do not expose birth time this falls back to mtime.
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -169,9 +183,10 @@ pub struct GraphLink {
     pub to_path: String,
 }
 
-/// Everything the graph view needs to draw: all indexed notes plus every
-/// resolved link between them. Unresolved links (`to_path IS NULL`) are
-/// skipped — a node that doesn't exist yet can't be drawn.
+/// Everything the graph view needs to draw. Besides notes this deliberately
+/// includes tag nodes, attachment files and unresolved wikilink targets so
+/// the frontend can implement Obsidian's graph filters without inventing
+/// data or making a second pass over the vault itself.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphData {
@@ -195,6 +210,22 @@ fn mtime_of(vault: &Vault, relative: &str) -> Result<i64> {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0))
+}
+
+fn created_at_of(vault: &Vault, relative: &str, fallback: i64) -> i64 {
+    let Ok(absolute) = vault.resolve(relative) else {
+        return fallback;
+    };
+    let Ok(metadata) = std::fs::metadata(absolute) else {
+        return fallback;
+    };
+    metadata
+        .created()
+        .or_else(|_| metadata.modified())
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(fallback)
 }
 
 /// 1-indexed line number of the line containing byte offset `pos`.
@@ -541,43 +572,119 @@ impl Index {
         resolve_target_locked(&conn, target, from_path)
     }
 
-    /// Every note and every resolved link, for the graph view.
-    pub fn graph(&self) -> Result<GraphData> {
+    /// Every graphable vault item and relationship, for the graph view.
+    pub fn graph(&self, vault: &Vault) -> Result<GraphData> {
         let conn = self.conn.lock().expect("index mutex poisoned");
-        let mut nodes = Vec::new();
-        {
-            let mut stmt = conn
-                .prepare("SELECT path, title FROM notes")
-                .map_err(index_err)?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok(GraphNode {
-                        path: row.get(0)?,
-                        title: row.get(1)?,
-                    })
-                })
-                .map_err(index_err)?;
-            for row in rows {
-                nodes.push(row.map_err(index_err)?);
-            }
+        let note_rows: Vec<(String, String, i64)> = conn
+            .prepare("SELECT path, title, mtime FROM notes ORDER BY path")
+            .map_err(index_err)?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        let raw_links: Vec<(String, Option<String>, String, String)> = conn
+            .prepare(
+                "SELECT from_path, to_path, target_text, kind
+                 FROM links ORDER BY from_path, byte_offset",
+            )
+            .map_err(index_err)?
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        let tag_rows: Vec<(String, String)> = conn
+            .prepare("SELECT DISTINCT path, tag FROM tags ORDER BY path, tag")
+            .map_err(index_err)?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        drop(conn);
+
+        let mut nodes_by_path = BTreeMap::<String, GraphNode>::new();
+        let mut note_created_at = HashMap::<String, i64>::new();
+        for (path, title, mtime) in note_rows {
+            let created_at = created_at_of(vault, &path, mtime);
+            note_created_at.insert(path.clone(), created_at);
+            nodes_by_path.insert(
+                path.clone(),
+                GraphNode {
+                    path,
+                    title,
+                    kind: GraphNodeKind::Note,
+                    created_at,
+                },
+            );
         }
-        let mut links = Vec::new();
-        {
-            let mut stmt = conn
-                .prepare("SELECT from_path, to_path FROM links WHERE to_path IS NOT NULL")
-                .map_err(index_err)?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok(GraphLink {
-                        from_path: row.get(0)?,
-                        to_path: row.get(1)?,
-                    })
-                })
-                .map_err(index_err)?;
-            for row in rows {
-                links.push(row.map_err(index_err)?);
-            }
+
+        let attachment_paths: Vec<String> = crate::attachments::list_all_files(vault)
+            .into_iter()
+            .filter(|path| !path.to_lowercase().ends_with(".md"))
+            .collect();
+        let mut attachments_by_basename = HashMap::<String, Vec<String>>::new();
+        let mut attachments_by_path = HashMap::<String, String>::new();
+        for path in &attachment_paths {
+            attachments_by_path.insert(path.to_lowercase(), path.clone());
+            attachments_by_basename
+                .entry(path.rsplit('/').next().unwrap_or(path).to_lowercase())
+                .or_default()
+                .push(path.clone());
+            let title = path.rsplit('/').next().unwrap_or(path).to_string();
+            nodes_by_path.insert(
+                path.clone(),
+                GraphNode {
+                    path: path.clone(),
+                    title,
+                    kind: GraphNodeKind::Attachment,
+                    created_at: created_at_of(vault, path, 0),
+                },
+            );
         }
+
+        let mut link_pairs = BTreeSet::<(String, String)>::new();
+        for (from_path, to_path, target_text, _kind) in raw_links {
+            let resolved = to_path.or_else(|| {
+                resolve_attachment_target(
+                    &target_text,
+                    &from_path,
+                    &attachments_by_path,
+                    &attachments_by_basename,
+                )
+            });
+            let target_path = if let Some(path) = resolved {
+                path
+            } else {
+                let normalized = target_text.trim().to_lowercase();
+                let path = format!("unresolved:{normalized}");
+                nodes_by_path.entry(path.clone()).or_insert_with(|| GraphNode {
+                    path: path.clone(),
+                    title: target_text.trim().to_string(),
+                    kind: GraphNodeKind::Unresolved,
+                    created_at: note_created_at.get(&from_path).copied().unwrap_or(0),
+                });
+                path
+            };
+            link_pairs.insert((from_path, target_path));
+        }
+
+        for (note_path, tag) in tag_rows {
+            let tag_path = format!("tag:#{tag}");
+            nodes_by_path.entry(tag_path.clone()).or_insert_with(|| GraphNode {
+                path: tag_path.clone(),
+                title: format!("#{tag}"),
+                kind: GraphNodeKind::Tag,
+                created_at: note_created_at.get(&note_path).copied().unwrap_or(0),
+            });
+            link_pairs.insert((note_path, tag_path));
+        }
+
+        let nodes = nodes_by_path.into_values().collect();
+        let links = link_pairs
+            .into_iter()
+            .map(|(from_path, to_path)| GraphLink { from_path, to_path })
+            .collect();
         Ok(GraphData { nodes, links })
     }
 
@@ -998,6 +1105,28 @@ fn tree_distance(from_dir: &[&str], candidate_dir: &[&str]) -> usize {
     (from_dir.len() - common) + (candidate_dir.len() - common)
 }
 
+fn resolve_attachment_target(
+    target: &str,
+    from_path: &str,
+    by_path: &HashMap<String, String>,
+    by_basename: &HashMap<String, Vec<String>>,
+) -> Option<String> {
+    let normalized = target.trim().replace('\\', "/");
+    if normalized.contains('/') {
+        return by_path.get(&normalized.to_lowercase()).cloned();
+    }
+    let candidates = by_basename.get(&normalized.to_lowercase())?;
+    let from_dir = dir_components(from_path);
+    candidates
+        .iter()
+        .min_by(|a, b| {
+            let a_distance = tree_distance(&from_dir, &dir_components(a));
+            let b_distance = tree_distance(&from_dir, &dir_components(b));
+            a_distance.cmp(&b_distance).then_with(|| a.cmp(b))
+        })
+        .cloned()
+}
+
 fn index_err(e: rusqlite::Error) -> Error {
     Error::Watch(format!("index error: {e}"))
 }
@@ -1131,7 +1260,7 @@ mod tests {
     }
 
     #[test]
-    fn graph_returns_all_notes_and_resolved_links() {
+    fn graph_returns_notes_resolved_and_unresolved_links() {
         let (dir, vault, index) = setup();
         std::fs::write(dir.path().join("A.md"), "[[B]] and [[Missing]]").unwrap();
         std::fs::write(dir.path().join("B.md"), "back to [[A]]").unwrap();
@@ -1141,13 +1270,12 @@ mod tests {
         index.update_note(&vault, "A.md").unwrap();
         index.update_note(&vault, "B.md").unwrap();
 
-        let graph = index.graph().unwrap();
+        let graph = index.graph(&vault).unwrap();
 
         let mut titles: Vec<&str> = graph.nodes.iter().map(|n| n.title.as_str()).collect();
         titles.sort_unstable();
-        assert_eq!(titles, vec!["A", "B", "C"]);
-        // [[Missing]] has no note yet, so it must not produce a link.
-        assert_eq!(graph.links.len(), 2);
+        assert_eq!(titles, vec!["A", "B", "C", "Missing"]);
+        assert_eq!(graph.links.len(), 3);
         assert!(graph
             .links
             .iter()
@@ -1156,6 +1284,43 @@ mod tests {
             .links
             .iter()
             .any(|l| l.from_path == "B.md" && l.to_path == "A.md"));
+        assert!(graph.nodes.iter().any(|node| {
+            node.path == "unresolved:missing" && node.kind == GraphNodeKind::Unresolved
+        }));
+    }
+
+    #[test]
+    fn graph_returns_tag_and_attachment_nodes_and_deduplicates_edges() {
+        let (dir, vault, index) = setup();
+        std::fs::create_dir_all(dir.path().join("assets")).unwrap();
+        std::fs::write(dir.path().join("assets/photo.png"), b"png").unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "#project ![[photo.png]] and again ![[photo.png]]",
+        )
+        .unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let graph = index.graph(&vault).unwrap();
+
+        assert!(graph.nodes.iter().any(|node| {
+            node.path == "tag:#project" && node.kind == GraphNodeKind::Tag
+        }));
+        assert!(graph.nodes.iter().any(|node| {
+            node.path == "assets/photo.png" && node.kind == GraphNodeKind::Attachment
+        }));
+        assert_eq!(
+            graph
+                .links
+                .iter()
+                .filter(|link| link.from_path == "A.md" && link.to_path == "assets/photo.png")
+                .count(),
+            1
+        );
+        assert!(graph
+            .links
+            .iter()
+            .any(|link| link.from_path == "A.md" && link.to_path == "tag:#project"));
     }
 
     #[test]
