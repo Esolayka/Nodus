@@ -65,12 +65,11 @@
 }
 
 .right-panel-empty {
-  height: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   color: var(--text-faint);
-  font-size: 13px;
+  font-size: 12px;
   padding: 16px;
   text-align: center;
 }
