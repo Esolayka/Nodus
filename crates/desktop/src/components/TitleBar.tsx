@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ChevronDown, PanelLeft, PanelRight } from "lucide-react";
+import { ChevronDown, Minus, PanelLeft, PanelRight, Square, X } from "lucide-react";
 import { displayName } from "../lib/displayName";
 import { isEmptyTab, useWorkspaceStore } from "../store/workspaceStore";
 import { useUiStore } from "../store/uiStore";
@@ -83,7 +83,7 @@ export function TitleBar() {
     <header className="titlebar">
       <Tooltip label={t("sidebar.toggle")} placement="bottom">
         <button type="button" className="titlebar-app-btn" onClick={toggleSidebarCollapsed}>
-          <PanelLeft size={16} />
+          <PanelLeft size={16} strokeWidth={1.75} />
         </button>
       </Tooltip>
       {singlePane && <TabBar pane={singlePane} />}
@@ -94,28 +94,22 @@ export function TitleBar() {
       <div className="titlebar-controls">
         <Tooltip label={t("rightPanel.toggle")} placement="bottom">
           <button type="button" className="titlebar-app-btn" onClick={toggleRightPanelCollapsed}>
-            <PanelRight size={16} />
+            <PanelRight size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
         <Tooltip label={t("titleBar.minimize")} placement="bottom">
           <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("minimize")}>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M3 8h10" />
-            </svg>
+            <Minus size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
         <Tooltip label={t("titleBar.maximize")} placement="bottom">
           <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("maximize")}>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <rect x="3" y="3" width="10" height="10" rx="1.5" />
-            </svg>
+            <Square size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
         <Tooltip label={t("titleBar.close")} placement="bottom">
           <button type="button" className="titlebar-app-btn titlebar-close" onClick={() => void windowAction("close")}>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="m4 4 8 8M12 4l-8 8" />
-            </svg>
+            <X size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
       </div>

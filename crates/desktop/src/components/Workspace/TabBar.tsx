@@ -1,3 +1,4 @@
+import { FileText, Network, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { displayName } from "../../lib/displayName";
@@ -5,22 +6,11 @@ import { isEmptyTab } from "../../store/workspaceStore";
 import type { Pane } from "../../store/workspaceStore";
 
 function fileIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <path d="M4 2h5l3 3v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
-    </svg>
-  );
+  return <FileText size={14} strokeWidth={1.75} />;
 }
 
 function graphIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <circle cx="4" cy="11.5" r="1.8" />
-      <circle cx="12" cy="4.5" r="1.8" />
-      <circle cx="8" cy="12.5" r="1.8" />
-      <path d="M5.5 10.5 10.5 5.5M5.8 11.8l1.7-.6M10.3 5.3l-1.4 1.7" />
-    </svg>
-  );
+  return <Network size={14} strokeWidth={1.75} />;
 }
 
 export function TabBar({ pane }: { pane: Pane }) {
@@ -52,9 +42,7 @@ export function TabBar({ pane }: { pane: Pane }) {
               closeView(pane.id);
             }}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="m4 4 8 8M12 4l-8 8" />
-            </svg>
+            <X size={14} strokeWidth={1.75} />
           </button>
         </div>
       )}
@@ -98,9 +86,7 @@ export function TabBar({ pane }: { pane: Pane }) {
         onClick={() => openEmptyTab()}
         title={t("workspace.newTab")}
       >
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-          <path d="M8 3v10M3 8h10" />
-        </svg>
+        <Plus size={14} strokeWidth={1.75} />
       </button>
     </div>
   );
