@@ -57,12 +57,10 @@
   width: 28px;
   height: 28px;
   padding: 0;
+  flex-shrink: 0;
   color: var(--text-muted);
   background: transparent;
   border-radius: var(--radius-md);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  line-height: 1;
 }
 
 .cm-selection-toolbar button:hover {
@@ -70,24 +68,19 @@
   background: var(--bg-hover);
 }
 
-.cm-selection-toolbar .format-bold {
-  font-weight: 700;
-}
-
-.cm-selection-toolbar .format-italic {
-  font-style: italic;
-}
-
-.cm-selection-toolbar .format-strikethrough {
-  text-decoration: line-through;
-}
-
-.cm-selection-toolbar .format-code {
-  width: 34px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
+/* A hairline before the link button — it's not a text-style toggle like
+   the other four, so it reads as a separate group. */
 .cm-selection-toolbar .format-link {
-  font-size: 19px;
+  position: relative;
+  margin-left: 6px;
+}
+
+.cm-selection-toolbar .format-link::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--border);
 }

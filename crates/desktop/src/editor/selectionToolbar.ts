@@ -8,29 +8,83 @@ import {
   toggleStrikethrough,
 } from "./formatting";
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+type IconNode = [tag: string, attrs: Record<string, string>];
+
+/** Lucide's own path data (from `lucide-react`'s icon modules), built into
+ * real `<svg>` elements by hand — this isn't a React tree, it's a CodeMirror
+ * plugin's raw DOM, so the React components can't be used directly. Explicit
+ * width/height (not just viewBox) matters here: an inline `<svg>` without
+ * them renders 0x0 in the real WebKitGTK runtime even though it looks fine
+ * in a Chromium-based dev/test setup. */
+function buildIcon(nodes: IconNode[], size = 14): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.75");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  for (const [tag, attrs] of nodes) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      el.setAttribute(key, value);
+    }
+    svg.appendChild(el);
+  }
+  return svg;
+}
+
+const ICONS = {
+  bold: [["path", { d: "M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" }]],
+  italic: [
+    ["line", { x1: "19", x2: "10", y1: "4", y2: "4" }],
+    ["line", { x1: "14", x2: "5", y1: "20", y2: "20" }],
+    ["line", { x1: "15", x2: "9", y1: "4", y2: "20" }],
+  ],
+  strikethrough: [
+    ["path", { d: "M16 4H9a3 3 0 0 0-2.83 4" }],
+    ["path", { d: "M14 12a4 4 0 0 1 0 8H6" }],
+    ["line", { x1: "4", x2: "20", y1: "12", y2: "12" }],
+  ],
+  code: [
+    ["path", { d: "m18 16 4-4-4-4" }],
+    ["path", { d: "m6 8-4 4 4 4" }],
+    ["path", { d: "m14.5 4-5 16" }],
+  ],
+  link: [
+    ["path", { d: "M9 17H7A5 5 0 0 1 7 7h2" }],
+    ["path", { d: "M15 7h2a5 5 0 1 1 0 10h-2" }],
+    ["line", { x1: "8", x2: "16", y1: "12", y2: "12" }],
+  ],
+} satisfies Record<string, IconNode[]>;
+
 interface ToolbarAction {
   labelKey: string;
-  text: string;
+  icon: IconNode[];
   className: string;
   command: Command;
 }
 
 const ACTIONS: ToolbarAction[] = [
-  { labelKey: "formatting.bold", text: "B", className: "format-bold", command: toggleBold },
-  { labelKey: "formatting.italic", text: "I", className: "format-italic", command: toggleItalic },
+  { labelKey: "formatting.bold", icon: ICONS.bold, className: "format-bold", command: toggleBold },
+  { labelKey: "formatting.italic", icon: ICONS.italic, className: "format-italic", command: toggleItalic },
   {
     labelKey: "formatting.strikethrough",
-    text: "S",
+    icon: ICONS.strikethrough,
     className: "format-strikethrough",
     command: toggleStrikethrough,
   },
   {
     labelKey: "formatting.inlineCode",
-    text: "</>",
+    icon: ICONS.code,
     className: "format-code",
     command: toggleInlineCode,
   },
-  { labelKey: "formatting.link", text: "⌁", className: "format-link", command: insertLink },
+  { labelKey: "formatting.link", icon: ICONS.link, className: "format-link", command: insertLink },
 ];
 
 class SelectionToolbarView {
@@ -52,7 +106,7 @@ class SelectionToolbarView {
       const button = document.createElement("button");
       button.type = "button";
       button.className = action.className;
-      button.textContent = action.text;
+      button.appendChild(buildIcon(action.icon));
       button.addEventListener("pointerdown", (event) => event.preventDefault());
       button.addEventListener("click", () => {
         action.command(this.view);
