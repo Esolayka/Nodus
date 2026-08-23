@@ -39,6 +39,9 @@ class SelectionToolbarView {
   private readonly onScroll: () => void;
   private readonly onResize: () => void;
   private readonly onLanguageChanged: () => void;
+  private readonly onPointerDown: () => void;
+  private readonly onPointerUp: () => void;
+  private pointerSelecting = false;
 
   constructor(private readonly view: EditorView) {
     this.dom = document.createElement("div");
@@ -64,7 +67,19 @@ class SelectionToolbarView {
     this.onScroll = () => this.position();
     this.onResize = () => this.position();
     this.onLanguageChanged = () => this.translate();
+    this.onPointerDown = () => {
+      this.pointerSelecting = true;
+      this.dom.classList.remove("visible");
+    };
+    this.onPointerUp = () => {
+      if (!this.pointerSelecting) return;
+      this.pointerSelecting = false;
+      this.position();
+    };
     this.view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
+    this.view.contentDOM.addEventListener("pointerdown", this.onPointerDown);
+    document.addEventListener("pointerup", this.onPointerUp);
+    document.addEventListener("pointercancel", this.onPointerUp);
     window.addEventListener("resize", this.onResize);
     i18next.on("languageChanged", this.onLanguageChanged);
     this.translate();
@@ -85,6 +100,9 @@ class SelectionToolbarView {
 
   destroy() {
     this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
+    this.view.contentDOM.removeEventListener("pointerdown", this.onPointerDown);
+    document.removeEventListener("pointerup", this.onPointerUp);
+    document.removeEventListener("pointercancel", this.onPointerUp);
     window.removeEventListener("resize", this.onResize);
     i18next.off("languageChanged", this.onLanguageChanged);
     this.dom.remove();
@@ -103,6 +121,7 @@ class SelectionToolbarView {
     this.view.requestMeasure({
       key: this,
       read: (view) => {
+        if (this.pointerSelecting) return null;
         const range = view.state.selection.main;
         const editable = view.state.facet(EditorView.editable);
         if (!view.hasFocus || !editable || range.empty) return null;
