@@ -30,7 +30,11 @@
 
 .tab-strip {
   display: flex;
-  flex: 1;
+  /* Shrinks (and scrolls) when tabs overflow .tab-bar's width, but never
+     grows beyond its own content — growing here is what pushed the "+"
+     button away from the last tab into empty space whenever there weren't
+     enough tabs to fill the bar. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
