@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CaseSensitive, SlidersHorizontal } from "lucide-react";
+import {
+  CaseSensitive,
+  ChevronLeft,
+  Info,
+  Search as SearchIcon,
+  SlidersHorizontal,
+} from "lucide-react";
 import * as api from "../../api/vault";
 import { displayName } from "../../lib/displayName";
 import { useUiStore } from "../../store/uiStore";
@@ -40,7 +46,12 @@ function highlightedLine(text: string, ranges: [number, number][]) {
  * Obsidian also has `section:` and `[property]`; this vault doesn't
  * support those (yet), so they're deliberately left off rather than
  * advertised and silently ignored. */
-const SEARCH_OPERATORS = ["path:", "file:", "tag:", "line:"];
+const SEARCH_OPERATORS = [
+  { operator: "path:", descriptionKey: "search.operatorPath" },
+  { operator: "file:", descriptionKey: "search.operatorFile" },
+  { operator: "tag:", descriptionKey: "search.operatorTag" },
+  { operator: "line:", descriptionKey: "search.operatorLine" },
+] as const;
 
 export function SearchPanel() {
   const { t } = useTranslation();
@@ -54,10 +65,9 @@ export function SearchPanel() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [caseSensitive, setCaseSensitive] = useState(false);
-  const [inputFocused, setInputFocused] = useState(false);
   const [helpForced, setHelpForced] = useState(false);
   const debouncedQuery = useDebounced(query, DEBOUNCE_MS);
-  const showHelp = mode === "search" && (helpForced || (inputFocused && query.trim() === ""));
+  const showHelp = mode === "search" && helpForced;
 
   const [replaceWith, setReplaceWith] = useState("");
   const [skipCodeBlocks, setSkipCodeBlocks] = useState(true);
@@ -156,35 +166,31 @@ export function SearchPanel() {
 
   return (
     <div className="search-panel">
-      <div className="search-panel-modes">
-        <button
-          type="button"
-          className={`search-mode-btn${mode === "search" ? " search-mode-btn-active" : ""}`}
-          onClick={() => setMode("search")}
-        >
-          {t("search.searchMode")}
-        </button>
-        <button
-          type="button"
-          className={`search-mode-btn${mode === "replace" ? " search-mode-btn-active" : ""}`}
-          onClick={() => setMode("replace")}
-        >
-          {t("search.replaceMode")}
-        </button>
-      </div>
+      {mode === "replace" && (
+        <div className="search-replace-header">
+          <button
+            type="button"
+            className="search-replace-back"
+            aria-label={t("search.backToSearch")}
+            onClick={() => setMode("search")}
+          >
+            <ChevronLeft size={16} strokeWidth={1.75} />
+          </button>
+          <span>{t("search.replaceMode")}</span>
+        </div>
+      )}
 
       <div className="search-input-row">
-        <input
-          className="search-panel-input"
-          placeholder={mode === "search" ? t("search.placeholder") : t("search.findPlaceholder")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setInputFocused(true)}
-          onBlur={() => setInputFocused(false)}
-          autoFocus
-        />
-        {mode === "search" && (
-          <>
+        <div className="search-input-shell">
+          <SearchIcon className="search-input-icon" size={16} strokeWidth={1.75} />
+          <input
+            className="search-panel-input"
+            placeholder={mode === "search" ? t("search.placeholder") : t("search.findPlaceholder")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+          />
+          {mode === "search" && (
             <Tooltip label={t("search.caseSensitive")} placement="top">
               <button
                 type="button"
@@ -195,25 +201,47 @@ export function SearchPanel() {
                 <CaseSensitive size={16} strokeWidth={1.75} />
               </button>
             </Tooltip>
-            <Tooltip label={t("search.syntaxHelp")} placement="top">
-              <button
-                type="button"
-                className={`search-input-btn${helpForced ? " active" : ""}`}
-                aria-pressed={helpForced}
-                onClick={() => setHelpForced((v) => !v)}
-              >
-                <SlidersHorizontal size={16} strokeWidth={1.75} />
-              </button>
-            </Tooltip>
-          </>
+          )}
+        </div>
+        {mode === "search" && (
+          <Tooltip label={t("search.syntaxHelp")} placement="top">
+            <button
+              type="button"
+              className={`search-settings-btn${helpForced ? " active" : ""}`}
+              aria-label={t("search.syntaxHelp")}
+              aria-expanded={showHelp}
+              onClick={() => setHelpForced((v) => !v)}
+            >
+              <SlidersHorizontal size={16} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
         )}
       </div>
 
       {showHelp && (
-        <div className="search-syntax-help">
-          {SEARCH_OPERATORS.map((op) => (
-            <code key={op}>{op}</code>
-          ))}
+        <div className="search-syntax-help" role="dialog" aria-label={t("search.syntaxHelp")}>
+          <div className="search-syntax-title">
+            <span>{t("search.syntaxHelp")}</span>
+            <Info size={16} strokeWidth={1.75} />
+          </div>
+          <div className="search-syntax-operators">
+            {SEARCH_OPERATORS.map(({ operator, descriptionKey }) => (
+              <div className="search-syntax-row" key={operator}>
+                <code>{operator}</code>
+                <span>{t(descriptionKey)}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="search-open-replace"
+            onClick={() => {
+              setHelpForced(false);
+              setMode("replace");
+            }}
+          >
+            {t("search.openReplace")}
+          </button>
         </div>
       )}
 
@@ -238,10 +266,12 @@ export function SearchPanel() {
 
       {mode === "search" && (
         <div className="search-panel-summary">
-          {query.trim() && (
+          {query.trim() && elapsedMs != null && (
             <span>
-              {t("search.resultsSummary", { count: totalMatches, files: results.length })}
-              {elapsedMs != null && ` · ${Math.round(elapsedMs)} ms`}
+              {results.length === 0
+                ? t("search.noResults")
+                : t("search.resultsSummary", { count: totalMatches, files: results.length })}
+              {` · ${Math.round(elapsedMs)} ms`}
             </span>
           )}
         </div>
