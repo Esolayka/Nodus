@@ -3,7 +3,13 @@ import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Bookmark, ChevronDown, Folder, Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
 import { displayName } from "../lib/displayName";
-import { isEmptyTab, useWorkspaceStore } from "../store/workspaceStore";
+import {
+  GRAPH_TAB_ID,
+  isEmptyTab,
+  orderedPaneTabIds,
+  useWorkspaceStore,
+  type Pane,
+} from "../store/workspaceStore";
 import { useUiStore } from "../store/uiStore";
 import { Tooltip } from "./ui/Tooltip";
 import { TabBar } from "./Workspace/TabBar";
@@ -30,11 +36,13 @@ async function windowAction(action: "minimize" | "maximize" | "close") {
   }
 }
 
-function TabListMenu({ paneId, tabs }: { paneId: string; tabs: string[] }) {
+function TabListMenu({ pane }: { pane: Pane }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
+  const setActiveView = useWorkspaceStore((s) => s.setActiveView);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const tabs = orderedPaneTabIds(pane);
 
   useEffect(() => {
     if (!open) return;
@@ -59,11 +67,16 @@ function TabListMenu({ paneId, tabs }: { paneId: string; tabs: string[] }) {
               key={path}
               type="button"
               onClick={() => {
-                setActiveTab(paneId, path);
+                if (path === GRAPH_TAB_ID) setActiveView(pane.id, "graph");
+                else setActiveTab(pane.id, path);
                 setOpen(false);
               }}
             >
-              {isEmptyTab(path) ? t("workspace.newTab") : displayName(path)}
+              {path === GRAPH_TAB_ID
+                ? t("graph.title")
+                : isEmptyTab(path)
+                  ? t("workspace.newTab")
+                  : displayName(path)}
             </button>
           ))}
         </div>
@@ -152,8 +165,8 @@ export function TitleBar({
       <div className="titlebar-center">
         {singlePane && <TabBar pane={singlePane} />}
         <div className="titlebar-drag-fill" data-tauri-drag-region />
-        {singlePane && singlePane.tabs.length > 0 && (
-          <TabListMenu paneId={singlePane.id} tabs={singlePane.tabs} />
+        {singlePane && orderedPaneTabIds(singlePane).length > 0 && (
+          <TabListMenu pane={singlePane} />
         )}
         <Tooltip label={t("rightPanel.toggle")} placement="bottom">
           <button type="button" className="titlebar-app-btn" onClick={toggleRightPanelCollapsed}>

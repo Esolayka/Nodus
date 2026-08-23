@@ -31,6 +31,9 @@ export type WorkspaceView = "graph";
  * anywhere they're already consumed. Backs the "+"/Ctrl+T blank-tab
  * pattern: a tab that exists with no file behind it yet. */
 export const EMPTY_TAB_PREFIX = " empty:";
+/** Synthetic id used only in a pane's visual tab order. Like the empty-tab
+ * prefix, the leading space prevents collision with a vault-relative path. */
+export const GRAPH_TAB_ID = " view:graph";
 
 export function isEmptyTab(path: string | null): path is string {
   return path != null && path.startsWith(EMPTY_TAB_PREFIX);
@@ -43,6 +46,9 @@ export function makeEmptyTabId(): string {
 export interface Pane {
   id: string;
   tabs: string[];
+  /** Visual order of note/empty tabs plus `GRAPH_TAB_ID`. `tabs` remains
+   * the file-only list used by buffer and close-path logic. */
+  tabOrder: string[];
   activePath: string | null;
   view: WorkspaceView | null;
   /** Whether a graph tab exists in this pane at all — independent of
@@ -85,6 +91,7 @@ interface WorkspaceState {
   setActiveView: (paneId: string, view: WorkspaceView) => void;
   closeView: (paneId: string) => void;
   closeTab: (paneId: string, path: string) => void;
+  reorderTab: (paneId: string, tabId: string, toIndex: number) => void;
   setActiveTab: (paneId: string, path: string) => void;
   setActivePane: (paneId: string) => void;
   closePane: (paneId: string) => void;
@@ -191,6 +198,7 @@ function firstPane(): Pane {
   return {
     id: makePaneId(),
     tabs: [tabId],
+    tabOrder: [tabId],
     activePath: tabId,
     view: null,
     graphOpen: false,
@@ -198,6 +206,29 @@ function firstPane(): Pane {
     historyIndex: -1,
     mru: [],
   };
+}
+
+/** Returns a complete, duplicate-free order even if a pane came from an
+ * older in-memory shape or an operation appended a tab before updating the
+ * order. This keeps tab chrome resilient while `tabs` remains the canonical
+ * list of actual files. */
+export function orderedPaneTabIds(pane: Pane): string[] {
+  const available = new Set(pane.tabs);
+  if (pane.graphOpen) available.add(GRAPH_TAB_ID);
+  const order: string[] = [];
+  for (const id of pane.tabOrder ?? []) {
+    if (available.delete(id)) order.push(id);
+  }
+  for (const path of pane.tabs) {
+    if (available.delete(path)) order.push(path);
+  }
+  if (available.delete(GRAPH_TAB_ID)) order.push(GRAPH_TAB_ID);
+  return order;
+}
+
+function replaceOrderedTab(order: string[], from: string, to: string): string[] {
+  const replaced = order.map((id) => (id === from ? to : id));
+  return replaced.filter((id, index) => replaced.indexOf(id) === index);
 }
 
 /** Moves `path` to the front of the MRU list, dropping any earlier
@@ -293,11 +324,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             ? pane.tabs
             : [...pane.tabs, path];
         const mru = replacing ? pane.mru.filter((p) => p !== replacing) : pane.mru;
+        const tabOrder = replacing
+          ? replaceOrderedTab(pane.tabOrder, replacing, path)
+          : pane.tabs.includes(path)
+            ? pane.tabOrder
+            : [...pane.tabOrder, path];
         return {
           ...pane,
           ...pushHistory(pane, path),
           view: null,
           tabs,
+          tabOrder,
           activePath: path,
           mru: touchMru({ ...pane, mru }, path),
         };
@@ -322,7 +359,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePaneId: targetPaneId,
       panes: s.panes.map((pane) =>
         pane.id === targetPaneId
-          ? { ...pane, view: null, tabs: [...pane.tabs, tabId], activePath: tabId, mru: touchMru(pane, tabId) }
+          ? {
+              ...pane,
+              view: null,
+              tabs: [...pane.tabs, tabId],
+              tabOrder: [...pane.tabOrder, tabId],
+              activePath: tabId,
+              mru: touchMru(pane, tabId),
+            }
           : pane,
       ),
     }));
@@ -372,7 +416,20 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : fromPath && p.tabs.includes(fromPath)
             ? p.tabs.map((t) => (t === fromPath ? path : t))
             : [...p.tabs, path];
-        return { ...p, ...pushHistory(p, path), view: null, tabs, activePath: path, mru: touchMru(p, path) };
+        const tabOrder = p.tabs.includes(path)
+          ? p.tabOrder
+          : fromPath && p.tabs.includes(fromPath)
+            ? replaceOrderedTab(p.tabOrder, fromPath, path)
+            : [...p.tabOrder, path];
+        return {
+          ...p,
+          ...pushHistory(p, path),
+          view: null,
+          tabs,
+          tabOrder,
+          activePath: path,
+          mru: touchMru(p, path),
+        };
       }),
     }));
     useNoteUsageStore.getState().recordOpen(path);
@@ -392,7 +449,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       activePaneId: targetPaneId,
       panes: s.panes.map((pane) =>
-        pane.id === targetPaneId ? { ...pane, view: "graph", graphOpen: true } : pane,
+        pane.id === targetPaneId
+          ? {
+              ...pane,
+              view: "graph",
+              graphOpen: true,
+              tabOrder: pane.graphOpen ? pane.tabOrder : [...pane.tabOrder, GRAPH_TAB_ID],
+            }
+          : pane,
       ),
     }));
   },
@@ -409,7 +473,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   closeView: (paneId) => {
     set((s) => ({
       panes: s.panes.map((pane) =>
-        pane.id === paneId ? { ...pane, view: null, graphOpen: false } : pane,
+        pane.id === paneId
+          ? {
+              ...pane,
+              view: null,
+              graphOpen: false,
+              tabOrder: pane.tabOrder.filter((id) => id !== GRAPH_TAB_ID),
+            }
+          : pane,
       ),
     }));
   },
@@ -424,6 +495,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         return {
           ...pane,
           tabs,
+          tabOrder: pane.tabOrder.filter((id) => id !== path),
           activePath,
           mru: pane.mru.filter((p) => p !== path),
           ...dropFromHistory(pane, path),
@@ -442,6 +514,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         return { modes, lastEditModes };
       });
     }
+  },
+
+  reorderTab: (paneId, tabId, toIndex) => {
+    set((s) => ({
+      panes: s.panes.map((pane) => {
+        if (pane.id !== paneId) return pane;
+        const current = orderedPaneTabIds(pane);
+        const fromIndex = current.indexOf(tabId);
+        if (fromIndex === -1) return pane;
+        const next = current.filter((id) => id !== tabId);
+        const index = Math.min(Math.max(toIndex, 0), next.length);
+        next.splice(index, 0, tabId);
+        return { ...pane, tabOrder: next };
+      }),
+    }));
   },
 
   setActiveTab: (paneId, path) => {
@@ -474,6 +561,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           historyIndex: index,
           activePath: path,
           tabs: pane.tabs.includes(path) ? pane.tabs : [...pane.tabs, path],
+          tabOrder: pane.tabs.includes(path) ? pane.tabOrder : [...pane.tabOrder, path],
           mru: touchMru(pane, path),
         };
       }),
@@ -685,6 +773,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           let nextPane = {
             ...pane,
             tabs,
+            tabOrder: pane.tabOrder.filter((id) => !matches(id)),
             activePath:
               pane.activePath && matches(pane.activePath)
                 ? (tabs[tabs.length - 1] ?? null)
@@ -722,6 +811,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         panes: s.panes.map((pane) => ({
           ...pane,
           tabs: pane.tabs.map(remap),
+          tabOrder: pane.tabOrder.map(remap).filter((id, index, order) => order.indexOf(id) === index),
           activePath: pane.activePath ? remap(pane.activePath) : pane.activePath,
           history: pane.history.map(remap),
           mru: pane.mru.map(remap),

@@ -24,11 +24,20 @@
 .tab-bar {
   display: flex;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tab-strip {
+  display: flex;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 
-.tab-bar::-webkit-scrollbar {
+.tab-strip::-webkit-scrollbar {
   display: none;
 }
 
@@ -38,15 +47,32 @@
   gap: 6px;
   padding: 0 12px;
   font-size: 13px;
-  cursor: pointer;
+  cursor: grab;
   color: var(--text-faint);
   white-space: nowrap;
   position: relative;
   border-radius: 6px 6px 0 0;
   height: 38px;
   margin-top: 2px;
-  min-width: 200px;
-  max-width: 240px;
+  flex: 1 1 160px;
+  min-width: 110px;
+  max-width: 220px;
+}
+
+.tab:active {
+  cursor: grabbing;
+}
+
+.tab-dragging {
+  opacity: 0.45;
+}
+
+.tab-drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tab-drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
 }
 
 .tab:hover {

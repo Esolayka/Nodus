@@ -27,6 +27,11 @@
   background: var(--bg-titlebar);
 }
 
+.titlebar-center > .titlebar-drag-fill {
+  flex: 0 0 8px;
+  min-width: 8px;
+}
+
 .titlebar-right {
   padding-left: 4px;
   padding-right: 2px;
