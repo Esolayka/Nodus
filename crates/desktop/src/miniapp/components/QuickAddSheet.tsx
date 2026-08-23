@@ -33,7 +33,7 @@ export function QuickAddSheet({ onClose }: { onClose: () => void }) {
         autoFocus
       />
       {error && <p className="editor-conflict-banner">{error}</p>}
-      <button type="button" className="link-connect-btn" disabled={saving || !text.trim()} onClick={() => void handleAdd()}>
+      <button type="button" className="miniapp-primary-btn" disabled={saving || !text.trim()} onClick={() => void handleAdd()}>
         {saving ? "Adding…" : "Add"}
       </button>
     </BottomSheet>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
 import type { TreeNode } from "../../types/vault";
 import { readTree } from "../sync";
 
@@ -20,11 +20,14 @@ function FolderRow({
         <button
           type="button"
           className="note-row note-row-folder"
-          style={{ paddingLeft: 12 + depth * 16 }}
+          style={{ paddingLeft: 14 + depth * 16 }}
           onClick={() => setExpanded((e) => !e)}
         >
-          <span className={`note-row-caret${expanded ? " note-row-caret-open" : ""}`}>
-            <ChevronRight size={12} style={{ transform: expanded ? "rotate(90deg)" : "none" }} />
+          <span className="note-row-caret">
+            <ChevronRight size={14} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s ease" }} />
+          </span>
+          <span className="miniapp-row-icon">
+            {expanded ? <FolderOpen size={17} /> : <Folder size={17} />}
           </span>
           <span className="note-row-name">{node.name}</span>
         </button>
@@ -36,7 +39,10 @@ function FolderRow({
   if (!node.name.toLowerCase().endsWith(".md")) return null;
 
   return (
-    <button type="button" className="note-row" style={{ paddingLeft: 12 + depth * 16 }} onClick={() => onOpen(node.path)}>
+    <button type="button" className="note-row" style={{ paddingLeft: 14 + depth * 16 }} onClick={() => onOpen(node.path)}>
+      <span className="miniapp-row-icon">
+        <FileText size={17} />
+      </span>
       <span className="note-row-name">{node.name.replace(/\.md$/i, "")}</span>
     </button>
   );
@@ -65,7 +71,7 @@ export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
   if (tree.children.length === 0) return <p className="miniapp-empty">No notes yet.</p>;
 
   return (
-    <div className="note-list">
+    <div className="note-list miniapp-card">
       {tree.children.map((child) => (
         <FolderRow key={child.path} node={child} depth={0} onOpen={onOpen} />
       ))}

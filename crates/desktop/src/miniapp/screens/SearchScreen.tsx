@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import type { SearchFileResult } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import { readSearch } from "../sync";
@@ -38,27 +39,33 @@ export function SearchScreen({
 
   return (
     <div className="search-screen">
-      <input
-        className="field search-input"
-        value={query}
-        onChange={(e) => void runSearch(e.target.value)}
-        placeholder="Search the vault…"
-        autoCapitalize="off"
-        autoCorrect="off"
-      />
+      <div className="search-input-wrap">
+        <Search size={16} />
+        <input
+          className="field search-input"
+          value={query}
+          onChange={(e) => void runSearch(e.target.value)}
+          placeholder="Search the vault…"
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
+      </div>
       {searching && <p className="miniapp-empty">Searching…</p>}
       {!searching && results && results.length === 0 && <p className="miniapp-empty">No matches.</p>}
-      {!searching &&
-        results?.map((file) => (
-          <button key={file.path} type="button" className="search-result" onClick={() => onOpen(file.path)}>
-            <div className="search-result-path">{displayName(file.path)}</div>
-            {file.matches.slice(0, 2).map((m) => (
-              <div key={m.line} className="search-result-line">
-                {m.text.trim()}
-              </div>
-            ))}
-          </button>
-        ))}
+      {!searching && results && results.length > 0 && (
+        <div className="miniapp-card">
+          {results.map((file) => (
+            <button key={file.path} type="button" className="search-result" onClick={() => onOpen(file.path)}>
+              <div className="search-result-path">{displayName(file.path)}</div>
+              {file.matches.slice(0, 2).map((m) => (
+                <div key={m.line} className="search-result-line">
+                  {m.text.trim()}
+                </div>
+              ))}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorState } from "@codemirror/state";
-import { ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft, Circle } from "lucide-react";
 import { EditorView } from "@codemirror/view";
 import { buildNoteIndex } from "../../lib/noteIndex";
 import { displayName } from "../../lib/displayName";
@@ -113,10 +113,13 @@ export function EditorScreen({
     <div className="editor-screen">
       <SyncIndicator />
       <div className="editor-screen-header">
-        <button type="button" className="editor-back-btn" onClick={() => (void save(), onBack())}>
-          <ChevronLeft size={14} /> Notes
+        <button type="button" className="editor-back-btn" onClick={() => (void save(), onBack())} aria-label="Back to notes">
+          <ChevronLeft size={22} />
         </button>
         <span className="editor-screen-title">{displayName(path)}</span>
+        <span className={`editor-status-dot${dirty ? " editor-status-dot-dirty" : ""}`} title={dirty ? "Unsaved changes" : "Saved"}>
+          {dirty ? <Circle size={9} fill="currentColor" /> : <Check size={17} />}
+        </span>
       </div>
       {conflictNotice && (
         <p className="editor-conflict-banner" onClick={() => setConflictNotice(null)}>

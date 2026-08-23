@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link2 } from "lucide-react";
 import { useLinkStore } from "../store/linkStore";
 import { getInitData, isInsideTelegram } from "../telegram";
 
@@ -69,6 +70,9 @@ export function LinkScreen() {
 
   return (
     <div className="link-screen">
+      <div className="link-screen-icon">
+        <Link2 size={28} />
+      </div>
       <h1>Connect to Nodus</h1>
       <p className="link-screen-hint">
         On your computer, open Settings → Telegram, generate a linking code, and enter it below.
@@ -93,7 +97,7 @@ export function LinkScreen() {
       {error && <p className="link-screen-error">{error}</p>}
       <button
         type="button"
-        className="link-connect-btn"
+        className="miniapp-primary-btn"
         disabled={linking || !code.trim()}
         onClick={() => void handleConnect(code)}
       >

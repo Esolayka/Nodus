@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Hash } from "lucide-react";
 import type { TagCount } from "../../types/vault";
 import { readTags } from "../sync";
 
@@ -25,10 +26,13 @@ export function TagsScreen({ onOpenTag }: { onOpenTag: (tag: string) => void }) 
   if (tags.length === 0) return <p className="miniapp-empty">No tags yet.</p>;
 
   return (
-    <div className="tags-screen">
+    <div className="tags-screen miniapp-card">
       {tags.map((t) => (
         <button key={t.tag} type="button" className="tag-row" onClick={() => onOpenTag(t.tag)}>
-          <span className="tag-row-name">#{t.tag}</span>
+          <span className="tag-row-icon">
+            <Hash size={14} />
+          </span>
+          <span className="tag-row-name">{t.tag}</span>
           <span className="tag-row-count">{t.count}</span>
         </button>
       ))}
