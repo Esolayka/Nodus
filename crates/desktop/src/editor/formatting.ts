@@ -33,8 +33,6 @@ function toggleWrap(marker: string): Command {
 
 export const toggleBold = toggleWrap("**");
 export const toggleItalic = toggleWrap("*");
-export const toggleStrikethrough = toggleWrap("~~");
-export const toggleInlineCode = toggleWrap("`");
 
 export const insertLink: Command = (view) => {
   const changes = view.state.changeByRange((range) => {
