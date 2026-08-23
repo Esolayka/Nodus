@@ -95,6 +95,14 @@
     "unlinkedEmpty": "No unlinked mentions",
     "linkButton": "Link"
   },
+  "formatting": {
+    "toolbar": "Selection formatting",
+    "bold": "Bold (Ctrl+B)",
+    "italic": "Italic (Ctrl+I)",
+    "strikethrough": "Strikethrough",
+    "inlineCode": "Inline code",
+    "link": "Link (Ctrl+K)"
+  },
   "graph": {
     "title": "Graph view",
     "localTitle": "Local graph",

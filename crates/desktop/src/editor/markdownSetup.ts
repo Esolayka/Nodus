@@ -23,6 +23,7 @@ import { tagCompletionSources } from "./tagAutocomplete";
 import { tags } from "./tags";
 import { matchedTextTheme, wikilinkCompletionSources } from "./wikilinkAutocomplete";
 import { type FollowLink, wikilinks } from "./wikilinks";
+import { selectionToolbar } from "./selectionToolbar";
 
 /** Tags a transaction as programmatic (external reload / initial load) so the
  * change listener can skip it instead of treating it as a user edit. */
@@ -78,6 +79,7 @@ export function buildExtensions(
     linkClickHandler(),
     linkHoverPreview(),
     pasteAsLink(),
+    selectionToolbar,
     editorTheme,
     EditorView.domEventHandlers({
       blur: () => {

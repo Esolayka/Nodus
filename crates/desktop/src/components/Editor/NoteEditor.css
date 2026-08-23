@@ -12,4 +12,82 @@
 
 .note-editor .cm-editor {
   height: 100%;
+  position: relative;
+}
+
+.cm-selection-toolbar {
+  position: absolute;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 4px;
+  color: var(--text-normal);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -100%) scale(0.96);
+  transform-origin: bottom center;
+  transition: opacity 80ms ease, transform 80ms ease;
+}
+
+.cm-selection-toolbar.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -100%) scale(1);
+}
+
+.cm-selection-toolbar.below {
+  transform: translateX(-50%) scale(0.96);
+  transform-origin: top center;
+}
+
+.cm-selection-toolbar.visible.below {
+  transform: translateX(-50%) scale(1);
+}
+
+.cm-selection-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.cm-selection-toolbar button:hover {
+  color: var(--text-normal);
+  background: var(--bg-hover);
+}
+
+.cm-selection-toolbar .format-bold {
+  font-weight: 700;
+}
+
+.cm-selection-toolbar .format-italic {
+  font-style: italic;
+}
+
+.cm-selection-toolbar .format-strikethrough {
+  text-decoration: line-through;
+}
+
+.cm-selection-toolbar .format-code {
+  width: 34px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.cm-selection-toolbar .format-link {
+  font-size: 19px;
 }
