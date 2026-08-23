@@ -183,10 +183,14 @@ function makePaneId(): string {
 }
 
 function firstPane(): Pane {
+  // Starts with one real empty tab (not zero tabs) so the tab bar always
+  // shows something to click, matching Obsidian's "New tab" — an app with
+  // no tabs open at all isn't a state Obsidian ever shows.
+  const tabId = makeEmptyTabId();
   return {
     id: makePaneId(),
-    tabs: [],
-    activePath: null,
+    tabs: [tabId],
+    activePath: tabId,
     view: null,
     graphOpen: false,
     history: [],
@@ -277,11 +281,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePaneId: targetPaneId,
       panes: s.panes.map((pane) => {
         if (pane.id !== targetPaneId) return pane;
-        // A blank "+"/Ctrl+T tab gets replaced in place instead of leaving
-        // an orphaned empty tab sitting next to the real one — but only
-        // when not explicitly opening in a split, and only the sentinel
-        // itself, never a real path.
-        const replacing = !opts?.split && isEmptyTab(pane.activePath) ? pane.activePath : null;
+        // A blank "+"/Ctrl+T tab (or a freshly split pane's starting blank
+        // tab) gets replaced in place instead of leaving an orphaned empty
+        // tab sitting next to the real one — only the sentinel itself,
+        // never a real path.
+        const replacing = isEmptyTab(pane.activePath) ? pane.activePath : null;
         const tabs = replacing
           ? pane.tabs.map((t) => (t === replacing ? path : t))
           : pane.tabs.includes(path)
