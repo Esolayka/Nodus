@@ -97,6 +97,7 @@ export function TitleBar({
   const toggleRightPanelCollapsed = useUiStore((s) => s.toggleRightPanelCollapsed);
   const sidebarView = useUiStore((s) => s.sidebarView);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const rightPanelCollapsed = useUiStore((s) => s.rightPanelCollapsed);
   const setSidebarView = useUiStore((s) => s.setSidebarView);
   const setSearchOptionsOpen = useUiStore((s) => s.setSearchOptionsOpen);
   const panes = useWorkspaceStore((s) => s.panes);
@@ -165,11 +166,14 @@ export function TitleBar({
       <div className="titlebar-center">
         {singlePane && <TabBar pane={singlePane} />}
         <div className="titlebar-drag-fill" data-tauri-drag-region />
-        {singlePane && orderedPaneTabIds(singlePane).length > 0 && (
-          <TabListMenu pane={singlePane} />
-        )}
+        {singlePane && <TabListMenu pane={singlePane} />}
         <Tooltip label={t("rightPanel.toggle")} placement="bottom">
-          <button type="button" className="titlebar-app-btn" onClick={toggleRightPanelCollapsed}>
+          <button
+            type="button"
+            className={`titlebar-app-btn${!rightPanelCollapsed ? " active" : ""}`}
+            aria-pressed={!rightPanelCollapsed}
+            onClick={toggleRightPanelCollapsed}
+          >
             <PanelRight size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>

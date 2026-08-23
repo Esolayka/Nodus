@@ -472,33 +472,67 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   closeView: (paneId) => {
     set((s) => ({
-      panes: s.panes.map((pane) =>
-        pane.id === paneId
-          ? {
-              ...pane,
-              view: null,
-              graphOpen: false,
-              tabOrder: pane.tabOrder.filter((id) => id !== GRAPH_TAB_ID),
-            }
-          : pane,
-      ),
+      panes: s.panes.map((pane) => {
+        if (pane.id !== paneId || !pane.graphOpen) return pane;
+        const tabOrder = pane.tabOrder.filter((id) => id !== GRAPH_TAB_ID);
+        if (pane.tabs.length > 0) {
+          const activePath = pane.activePath && pane.tabs.includes(pane.activePath)
+            ? pane.activePath
+            : pane.tabs[pane.tabs.length - 1];
+          return { ...pane, view: null, graphOpen: false, tabOrder, activePath };
+        }
+
+        // Closing a lone graph leaf must return to Obsidian's permanent
+        // "New tab" state, never to a pane with no tabs at all.
+        const emptyTab = makeEmptyTabId();
+        return {
+          ...pane,
+          tabs: [emptyTab],
+          tabOrder: [...tabOrder, emptyTab],
+          activePath: emptyTab,
+          view: null,
+          graphOpen: false,
+        };
+      }),
     }));
   },
 
   closeTab: (paneId, path) => {
     set((s) => {
       const panes = s.panes.map((pane) => {
-        if (pane.id !== paneId) return pane;
+        if (pane.id !== paneId || !pane.tabs.includes(path)) return pane;
         const tabs = pane.tabs.filter((t) => t !== path);
         const activePath =
           pane.activePath === path ? (tabs[tabs.length - 1] ?? null) : pane.activePath;
+        const tabOrder = pane.tabOrder.filter((id) => id !== path);
+        const history = dropFromHistory(pane, path);
+
+        if (tabs.length === 0 && !pane.graphOpen) {
+          // Keep the tab strip structurally present after its final file or
+          // blank tab is closed. This also keeps the tab-list chevron in the
+          // title bar instead of collapsing the whole center area.
+          const emptyTab = makeEmptyTabId();
+          return {
+            ...pane,
+            tabs: [emptyTab],
+            tabOrder: [...tabOrder, emptyTab],
+            activePath: emptyTab,
+            view: null,
+            mru: pane.mru.filter((p) => p !== path),
+            ...history,
+          };
+        }
+
         return {
           ...pane,
           tabs,
-          tabOrder: pane.tabOrder.filter((id) => id !== path),
+          tabOrder,
           activePath,
+          // If the last file tab closes while a graph tab exists, bring
+          // that existing tab forward rather than showing an empty pane.
+          view: tabs.length === 0 && pane.graphOpen ? "graph" : pane.view,
           mru: pane.mru.filter((p) => p !== path),
-          ...dropFromHistory(pane, path),
+          ...history,
         };
       });
       return { panes };
