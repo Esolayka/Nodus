@@ -862,6 +862,16 @@ export function CanvasTab({ path }: { path: string }) {
     setTransform({ k: nextScale, x: clientX - worldX * nextScale, y: clientY - worldY * nextScale });
   }
 
+  function zoomToActualSize() {
+    const surface = surfaceRef.current;
+    const current = transformRef.current;
+    if (!surface || current.k === 1) return;
+    // Keep the world point currently under the viewport centre fixed. Merely
+    // replacing `k` while retaining x/y leaves the translation calculated
+    // for the old scale and can move every card completely off-screen.
+    zoomAt(surface.clientWidth / 2, surface.clientHeight / 2, 1 / current.k);
+  }
+
   function onWheel(event: React.WheelEvent<HTMLCanvasElement>) {
     event.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -1230,7 +1240,7 @@ export function CanvasTab({ path }: { path: string }) {
           <Tooltip label={t("canvas.zoomOut")} placement="bottom">
             <button type="button" aria-label={t("canvas.zoomOut")} onClick={() => zoomAt((surfaceRef.current?.clientWidth ?? 0) / 2, (surfaceRef.current?.clientHeight ?? 0) / 2, 0.8)}><Minus size={16} /></button>
           </Tooltip>
-          <button type="button" className="canvas-zoom-value" onClick={() => setTransform((current) => ({ ...current, k: 1 }))}>{Math.round(transform.k * 100)}%</button>
+          <button type="button" className="canvas-zoom-value" aria-label={t("canvas.actualSize")} onClick={zoomToActualSize}>{Math.round(transform.k * 100)}%</button>
           <Tooltip label={t("canvas.zoomIn")} placement="bottom">
             <button type="button" aria-label={t("canvas.zoomIn")} onClick={() => zoomAt((surfaceRef.current?.clientWidth ?? 0) / 2, (surfaceRef.current?.clientHeight ?? 0) / 2, 1.25)}><Plus size={16} /></button>
           </Tooltip>
