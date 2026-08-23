@@ -39,8 +39,8 @@
 
 .canvas-add-toolbar {
   bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  width: max-content;
 }
 
 .canvas-zoom {

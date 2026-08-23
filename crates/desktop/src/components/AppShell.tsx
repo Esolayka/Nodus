@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { CircleHelp, Settings as SettingsIcon } from "lucide-react";
 import { setHistorySettings, telegramSetBotToken, telegramSetManualAddress } from "../api/vault";
 import { displayName } from "../lib/displayName";
 import { registerBuiltinCommands } from "../lib/builtinCommands";
@@ -402,25 +403,20 @@ export function AppShell() {
                 <button
                   type="button"
                   className="sidebar-icon-btn"
+                  aria-label={t("sidebar.help")}
                   onClick={() => setAboutOpen(true)}
                 >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M6.2 6.2a1.8 1.8 0 1 1 2.7 1.6c-.7.4-.9.7-.9 1.4" />
-                    <path d="M8 11.8v.1" />
-                  </svg>
+                  <CircleHelp size={16} strokeWidth={1.75} />
                 </button>
               </Tooltip>
               <Tooltip label={t("settings.title")} placement="top">
                 <button
                   type="button"
                   className="sidebar-icon-btn"
+                  aria-label={t("settings.title")}
                   onClick={() => setSettingsOpen(true)}
                 >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <circle cx="8" cy="8" r="2" />
-                    <path d="M13 8.5a5 5 0 0 0-.1-1l1.4-1.1-.9-1.6-1.6.6a5 5 0 0 0-1.7-1L9.8 1.7H7.6l-.3 1.7a5 5 0 0 0-1.7 1l-1.6-.6-.9 1.6 1.4 1.1a5 5 0 0 0 0 2l-1.4 1.1.9 1.6 1.6-.6a5 5 0 0 0 1.7 1l.3 1.7h2.2l.3-1.7a5 5 0 0 0 1.7-1l1.6.6.9-1.6-1.4-1.1a5 5 0 0 0 .1-1z" />
-                  </svg>
+                  <SettingsIcon size={16} strokeWidth={1.75} />
                 </button>
               </Tooltip>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { open as openShell } from "@tauri-apps/plugin-shell";
 import {
@@ -247,6 +247,7 @@ export function CanvasTab({ path }: { path: string }) {
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const addToolbarRef = useRef<HTMLDivElement | null>(null);
   const [data, setData] = useState<CanvasData>(emptyCanvas());
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -364,11 +365,20 @@ export function CanvasTab({ path }: { path: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, transform, selection, selectedEdges, draggingEdge, marquee]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
-    const observer = new ResizeObserver(() => redraw());
+    const alignAddToolbar = () => {
+      const toolbar = addToolbarRef.current;
+      if (toolbar) toolbar.style.left = `${Math.round((surface.clientWidth - toolbar.offsetWidth) / 2)}px`;
+    };
+    const observer = new ResizeObserver(() => {
+      alignAddToolbar();
+      redraw();
+    });
     observer.observe(surface);
+    if (addToolbarRef.current) observer.observe(addToolbarRef.current);
+    alignAddToolbar();
     const themeObserver = new MutationObserver(() => redraw());
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     return () => {
@@ -1315,7 +1325,7 @@ export function CanvasTab({ path }: { path: string }) {
           </div>
         )}
 
-        <div className="canvas-add-toolbar" role="toolbar" aria-label={t("canvas.addToolbar")}>
+        <div ref={addToolbarRef} className="canvas-add-toolbar" role="toolbar" aria-label={t("canvas.addToolbar")}>
           <Tooltip label={t("canvas.addText")} placement="top">
             <button type="button" aria-label={t("canvas.addText")} disabled={!!parseError || readOnly} onClick={() => addTextCard()}><StickyNote size={18} /></button>
           </Tooltip>
