@@ -1,0 +1,89 @@
+.editor-context-menu,
+.editor-context-submenu {
+  position: fixed;
+  z-index: 320;
+  width: 236px;
+  padding: 5px;
+  color: var(--text-normal);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-menu);
+  user-select: none;
+}
+
+.editor-context-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  color: var(--text-normal);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.editor-context-item:hover:not(:disabled),
+.editor-context-submenu-trigger[aria-expanded="true"] {
+  color: var(--text-normal);
+  background: var(--bg-hover);
+}
+
+.editor-context-item:disabled {
+  color: var(--text-faint);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.editor-context-item > svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.editor-context-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-context-shortcut {
+  margin-left: 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.editor-context-separator {
+  height: 1px;
+  margin: 5px -5px;
+  background: var(--border);
+}
+
+.editor-context-submenu-wrap {
+  position: relative;
+}
+
+.editor-context-submenu {
+  position: absolute;
+  top: -5px;
+  left: calc(100% + 5px);
+}
+
+.editor-context-submenu.submenu-left {
+  right: calc(100% + 5px);
+  left: auto;
+}
+
+.editor-context-submenu.submenu-up {
+  top: auto;
+  bottom: -5px;
+}

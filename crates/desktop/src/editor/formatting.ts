@@ -33,6 +33,25 @@ function toggleWrap(marker: string): Command {
 
 export const toggleBold = toggleWrap("**");
 export const toggleItalic = toggleWrap("*");
+export const toggleStrikethrough = toggleWrap("~~");
+export const toggleInlineCode = toggleWrap("`");
+
+/** Wraps a selection as an Obsidian-style internal link. With an empty
+ * selection the cursor lands between the brackets, ready for a note name. */
+export const insertWikiLink: Command = (view) => {
+  const changes = view.state.changeByRange((range) => {
+    const text = view.state.sliceDoc(range.from, range.to);
+    const insert = `[[${text}]]`;
+    return {
+      changes: { from: range.from, to: range.to, insert },
+      range: text
+        ? EditorSelection.range(range.from + 2, range.from + 2 + text.length)
+        : EditorSelection.cursor(range.from + 2),
+    };
+  });
+  view.dispatch(view.state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+  return true;
+};
 
 export const insertLink: Command = (view) => {
   const changes = view.state.changeByRange((range) => {

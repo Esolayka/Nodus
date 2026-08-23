@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getEditor, getOrCreateEditor } from "../../editor/editorRegistry";
 import { buildExtensions, externalUpdate } from "../../editor/markdownSetup";
 import { setEditorMode } from "../../editor/modeState";
@@ -11,11 +11,18 @@ import {
   jumpEditorToLine,
   useWorkspaceStore,
 } from "../../store/workspaceStore";
+import { EditorContextMenu } from "./EditorContextMenu";
 import { InlineTitle } from "./InlineTitle";
 import "./NoteEditor.css";
 
 interface NoteEditorProps {
   path: string;
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  view: EditorView;
 }
 
 const onFollowLink: FollowLink = async (target, resolvedPath, newTab) => {
@@ -29,6 +36,7 @@ const onFollowLink: FollowLink = async (target, resolvedPath, newTab) => {
 
 export function NoteEditor({ path }: NoteEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const updateContent = useWorkspaceStore((s) => s.updateContent);
   const flush = useWorkspaceStore((s) => s.flush);
 
@@ -84,10 +92,35 @@ export function NoteEditor({ path }: NoteEditorProps) {
     });
   }, [path]);
 
+  useEffect(() => {
+    setContextMenu(null);
+  }, [path]);
+
   return (
     <div className="note-editor-wrapper">
       <InlineTitle path={path} />
-      <div className="note-editor" ref={containerRef} />
+      <div
+        className="note-editor"
+        ref={containerRef}
+        onContextMenu={(event) => {
+          // Embedded external images have their own real action (save to
+          // vault); do not cover it with the generic editor menu.
+          const target = event.target instanceof Element ? event.target : null;
+          if (event.defaultPrevented || target?.closest(".cm-media-embed")) return;
+          const view = getEditor(path);
+          if (!view) return;
+          event.preventDefault();
+          setContextMenu({ x: event.clientX, y: event.clientY, view });
+        }}
+      />
+      {contextMenu && (
+        <EditorContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          view={contextMenu.view}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
