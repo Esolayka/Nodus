@@ -1,3 +1,62 @@
+.bookmarks-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.bookmarks-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.bookmarks-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.bookmarks-actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.bookmarks-actions button.active {
+  color: var(--accent);
+  background: var(--bg-active);
+}
+
+.bookmarks-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bookmarks-actions button:disabled:hover {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.bookmarks-search {
+  margin: 0 8px 6px;
+  width: auto;
+}
+
+.bookmarks-empty {
+  padding: 8px 12px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
 .bookmark-row {
   display: flex;
   align-items: center;
