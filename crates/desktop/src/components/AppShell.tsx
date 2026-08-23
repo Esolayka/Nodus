@@ -142,8 +142,15 @@ export function AppShell() {
       void getCurrentWindow()
         .onCloseRequested(async (event) => {
           event.preventDefault();
-          await useWorkspaceStore.getState().flushAll();
-          await getCurrentWindow().destroy();
+          try {
+            await useWorkspaceStore.getState().flushAll();
+            await getCurrentWindow().destroy();
+          } catch (error) {
+            // Not just a log: if destroy() itself fails (e.g. a missing
+            // capability), the window never actually closes and the user
+            // is left clicking a dead button with no idea why.
+            console.error("[app] failed to close window:", error);
+          }
         })
         .then((fn) => {
           unlisten = fn;
