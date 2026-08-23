@@ -325,6 +325,8 @@
     "findPlaceholder": "Найти...",
     "replacePlaceholder": "Заменить на...",
     "skipCodeBlocks": "Не трогать блоки кода",
+    "caseSensitive": "Учитывать регистр",
+    "syntaxHelp": "Синтаксис поиска",
     "resultsSummary_one": "{{count}} совпадение в {{files}} заметках",
     "resultsSummary_few": "{{count}} совпадения в {{files}} заметках",
     "resultsSummary_many": "{{count}} совпадений в {{files}} заметках",
@@ -500,7 +502,10 @@
       "title": "Закладки",
       "empty": "Закладок пока нет.",
       "remove": "Убрать закладку",
-      "toggleCommand": "Закладка: переключить"
+      "toggleCommand": "Закладка: переключить",
+      "addActive": "Добавить текущую заметку",
+      "search": "Поиск по закладкам",
+      "searchPlaceholder": "Поиск по закладкам..."
     },
     "footnotes": {
       "name": "Сноски",

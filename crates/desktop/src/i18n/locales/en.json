@@ -318,6 +318,8 @@
     "findPlaceholder": "Find...",
     "replacePlaceholder": "Replace with...",
     "skipCodeBlocks": "Don't touch code blocks",
+    "caseSensitive": "Match case",
+    "syntaxHelp": "Search syntax",
     "resultsSummary_one": "{{count}} match in {{files}} notes",
     "resultsSummary_other": "{{count}} matches in {{files}} notes",
     "replaceDone_one": "Replaced in {{count}} note",
@@ -485,7 +487,10 @@
       "title": "Bookmarks",
       "empty": "No bookmarks yet.",
       "remove": "Remove bookmark",
-      "toggleCommand": "Toggle bookmark"
+      "toggleCommand": "Toggle bookmark",
+      "addActive": "Bookmark current note",
+      "search": "Search bookmarks",
+      "searchPlaceholder": "Search bookmarks..."
     },
     "footnotes": {
       "name": "Footnotes",

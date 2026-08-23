@@ -342,8 +342,8 @@ impl VaultService {
         self.index.update_note(&self.vault, relative)
     }
 
-    pub fn search(&self, query: &str) -> Result<Vec<SearchFileResult>> {
-        self.index.search(query)
+    pub fn search(&self, query: &str, case_sensitive: bool) -> Result<Vec<SearchFileResult>> {
+        self.index.search(query, case_sensitive)
     }
 
     /// Every task in the vault, straight from the index — the tasks panel

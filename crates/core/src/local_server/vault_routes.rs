@@ -138,6 +138,8 @@ fn guess_content_type(path: &str) -> &'static str {
 #[derive(Deserialize)]
 pub struct SearchQuery {
     q: String,
+    #[serde(default)]
+    case_sensitive: bool,
 }
 
 pub async fn search(
@@ -145,7 +147,7 @@ pub async fn search(
     _auth: super::auth::AuthedSession,
     Query(q): Query<SearchQuery>,
 ) -> Result<Json<Vec<SearchFileResult>>, ApiError> {
-    with_service(&state, |s| s.search(&q.q)).map(Json)
+    with_service(&state, |s| s.search(&q.q, q.case_sensitive)).map(Json)
 }
 
 pub async fn tags(

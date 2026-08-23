@@ -752,10 +752,13 @@ impl Index {
     /// the precise DSL evaluation runs on just that set — falling back to
     /// scanning every note if the narrowing query can't be built or the FTS
     /// MATCH itself errors, so a search never fails outright.
-    pub fn search(&self, query_str: &str) -> Result<Vec<SearchFileResult>> {
+    pub fn search(&self, query_str: &str, case_sensitive: bool) -> Result<Vec<SearchFileResult>> {
         let query = search::parse_query(query_str);
         let conn = self.conn.lock().expect("index mutex poisoned");
 
+        // The FTS pre-filter always narrows case-insensitively — that's a
+        // superset heuristic (never excludes a real match), so the exact
+        // case-sensitive check below is still the ground truth either way.
         let candidates: Vec<(String, String)> = match search::narrowing_fts_query(&query) {
             Some(fts_q) => narrowed_notes_content(&conn, &fts_q)
                 .or_else(|_| all_notes_content(&conn))?,
@@ -768,11 +771,11 @@ impl Index {
         for (path, content) in candidates {
             let empty = Vec::new();
             let tags = tag_map.get(&path).unwrap_or(&empty);
-            if search::matches_file(&query, &path, tags, &content) {
+            if search::matches_file(&query, &path, tags, &content, case_sensitive) {
                 // A pure filter query (e.g. just `tag:project`, no words)
                 // legitimately has nothing to highlight — it still belongs
                 // in the results, just with an empty match-line list.
-                let matches = search::highlight_lines(&query, &content);
+                let matches = search::highlight_lines(&query, &content, case_sensitive);
                 results.push(SearchFileResult { path, matches });
             }
         }
@@ -1179,7 +1182,7 @@ mod tests {
         std::fs::write(dir.path().join("B.md"), "nothing relevant here\n").unwrap();
         index.reconcile(&vault).unwrap();
 
-        let results = index.search("foo").unwrap();
+        let results = index.search("foo", false).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "A.md");
         assert_eq!(results[0].matches[0].line, 2);
@@ -1192,7 +1195,7 @@ mod tests {
         std::fs::write(dir.path().join("B.md"), "No tag here.\n").unwrap();
         index.reconcile(&vault).unwrap();
 
-        let results = index.search("tag:project").unwrap();
+        let results = index.search("tag:project", false).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "A.md");
     }
@@ -1203,7 +1206,7 @@ mod tests {
         std::fs::write(dir.path().join("A.md"), "foo unterminated bar\n").unwrap();
         index.reconcile(&vault).unwrap();
 
-        let results = index.search("foo \"unterminated").unwrap();
+        let results = index.search("foo \"unterminated", false).unwrap();
         assert_eq!(results.len(), 1);
     }
 
@@ -1275,7 +1278,7 @@ mod tests {
         index.reconcile(&vault).unwrap();
 
         let start = std::time::Instant::now();
-        let results = index.search("проект").unwrap();
+        let results = index.search("проект", false).unwrap();
         let elapsed = start.elapsed();
 
         assert!(!results.is_empty(), "expected the common topic word to match something");

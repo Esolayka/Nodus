@@ -245,8 +245,12 @@ pub fn link_mention(
 }
 
 #[tauri::command]
-pub fn search_vault(state: State<AppState>, query: String) -> Result<Vec<SearchFileResult>, String> {
-    with_service(&state, |s| s.search(&query))
+pub fn search_vault(
+    state: State<AppState>,
+    query: String,
+    case_sensitive: bool,
+) -> Result<Vec<SearchFileResult>, String> {
+    with_service(&state, |s| s.search(&query, case_sensitive))
 }
 
 #[tauri::command]

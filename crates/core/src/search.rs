@@ -116,26 +116,37 @@ pub(crate) fn parse_query(input: &str) -> ParsedQuery {
     query
 }
 
-fn term_needle(term: &Term) -> String {
-    match term {
-        Term::Word(w) => w.to_lowercase(),
-        Term::Phrase(p) => p.to_lowercase(),
-    }
+/// `path:`/`file:`/`tag:` filters always match case-insensitively (they're
+/// identifiers, not searched text) regardless of `case_sensitive` — that
+/// only affects plain word/phrase terms, matching Obsidian's own "match
+/// case" toggle.
+fn term_needle(term: &Term, case_sensitive: bool) -> String {
+    let text = match term {
+        Term::Word(w) => w.as_str(),
+        Term::Phrase(p) => p.as_str(),
+    };
+    if case_sensitive { text.to_string() } else { text.to_lowercase() }
 }
 
-fn term_matches(term: &Term, haystack_lower: &str) -> bool {
-    let needle = term_needle(term);
-    !needle.is_empty() && haystack_lower.contains(&needle)
+fn term_matches(term: &Term, haystack: &str, case_sensitive: bool) -> bool {
+    let needle = term_needle(term, case_sensitive);
+    !needle.is_empty() && haystack.contains(&needle)
 }
 
 /// Whether `content` (already known to belong to `path` with `tags`)
 /// satisfies the whole parsed query — filters, exclusions, and at least one
 /// OR-group's terms (all of them, honoring `same_line`).
-pub(crate) fn matches_file(query: &ParsedQuery, path: &str, tags: &[String], content: &str) -> bool {
-    let content_lower = content.to_lowercase();
+pub(crate) fn matches_file(
+    query: &ParsedQuery,
+    path: &str,
+    tags: &[String],
+    content: &str,
+    case_sensitive: bool,
+) -> bool {
+    let content_cased = if case_sensitive { content.to_string() } else { content.to_lowercase() };
 
     for excluded in &query.excluded {
-        if term_matches(excluded, &content_lower) {
+        if term_matches(excluded, &content_cased, case_sensitive) {
             return false;
         }
     }
@@ -168,11 +179,11 @@ pub(crate) fn matches_file(query: &ParsedQuery, path: &str, tags: &[String], con
         }
         if query.same_line {
             content.lines().any(|line| {
-                let line_lower = line.to_lowercase();
-                group.terms.iter().all(|t| term_matches(t, &line_lower))
+                let line_cased = if case_sensitive { line.to_string() } else { line.to_lowercase() };
+                group.terms.iter().all(|t| term_matches(t, &line_cased, case_sensitive))
             })
         } else {
-            group.terms.iter().all(|t| term_matches(t, &content_lower))
+            group.terms.iter().all(|t| term_matches(t, &content_cased, case_sensitive))
         }
     })
 }
@@ -197,7 +208,11 @@ pub struct SearchFileResult {
 /// Every positive term across every OR-group, for display highlighting —
 /// unlike `matches_file`'s all-must-hold-per-group logic, here we just want
 /// to know which lines contain *any* of them.
-pub(crate) fn highlight_lines(query: &ParsedQuery, content: &str) -> Vec<SearchLineMatch> {
+pub(crate) fn highlight_lines(
+    query: &ParsedQuery,
+    content: &str,
+    case_sensitive: bool,
+) -> Vec<SearchLineMatch> {
     let all_terms: Vec<&Term> = query.or_groups.iter().flat_map(|g| g.terms.iter()).collect();
     if all_terms.is_empty() {
         return Vec::new();
@@ -205,15 +220,15 @@ pub(crate) fn highlight_lines(query: &ParsedQuery, content: &str) -> Vec<SearchL
 
     let mut results = Vec::new();
     for (i, line) in content.split('\n').enumerate() {
-        let line_lower = line.to_lowercase();
+        let line_cased = if case_sensitive { line.to_string() } else { line.to_lowercase() };
         let mut ranges: Vec<(usize, usize)> = Vec::new();
         for term in &all_terms {
-            let needle = term_needle(term);
+            let needle = term_needle(term, case_sensitive);
             if needle.is_empty() {
                 continue;
             }
             let mut start = 0;
-            while let Some(pos) = line_lower[start..].find(&needle) {
+            while let Some(pos) = line_cased[start..].find(&needle) {
                 let abs = start + pos;
                 ranges.push((abs, abs + needle.len()));
                 start = abs + needle.len();
@@ -266,82 +281,97 @@ mod tests {
     #[test]
     fn plain_words_are_and() {
         let q = parse_query("foo bar");
-        assert!(matches_file(&q, "a.md", &[], "has foo and bar in it"));
-        assert!(!matches_file(&q, "a.md", &[], "has only foo in it"));
+        assert!(matches_file(&q, "a.md", &[], "has foo and bar in it", false));
+        assert!(!matches_file(&q, "a.md", &[], "has only foo in it", false));
     }
 
     #[test]
     fn quoted_phrase_requires_adjacency() {
         let q = parse_query("\"foo bar\"");
-        assert!(matches_file(&q, "a.md", &[], "here is foo bar together"));
-        assert!(!matches_file(&q, "a.md", &[], "here foo comes before bar separately"));
+        assert!(matches_file(&q, "a.md", &[], "here is foo bar together", false));
+        assert!(!matches_file(&q, "a.md", &[], "here foo comes before bar separately", false));
     }
 
     #[test]
     fn minus_excludes() {
         let q = parse_query("foo -bar");
-        assert!(matches_file(&q, "a.md", &[], "just foo here"));
-        assert!(!matches_file(&q, "a.md", &[], "foo and bar both here"));
+        assert!(matches_file(&q, "a.md", &[], "just foo here", false));
+        assert!(!matches_file(&q, "a.md", &[], "foo and bar both here", false));
     }
 
     #[test]
     fn or_keyword_is_alternation() {
         let q = parse_query("foo OR bar");
-        assert!(matches_file(&q, "a.md", &[], "only foo"));
-        assert!(matches_file(&q, "a.md", &[], "only bar"));
-        assert!(!matches_file(&q, "a.md", &[], "neither"));
+        assert!(matches_file(&q, "a.md", &[], "only foo", false));
+        assert!(matches_file(&q, "a.md", &[], "only bar", false));
+        assert!(!matches_file(&q, "a.md", &[], "neither", false));
     }
 
     #[test]
     fn path_filter_restricts_by_path() {
         let q = parse_query("foo path:Projects");
-        assert!(matches_file(&q, "Projects/a.md", &[], "foo"));
-        assert!(!matches_file(&q, "Other/a.md", &[], "foo"));
+        assert!(matches_file(&q, "Projects/a.md", &[], "foo", false));
+        assert!(!matches_file(&q, "Other/a.md", &[], "foo", false));
     }
 
     #[test]
     fn file_filter_restricts_by_filename() {
         let q = parse_query("foo file:Diary");
-        assert!(matches_file(&q, "Journal/Diary.md", &[], "foo"));
-        assert!(!matches_file(&q, "Journal/Notes.md", &[], "foo"));
+        assert!(matches_file(&q, "Journal/Diary.md", &[], "foo", false));
+        assert!(!matches_file(&q, "Journal/Notes.md", &[], "foo", false));
     }
 
     #[test]
     fn tag_filter_checks_tags_list() {
         let q = parse_query("tag:project");
-        assert!(matches_file(&q, "a.md", &["project".to_string()], "anything"));
-        assert!(!matches_file(&q, "a.md", &["other".to_string()], "anything"));
+        assert!(matches_file(&q, "a.md", &["project".to_string()], "anything", false));
+        assert!(!matches_file(&q, "a.md", &["other".to_string()], "anything", false));
     }
 
     #[test]
     fn line_flag_requires_same_line_cooccurrence() {
         let q = parse_query("foo bar line:");
-        assert!(matches_file(&q, "a.md", &[], "foo and bar on one line\nsomething else"));
-        assert!(!matches_file(&q, "a.md", &[], "foo on this line\nbar on this other line"));
+        assert!(matches_file(&q, "a.md", &[], "foo and bar on one line\nsomething else", false));
+        assert!(!matches_file(&q, "a.md", &[], "foo on this line\nbar on this other line", false));
     }
 
     #[test]
     fn malformed_unterminated_quote_does_not_crash() {
         let q = parse_query("foo \"unterminated");
         // Falls back to treating the dangling quoted content as plain text.
-        assert!(matches_file(&q, "a.md", &[], "foo unterminated appears here"));
+        assert!(matches_file(&q, "a.md", &[], "foo unterminated appears here", false));
     }
 
     #[test]
     fn prefix_morphology_minimum() {
         let q = parse_query("заметк");
-        assert!(matches_file(&q, "a.md", &[], "здесь есть заметки"));
-        assert!(matches_file(&q, "a.md", &[], "работаю с заметками"));
+        assert!(matches_file(&q, "a.md", &[], "здесь есть заметки", false));
+        assert!(matches_file(&q, "a.md", &[], "работаю с заметками", false));
     }
 
     #[test]
     fn highlight_lines_reports_correct_ranges() {
         let q = parse_query("foo");
-        let matches = highlight_lines(&q, "line one\nhas foo in it\nfoo again here");
+        let matches = highlight_lines(&q, "line one\nhas foo in it\nfoo again here", false);
         assert_eq!(matches.len(), 2);
         assert_eq!(matches[0].line, 2);
         let (s, e) = matches[0].ranges[0];
         assert_eq!(&matches[0].text[s..e], "foo");
+    }
+
+    #[test]
+    fn case_sensitive_flag_distinguishes_case() {
+        let q = parse_query("Foo");
+        assert!(matches_file(&q, "a.md", &[], "a Foo here", true));
+        assert!(!matches_file(&q, "a.md", &[], "a foo here", true));
+        // Case-insensitive (the default) still matches either.
+        assert!(matches_file(&q, "a.md", &[], "a foo here", false));
+    }
+
+    #[test]
+    fn case_sensitive_does_not_affect_path_or_tag_filters() {
+        let q = parse_query("tag:Project path:Notes");
+        assert!(matches_file(&q, "notes/a.md", &["PROJECT".to_string()], "x", true));
     }
 
     #[test]

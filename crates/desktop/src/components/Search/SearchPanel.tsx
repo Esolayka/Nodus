@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CaseSensitive, SlidersHorizontal } from "lucide-react";
 import * as api from "../../api/vault";
 import { displayName } from "../../lib/displayName";
 import { useUiStore } from "../../store/uiStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import type { ReplaceFilePreview, SearchFileResult } from "../../types/vault";
 import { ReplaceConfirmDialog } from "./ReplaceConfirmDialog";
+import { Tooltip } from "../ui/Tooltip";
 import "./SearchPanel.css";
 
 const DEBOUNCE_MS = 120;
@@ -33,6 +35,13 @@ function highlightedLine(text: string, ranges: [number, number][]) {
   return parts.map((p, i) => (p.hl ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>));
 }
 
+/** The operators the search DSL actually parses (see `search.rs`) — kept in
+ * one place so the hint never lists syntax that doesn't really work.
+ * Obsidian also has `section:` and `[property]`; this vault doesn't
+ * support those (yet), so they're deliberately left off rather than
+ * advertised and silently ignored. */
+const SEARCH_OPERATORS = ["path:", "file:", "tag:", "line:"];
+
 export function SearchPanel() {
   const { t } = useTranslation();
   const query = useUiStore((s) => s.searchQuery);
@@ -44,7 +53,11 @@ export function SearchPanel() {
   const [results, setResults] = useState<SearchFileResult[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [helpForced, setHelpForced] = useState(false);
   const debouncedQuery = useDebounced(query, DEBOUNCE_MS);
+  const showHelp = mode === "search" && (helpForced || (inputFocused && query.trim() === ""));
 
   const [replaceWith, setReplaceWith] = useState("");
   const [skipCodeBlocks, setSkipCodeBlocks] = useState(true);
@@ -64,7 +77,7 @@ export function SearchPanel() {
     }
     let cancelled = false;
     const start = performance.now();
-    api.searchVault(trimmed).then((r) => {
+    api.searchVault(trimmed, caseSensitive).then((r) => {
       if (cancelled) return;
       setResults(r);
       setElapsedMs(performance.now() - start);
@@ -72,7 +85,7 @@ export function SearchPanel() {
     return () => {
       cancelled = true;
     };
-  }, [mode, debouncedQuery]);
+  }, [mode, debouncedQuery, caseSensitive]);
 
   useEffect(() => {
     if (mode !== "replace") return;
@@ -160,13 +173,49 @@ export function SearchPanel() {
         </button>
       </div>
 
-      <input
-        className="search-panel-input"
-        placeholder={mode === "search" ? t("search.placeholder") : t("search.findPlaceholder")}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        autoFocus
-      />
+      <div className="search-input-row">
+        <input
+          className="search-panel-input"
+          placeholder={mode === "search" ? t("search.placeholder") : t("search.findPlaceholder")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
+          autoFocus
+        />
+        {mode === "search" && (
+          <>
+            <Tooltip label={t("search.caseSensitive")} placement="top">
+              <button
+                type="button"
+                className={`search-input-btn${caseSensitive ? " active" : ""}`}
+                aria-pressed={caseSensitive}
+                onClick={() => setCaseSensitive((v) => !v)}
+              >
+                <CaseSensitive size={16} strokeWidth={1.75} />
+              </button>
+            </Tooltip>
+            <Tooltip label={t("search.syntaxHelp")} placement="top">
+              <button
+                type="button"
+                className={`search-input-btn${helpForced ? " active" : ""}`}
+                aria-pressed={helpForced}
+                onClick={() => setHelpForced((v) => !v)}
+              >
+                <SlidersHorizontal size={16} strokeWidth={1.75} />
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+
+      {showHelp && (
+        <div className="search-syntax-help">
+          {SEARCH_OPERATORS.map((op) => (
+            <code key={op}>{op}</code>
+          ))}
+        </div>
+      )}
 
       {mode === "replace" && (
         <>

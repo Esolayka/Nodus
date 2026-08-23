@@ -120,8 +120,8 @@ export function linkMention(
   return invoke("link_mention", { path, start, end, expectedText });
 }
 
-export function searchVault(query: string): Promise<SearchFileResult[]> {
-  return invoke("search_vault", { query });
+export function searchVault(query: string, caseSensitive: boolean): Promise<SearchFileResult[]> {
+  return invoke("search_vault", { query, caseSensitive });
 }
 
 export function getTagCounts(): Promise<TagCount[]> {
