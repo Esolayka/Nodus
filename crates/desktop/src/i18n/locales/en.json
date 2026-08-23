@@ -8,13 +8,15 @@
     "tagsView": "Tags",
     "tasksView": "Tasks",
     "calendarView": "Calendar",
-    "syncView": "Sync"
+    "syncView": "Sync",
+    "toggle": "Toggle sidebar"
   },
   "workspace": {
     "placeholder": "Open a folder of notes to get started",
     "closeTab": "Close tab",
     "closePane": "Close pane",
-    "newTab": "New tab"
+    "newTab": "New tab",
+    "tabList": "List tabs"
   },
   "fileTree": {
     "untitled": "Untitled",
@@ -68,7 +70,8 @@
     "noNote": "No note open",
     "outline": "Outline",
     "backlinks": "Links",
-    "graph": "Graph"
+    "graph": "Graph",
+    "toggle": "Toggle right panel"
   },
   "outline": {
     "title": "Outline",

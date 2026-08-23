@@ -11,6 +11,7 @@ import {
   jumpEditorToLine,
   useWorkspaceStore,
 } from "../../store/workspaceStore";
+import { InlineTitle } from "./InlineTitle";
 import "./NoteEditor.css";
 
 interface NoteEditorProps {
@@ -83,5 +84,10 @@ export function NoteEditor({ path }: NoteEditorProps) {
     });
   }, [path]);
 
-  return <div className="note-editor" ref={containerRef} />;
+  return (
+    <div className="note-editor-wrapper">
+      <InlineTitle path={path} />
+      <div className="note-editor" ref={containerRef} />
+    </div>
+  );
 }

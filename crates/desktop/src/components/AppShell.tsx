@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ChevronDown } from "lucide-react";
 import { setHistorySettings, telegramSetBotToken, telegramSetManualAddress } from "../api/vault";
 import { displayName } from "../lib/displayName";
 import { registerBuiltinCommands } from "../lib/builtinCommands";
@@ -285,10 +286,10 @@ export function AppShell() {
   const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() : "";
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
-  const rightPanelWidth = tree && !rightPanelCollapsed ? "300px" : "0px";
+  const rightPanelWidth = tree && !rightPanelCollapsed ? "280px" : "0px";
   const columns = tree
-    ? `44px ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelWidth}`
-    : `44px 300px 4px 1fr 0px`;
+    ? `var(--ribbon-width) ${effectiveSidebarWidth}px ${sidebarCollapsed ? "0px" : "4px"} 1fr ${rightPanelWidth}`
+    : `var(--ribbon-width) var(--sidebar-width) 4px 1fr 0px`;
 
   return (
     <div
@@ -304,7 +305,7 @@ export function AppShell() {
         <aside className="sidebar">
           <div className="sidebar-header">
             {sidebarView === "files" ? (
-              <span>{vaultName}</span>
+              <span>{t("sidebar.filesView")}</span>
             ) : activePluginSidebarView ? (
               <span>{t(activePluginSidebarView.titleKey)}</span>
             ) : (
@@ -353,9 +354,15 @@ export function AppShell() {
             </div>
           )}
           <div className="sidebar-footer">
-            <span className="sidebar-vault-path" title={vaultPath ?? ""}>
-              {vaultPath ?? ""}
-            </span>
+            <button
+              type="button"
+              className="sidebar-vault-path"
+              title={vaultPath ?? ""}
+              onClick={() => void openFolder()}
+            >
+              <ChevronDown size={14} className="sidebar-vault-icon" />
+              {vaultName || "Vault"}
+            </button>
             <div className="sidebar-footer-actions">
               <Tooltip label={t("sidebar.help")} placement="top">
                 <button type="button" className="sidebar-icon-btn">
@@ -395,9 +402,9 @@ export function AppShell() {
             {error && <p className="workspace-error">{error}</p>}
           </div>
         )}
+        <StatusBar />
       </main>
       {tree && !rightPanelCollapsed && <RightPanel />}
-      <StatusBar />
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <CommandPalette />
       <QuickSwitcher />

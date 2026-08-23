@@ -1,19 +1,21 @@
 .app-shell {
   display: grid;
-  grid-template-rows: 40px 1fr auto;
+  grid-template-rows: var(--titlebar-h) 1fr;
   grid-template-areas:
     "titlebar titlebar titlebar titlebar titlebar"
-    "ribbon sidebar resizer workspace rightpanel"
-    "statusbar statusbar statusbar statusbar statusbar";
+    "ribbon sidebar resizer workspace rightpanel";
   height: 100vh;
   overflow: hidden;
+  /* The dark backdrop the lighter `.workspace` surface sits on top of —
+     its own `border-top-left-radius` reveals this color through the
+     geometric corner cut, instead of a third tone or a border/shadow. */
+  background: var(--bg-secondary);
 }
 
 .app-shell.no-vault {
   grid-template-areas:
     "titlebar titlebar titlebar titlebar"
-    "ribbon sidebar resizer workspace"
-    "statusbar statusbar statusbar statusbar";
+    "ribbon sidebar resizer workspace";
 }
 
 .sidebar {
@@ -85,12 +87,29 @@
 .sidebar-vault-path {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-small);
+  font-weight: 400;
   color: var(--text-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: 4px;
+  text-align: left;
+}
+
+.sidebar-vault-path:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.sidebar-vault-icon {
+  flex-shrink: 0;
 }
 
 .sidebar-footer-actions {
@@ -132,10 +151,14 @@
   grid-area: workspace;
   overflow: hidden;
   background: var(--bg-primary);
+  border-top-left-radius: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 .workspace-empty {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -157,15 +180,15 @@
 /* --- Status bar --- */
 
 .status-bar {
-  grid-area: statusbar;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
-  height: 24px;
+  height: var(--statusbar-h);
   padding: 0 12px;
-  background: var(--bg-secondary);
-  font-size: 12px;
+  background: var(--bg-primary);
+  font-size: var(--fs-small);
   color: var(--text-faint);
   user-select: none;
 }

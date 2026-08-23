@@ -26,9 +26,12 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
       className={`pane${isActive ? " pane-active" : ""}`}
       onMouseDown={() => setActivePane(pane.id)}
     >
-      <div className="pane-header">
-        <TabBar pane={pane} />
-        {paneCount > 1 && (
+      {/* A single pane's tabs live in the title bar instead (one 40px row,
+          not two) — this row only exists at all once a split makes "which
+          pane's tabs are these" ambiguous. */}
+      {paneCount > 1 && (
+        <div className="pane-header">
+          <TabBar pane={pane} />
           <button
             type="button"
             className="pane-close"
@@ -39,8 +42,8 @@ export function Pane({ pane, isActive }: { pane: PaneModel; isActive: boolean })
               <path d="m4 4 8 8M12 4l-8 8" />
             </svg>
           </button>
-        )}
-      </div>
+        </div>
+      )}
       {pane.view === null && hasRealNote && <PathBar pane={pane} />}
       {pane.view === null && hasRealNote && hasConflict && (
         <ExternalChangeBar path={pane.activePath as string} />

@@ -15,7 +15,9 @@ export const editorTheme = EditorView.theme({
   ".cm-content": {
     caretColor: "var(--text-normal)",
     fontFamily: "var(--font-ui)",
-    padding: "40px 0 80px",
+    // The title (`InlineTitle`) now owns the 40px top inset; this is just
+    // the gap from the title down to the first line of body text.
+    padding: "8px 0 80px",
     maxWidth: "700px",
     margin: "0 auto",
     lineHeight: "1.6",

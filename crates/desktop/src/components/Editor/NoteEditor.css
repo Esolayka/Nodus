@@ -1,5 +1,12 @@
-.note-editor {
+.note-editor-wrapper {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 

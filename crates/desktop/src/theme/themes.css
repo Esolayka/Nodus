@@ -1,3 +1,27 @@
+/* Размеры каркаса и типографика — одинаковые в обеих темах. */
+:root {
+  --ribbon-width: 44px;
+  --sidebar-width: 300px;
+  --titlebar-h: 40px;
+  --tabbar-h: 40px;
+  --breadcrumb-h: 38px;
+  --statusbar-h: 24px;
+  --editor-width: 700px;
+
+  --font-text: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-ui: 13px;
+  --fs-text: 16px;
+  --fs-small: 12px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --accent-soft: rgba(127, 109, 242, 0.2);
+}
+
 /* Светлая тема — значения по умолчанию на :root. */
 :root {
   --bg-primary: #ffffff;
@@ -6,8 +30,8 @@
   --bg-hover: rgba(0, 0, 0, 0.055);
   --bg-active: rgba(0, 0, 0, 0.09);
   --text-normal: #1a1a1a;
-  --text-muted: #5f5f5f;
-  --text-faint: #9a9a9a;
+  --text-muted: #5c5c5c;
+  --text-faint: #8f8f8f;
   --accent: #7f6df2;
   --accent-hover: #6a57e8;
   --border: rgba(0, 0, 0, 0.08);
@@ -16,6 +40,8 @@
   --toggle-off: rgba(0, 0, 0, 0.2);
   --graph-node: #6b6b6b;
   --graph-edge: rgba(0, 0, 0, 0.13);
+  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.14);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
   --font-ui: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -38,6 +64,8 @@
   --toggle-off: rgba(255, 255, 255, 0.15);
   --graph-node: #a3a3a3;
   --graph-edge: rgba(255, 255, 255, 0.13);
+  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.55);
 }
 
 * {

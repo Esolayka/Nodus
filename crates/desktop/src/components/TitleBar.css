@@ -2,13 +2,16 @@
   grid-area: titlebar;
   display: flex;
   align-items: center;
-  height: 40px;
+  gap: 2px;
+  height: var(--titlebar-h);
   background: var(--bg-secondary);
   user-select: none;
+  padding: 0 4px;
 }
 
 .titlebar-drag-fill {
-  flex: 1;
+  flex: 1 1 40px;
+  min-width: 8px;
   height: 100%;
 }
 
@@ -16,22 +19,23 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-right: 6px;
+  padding-right: 2px;
 }
 
-.titlebar-controls button {
+.titlebar-app-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border-radius: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-faint);
 }
 
-.titlebar-controls button:hover {
+.titlebar-app-btn:hover {
   background: var(--bg-hover);
   color: var(--text-normal);
 }
@@ -41,7 +45,43 @@
   color: #ffffff;
 }
 
-.titlebar-controls svg {
-  width: 14px;
-  height: 14px;
+.tab-list-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tab-list-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-menu);
+  padding: 4px;
+}
+
+.tab-list-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-ui);
+  font-weight: 400;
+  background: transparent;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-list-menu button:hover {
+  background: var(--bg-hover);
 }

@@ -1,6 +1,7 @@
 .pane-group {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }
 
@@ -9,7 +10,6 @@
   flex-direction: column;
   flex: 1 1 0;
   min-width: 0;
-  border-radius: 8px 0 0 0;
 }
 
 .pane-header {
