@@ -5,6 +5,7 @@ import type { GraphData } from "../types/vault";
 interface GraphState {
   data: GraphData | null;
   error: string | null;
+  loading: boolean;
   load: () => Promise<void>;
 }
 
@@ -13,12 +14,15 @@ interface GraphState {
 export const useGraphStore = create<GraphState>((set) => ({
   data: null,
   error: null,
+  loading: false,
   load: async () => {
+    set({ loading: true, error: null });
     try {
       const data = await api.getGraphData();
-      set({ data, error: null });
+      set({ data, error: null, loading: false });
     } catch (error) {
-      set({ error: String(error) });
+      console.error("[graph] failed to load graph data:", error);
+      set({ data: null, error: String(error), loading: false });
     }
   },
 }));

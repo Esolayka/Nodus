@@ -106,6 +106,8 @@
     "fit": "Fit to screen",
     "resetLayout": "Reset layout",
     "loading": "Loading graph...",
+    "loadError": "Failed to load graph",
+    "retry": "Retry",
     "empty": "The vault has no notes yet",
     "collapse": "Collapse panel",
     "settings": "Graph settings",

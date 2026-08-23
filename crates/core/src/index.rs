@@ -30,7 +30,7 @@ use crate::wikilink::{find_wikilinks, LinkKind};
 /// [`Index::open`], which makes the next [`Index::reconcile`] treat every
 /// on-disk note as changed — a one-time full reindex, no separate migration
 /// system needed.
-const CURRENT_SCHEMA_VERSION: i64 = 2;
+const CURRENT_SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS notes (
@@ -254,6 +254,27 @@ fn context_snippet(content: &str, start: usize, end: usize) -> String {
     snippet.replace(['\n', '\r'], " ").trim().to_string()
 }
 
+/// `CREATE TABLE IF NOT EXISTS` does not add columns to an existing table.
+/// Keep these tiny additive migrations explicit so vaults created by older
+/// Nodus builds can be opened without deleting their derived index by hand.
+fn ensure_column(conn: &Connection, table: &str, column: &str, definition: &str) -> Result<()> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(index_err)?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(index_err)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(index_err)?;
+    if !columns.iter().any(|existing| existing == column) {
+        conn.execute_batch(&format!(
+            "ALTER TABLE {table} ADD COLUMN {column} {definition}"
+        ))
+        .map_err(index_err)?;
+    }
+    Ok(())
+}
+
 impl Index {
     pub fn open(vault_root: &Path) -> Result<Self> {
         let dir = vault_root.join(".nodus");
@@ -262,6 +283,14 @@ impl Index {
             .map_err(|e| Error::Watch(format!("failed to open index: {e}")))?;
         conn.execute_batch(SCHEMA)
             .map_err(|e| Error::Watch(format!("failed to init index schema: {e}")))?;
+
+        ensure_column(&conn, "links", "line", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(
+            &conn,
+            "links",
+            "byte_offset",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
 
         let stored_version: i64 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
@@ -1140,6 +1169,39 @@ mod tests {
         let vault = Vault::open(dir.path()).unwrap();
         let index = Index::open(dir.path()).unwrap();
         (dir, vault, index)
+    }
+
+    #[test]
+    fn open_migrates_a_legacy_links_table_before_reindexing() {
+        let dir = tempfile::tempdir().unwrap();
+        let nodus_dir = dir.path().join(".nodus");
+        std::fs::create_dir_all(&nodus_dir).unwrap();
+        let legacy = Connection::open(nodus_dir.join("index.sqlite")).unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE links (
+                    from_path TEXT NOT NULL,
+                    to_path TEXT,
+                    target_text TEXT NOT NULL,
+                    kind TEXT NOT NULL
+                );
+                PRAGMA user_version = 2;",
+            )
+            .unwrap();
+        drop(legacy);
+        std::fs::write(dir.path().join("A.md"), "[[B]]").unwrap();
+        std::fs::write(dir.path().join("B.md"), "").unwrap();
+
+        let vault = Vault::open(dir.path()).unwrap();
+        let index = Index::open(dir.path()).unwrap();
+        index.reconcile(&vault).unwrap();
+        index.update_note(&vault, "A.md").unwrap();
+
+        let graph = index.graph(&vault).unwrap();
+        assert!(graph
+            .links
+            .iter()
+            .any(|link| link.from_path == "A.md" && link.to_path == "B.md"));
     }
 
     #[test]

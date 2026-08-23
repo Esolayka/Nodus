@@ -6,19 +6,27 @@ import "./GraphView.css";
 
 export function GraphView() {
   const { t } = useTranslation();
-  const { data } = useGraphData();
+  const { data, error, loading, reload } = useGraphData();
   const openNote = useWorkspaceStore((s) => s.openNote);
 
   return (
     <div className="graph-view">
-      {data && data.nodes.length > 0 ? (
+      {error ? (
+        <div className="graph-view-empty graph-view-error" role="alert">
+          <span>{t("graph.loadError")}</span>
+          <code>{error}</code>
+          <button type="button" onClick={() => void reload()}>
+            {t("graph.retry")}
+          </button>
+        </div>
+      ) : data && data.nodes.length > 0 ? (
         <ForceGraph
           data={data}
           onOpenNote={(path, opts) => void openNote(path, opts)}
         />
       ) : (
         <div className="graph-view-empty">
-          {data ? t("graph.empty") : t("graph.loading")}
+          {loading || !data ? t("graph.loading") : t("graph.empty")}
         </div>
       )}
     </div>

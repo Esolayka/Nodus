@@ -13,3 +13,32 @@
   color: var(--text-faint);
   font-size: 13px;
 }
+
+.graph-view-error {
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.graph-view-error code {
+  max-width: 640px;
+  color: var(--text-faint);
+  font: 11px/1.45 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.graph-view-error button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-normal);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+}
+
+.graph-view-error button:hover {
+  background: var(--bg-hover);
+}

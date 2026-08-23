@@ -6,6 +6,7 @@ import { useVaultStore } from "../store/vaultStore";
 export function useGraphData() {
   const data = useGraphStore((s) => s.data);
   const error = useGraphStore((s) => s.error);
+  const loading = useGraphStore((s) => s.loading);
   const load = useGraphStore((s) => s.load);
   const changeVersion = useVaultStore((s) => s.changeVersion);
 
@@ -13,5 +14,5 @@ export function useGraphData() {
     void load();
   }, [changeVersion, load]);
 
-  return { data, error };
+  return { data, error, loading, reload: load };
 }

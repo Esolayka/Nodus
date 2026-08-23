@@ -7,12 +7,16 @@ import { ForceGraph } from "./ForceGraph";
  * immediate neighborhood (one hop, like Obsidian). */
 export function LocalGraph() {
   const { t } = useTranslation();
-  const { data } = useGraphData();
+  const { data, error } = useGraphData();
   const openNote = useWorkspaceStore((s) => s.openNote);
   const activePath = useWorkspaceStore((s) => {
     const pane = s.panes.find((p) => p.id === s.activePaneId);
     return pane?.activePath ?? null;
   });
+
+  if (error) {
+    return <p className="side-panel-empty">{t("graph.loadError")}</p>;
+  }
 
   if (!data || !activePath) {
     return <p className="side-panel-empty">{t("graph.empty")}</p>;
