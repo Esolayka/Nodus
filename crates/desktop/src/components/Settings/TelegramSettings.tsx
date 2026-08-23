@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { open as openShell } from "@tauri-apps/plugin-shell";
 import { useTranslation } from "react-i18next";
 import * as api from "../../api/vault";
+import { fetchTelegramStartLink } from "../../lib/telegramBot";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { TelegramStatus } from "../../types/vault";
 import { Toggle } from "../ui/Toggle";
+import "./TelegramSettings.css";
 
 function SettingRow({
   label,
@@ -34,6 +37,7 @@ export function TelegramSettings() {
 
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [code, setCode] = useState<{ token: string; expiresAt: number } | null>(null);
+  const [startLink, setStartLink] = useState<string | null>(null);
   const [tunnelStarting, setTunnelStarting] = useState(false);
   const [tunnelError, setTunnelError] = useState<string | null>(null);
 
@@ -47,7 +51,15 @@ export function TelegramSettings() {
   }, [telegram.enabled, telegram.placement]);
 
   async function handleGenerateCode() {
-    setCode(await api.telegramGenerateLinkCode());
+    const generated = await api.telegramGenerateLinkCode();
+    setCode(generated);
+    setStartLink(null);
+    const token = telegram.botToken.trim();
+    if (token) setStartLink(await fetchTelegramStartLink(token, generated.token));
+  }
+
+  async function handleCopyStartLink() {
+    if (startLink) await navigator.clipboard.writeText(startLink);
   }
 
   async function handleStartTunnel() {
@@ -151,6 +163,20 @@ export function TelegramSettings() {
               <div className="settings-row" style={{ display: "block" }}>
                 <p className="server-sync-code">{code.token}</p>
                 <p className="server-sync-summary">{t("settings.telegram.codeHint")}</p>
+                {startLink && (
+                  <div className="telegram-start-link">
+                    <p className="server-sync-summary">{t("settings.telegram.startLinkHint")}</p>
+                    <div className="telegram-start-link-row">
+                      <code className="telegram-start-link-text">{startLink}</code>
+                      <button type="button" onClick={() => void handleCopyStartLink()}>
+                        {t("settings.telegram.copyLink")}
+                      </button>
+                      <button type="button" onClick={() => void openShell(startLink)}>
+                        {t("settings.telegram.openLink")}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <SettingRow

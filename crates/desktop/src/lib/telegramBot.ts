@@ -94,6 +94,20 @@ async function callTelegramApi<T>(token: string, method: string, params?: Record
   return data.result as T;
 }
 
+/** For the Settings screen: a `t.me` deep link that opens a chat with this
+ * bot and sends `/start <code>` automatically — the bot's own `/start`
+ * handling (below) then turns that into a one-tap "finish linking"
+ * button, so nothing has to be typed on the phone at all. `null` if the
+ * token doesn't resolve to a real bot (not configured yet, or wrong). */
+export async function fetchTelegramStartLink(token: string, code: string): Promise<string | null> {
+  try {
+    const me = await callTelegramApi<{ username?: string }>(token, "getMe");
+    return me.username ? `https://t.me/${me.username}?start=${code}` : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getUpdates(token: string, offset: number | undefined, signal: AbortSignal): Promise<TgUpdate[]> {
   const res = await fetch(`${apiBase(token)}/getUpdates`, {
     method: "POST",
@@ -248,14 +262,25 @@ export function stopTelegramBotPolling(): void {
   activeToken = null;
 }
 
-function isStartCommand(text: string | undefined): boolean {
-  // Telegram sends "/start" as typed, but deep-linked starts arrive as
-  // "/start <payload>" and group chats can send "/start@YourBotName" —
-  // all three should still count.
-  return !!text && /^\/start(@\S+)?(\s|$)/.test(text.trim());
+const START_COMMAND_RE = /^\/start(?:@\S+)?(?:\s+(\S+))?\s*$/;
+
+/** The linking code's own alphabet (see `generate_linking_token` in
+ * telegram_link/mod.rs) — used to tell "/start <code>" apart from some
+ * other deep-link payload a future feature might send. */
+const LINK_CODE_RE = /^[A-Z0-9]{8}$/;
+
+/** Telegram sends "/start" as typed, but a deep link (`t.me/bot?start=X`)
+ * arrives as "/start X" and a group chat sends "/start@YourBotName" —
+ * `payload` is the linking code when present and shaped like one. */
+function parseStartCommand(text: string | undefined): { isStart: boolean; payload?: string } {
+  if (!text) return { isStart: false };
+  const match = START_COMMAND_RE.exec(text.trim());
+  if (!match) return { isStart: false };
+  const raw = match[1]?.toUpperCase();
+  return { isStart: true, payload: raw && LINK_CODE_RE.test(raw) ? raw : undefined };
 }
 
-async function handleStartCommand(token: string, chatId: number): Promise<void> {
+async function handleStartCommand(token: string, chatId: number, linkCode: string | undefined): Promise<void> {
   const status = await api.telegramStatus().catch(() => null);
   const address = status?.publicAddress;
 
@@ -267,10 +292,11 @@ async function handleStartCommand(token: string, chatId: number): Promise<void> 
     return;
   }
 
-  const miniAppUrl = `${address.replace(/\/+$/, "")}/miniapp.html`;
+  const base = address.replace(/\/+$/, "");
+  const miniAppUrl = linkCode ? `${base}/miniapp.html?code=${linkCode}` : `${base}/miniapp.html`;
   await callTelegramApi(token, "sendMessage", {
     chat_id: chatId,
-    text: i18next.t("telegramBot.startWelcome"),
+    text: linkCode ? i18next.t("telegramBot.startLinking") : i18next.t("telegramBot.startWelcome"),
     reply_markup: {
       inline_keyboard: [[{ text: i18next.t("telegramBot.openMiniApp"), web_app: { url: miniAppUrl } }]],
     },
@@ -298,8 +324,9 @@ async function runPollingLoop(token: string): Promise<void> {
       const msg = update.message;
       if (!msg) continue;
 
-      if (isStartCommand(msg.text)) {
-        await handleStartCommand(token, msg.chat.id);
+      const start = parseStartCommand(msg.text);
+      if (start.isStart) {
+        await handleStartCommand(token, msg.chat.id, start.payload);
         continue;
       }
 

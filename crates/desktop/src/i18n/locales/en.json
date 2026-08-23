@@ -155,6 +155,7 @@
     "savedConfirmation": "✅ Added to today's note",
     "saveFailed": "⚠️ Couldn't save that — try again in a moment",
     "startWelcome": "Hi! Tap below to open your vault.",
+    "startLinking": "Got your code — tap below to finish connecting this vault.",
     "openMiniApp": "Open Nodus",
     "startNoAddress": "The Mini App isn't reachable yet — open Settings → Telegram on your computer and start the tunnel (or set a manual address), then send /start again."
   },
@@ -346,6 +347,9 @@
       "generateCode": "Generate linking code",
       "generateCodeDesc": "Shows a short code — enter it in the Mini App to connect this vault to your Telegram account.",
       "codeHint": "Valid for 10 minutes. Enter it in the Mini App to finish linking.",
+      "startLinkHint": "Or skip typing it in: open this link on the phone with Telegram — it messages the bot and finishes linking in one tap.",
+      "copyLink": "Copy",
+      "openLink": "Open",
       "startTunnel": "Start tunnel",
       "startTunnelDesc": "Opens a temporary public address via a Cloudflare Quick Tunnel — no account needed. Downloads the small cloudflared tool automatically the first time.",
       "startingTunnel": "Starting… (downloads cloudflared the first time, may take a moment)",

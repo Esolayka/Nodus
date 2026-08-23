@@ -1,0 +1,30 @@
+.telegram-start-link {
+  margin-top: 8px;
+}
+
+.telegram-start-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.telegram-start-link-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-normal);
+}
+
+.telegram-start-link-row button {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
