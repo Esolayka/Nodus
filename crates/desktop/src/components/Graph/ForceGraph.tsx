@@ -324,9 +324,17 @@ export function ForceGraph({
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    ctx.restore();
 
     // --- Nodes ---
+    // Stays inside the same translate(t.x,t.y)+scale(t.k) block as the
+    // edges above — this used to restore() before drawing nodes, which
+    // left them at their raw simulation (graph-space) coordinates while
+    // edges and labels both correctly tracked pan/zoom. At the identity
+    // transform (freshly opened, unzoomed) that's invisible; the moment
+    // the user actually zooms or pans, nodes stay frozen where they were
+    // while the label (computed independently in screen space below)
+    // keeps following them — reading as the label drifting away, when
+    // really it was the node that never moved.
     const sizeMult = Math.min(Math.max(settings.nodeSize / 6, 0.5), 2.5);
     for (let i = 0; i < meta.length; i += 1) {
       const m = meta[i];
@@ -355,6 +363,7 @@ export function ForceGraph({
       ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = 1;
+    ctx.restore();
 
     // --- Labels: screen-space pass, constant 13px, hidden while the
     // layout is still settling and at low zoom. ---
