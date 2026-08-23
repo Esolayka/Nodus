@@ -17,6 +17,14 @@ body,
   overflow: hidden;
 }
 
+/* Android's WebView flashes a translucent highlight rectangle over
+   whatever was tapped by default — every row/button here already has its
+   own :active state, so that flash just reads as a stray blue box
+   appearing and vanishing on top of it. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 :root {
   /* --accent-soft (themes.css) is a fixed purple, matching the desktop
      app's own brand color. Inside Telegram, --accent is overridden per
