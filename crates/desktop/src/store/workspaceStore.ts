@@ -409,7 +409,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   closeView: (paneId) => {
     set((s) => ({
       panes: s.panes.map((pane) =>
-        pane.id === paneId ? { ...pane, view: null } : pane,
+        pane.id === paneId ? { ...pane, view: null, graphOpen: false } : pane,
       ),
     }));
   },

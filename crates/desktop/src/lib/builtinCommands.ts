@@ -58,7 +58,12 @@ export function registerBuiltinCommands(): () => void {
 
   reg("app.closeTab", i18next.t("commands.closeTab"), () => {
     const pane = activePane();
-    if (pane?.activePath) useWorkspaceStore.getState().closeTab(pane.id, pane.activePath);
+    if (!pane) return;
+    if (pane.view === "graph") {
+      useWorkspaceStore.getState().closeView(pane.id);
+    } else if (pane.activePath) {
+      useWorkspaceStore.getState().closeTab(pane.id, pane.activePath);
+    }
   });
 
   reg("app.openSettings", i18next.t("commands.openSettings"), () => {
