@@ -4,6 +4,7 @@ import * as api from "../api/vault";
 import { destroyEditor, getEditor } from "../editor/editorRegistry";
 import { type EditorMode, setEditorMode } from "../editor/modeState";
 import { useNoteUsageStore } from "./noteUsageStore";
+import { useVaultStore } from "./vaultStore";
 import type { FsChange } from "../types/vault";
 
 export interface Buffer {
@@ -555,6 +556,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({ buffers: { ...s.buffers, [path]: { ...s.buffers[path], saving: true } } }));
     try {
       await api.writeNote(path, content);
+      // The disk watcher deliberately suppresses the app's own writes (so
+      // saving doesn't make the editor reload its own just-saved content
+      // out from under the cursor) — which also means changeVersion never
+      // bumps from an in-app save on its own. Views that key off it purely
+      // for "did the vault's derived data change" (graph, etc.) would
+      // otherwise stay stale until an external change or a fresh mount.
+      useVaultStore.getState().bumpChangeVersion();
       set((s) => {
         const current = s.buffers[path];
         if (!current) return s;
