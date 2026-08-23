@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Tauri build target
+target/
+
+# Node modules
+node_modules
+dist
+dist-ssr
+
+# Nodus-specific
+.nodus
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

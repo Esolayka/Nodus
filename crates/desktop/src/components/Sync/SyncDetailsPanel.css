@@ -1,0 +1,93 @@
+.sync-details-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: transparent;
+}
+
+.sync-details-panel {
+  position: absolute;
+  bottom: 40px;
+  right: 12px;
+  width: 340px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.sync-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sync-details-header h3 {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.sync-details-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-details-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.sync-details-log-header button {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 10.5px;
+}
+
+.sync-log-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sync-log-row {
+  display: flex;
+  gap: 8px;
+  font-size: 11.5px;
+  padding: 3px 4px;
+  border-radius: 5px;
+}
+
+.sync-log-row-error {
+  color: var(--danger);
+}
+
+.sync-log-time {
+  color: var(--text-faint);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sync-log-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

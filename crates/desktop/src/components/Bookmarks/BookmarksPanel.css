@@ -1,0 +1,44 @@
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bookmark-open-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-row-icon {
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.bookmark-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.bookmark-row:hover .bookmark-remove-btn {
+  opacity: 1;
+}
+
+.bookmark-remove-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}

@@ -1,0 +1,9 @@
+target/
+crates/*/target/
+crates/desktop/node_modules/
+crates/desktop/dist/
+crates/desktop/.vite/
+crates/desktop/src-tauri/gen/
+crates/desktop/src-tauri/target/
+.git/
+.nodus/

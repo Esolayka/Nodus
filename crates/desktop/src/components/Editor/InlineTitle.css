@@ -1,0 +1,33 @@
+.inline-title {
+  display: block;
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 40px 0 0;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: var(--font-ui);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-normal);
+  line-height: 1.25;
+  flex-shrink: 0;
+}
+
+/* Beats the global `input:focus-visible` outline rule on specificity —
+   the title is plain text with a cursor while editing, never a marked
+   "field", in any state. */
+.inline-title:focus,
+.inline-title:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.inline-title::placeholder {
+  color: var(--text-faint);
+}

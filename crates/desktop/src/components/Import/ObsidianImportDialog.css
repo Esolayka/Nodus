@@ -1,0 +1,89 @@
+.obsidian-import-modal {
+  width: 520px;
+}
+
+.obsidian-import-subtitle {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.obsidian-import-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.obsidian-import-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.obsidian-import-row input {
+  flex: none;
+}
+
+.obsidian-import-report-none {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.obsidian-import-report {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.obsidian-import-report-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-normal);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.obsidian-import-report-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.obsidian-import-report-plugins {
+  color: var(--text-muted);
+}
+
+.obsidian-import-report-chevron {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.obsidian-import-report-list {
+  max-height: 200px;
+}
+
+.obsidian-import-report-location {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-normal);
+}
+
+.obsidian-import-report-content {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

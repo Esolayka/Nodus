@@ -1,0 +1,14 @@
+{
+  "name": "random-note-external",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone external Nodus plugin proving PluginContext is a real, separately-buildable API.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=browser --format=cjs --outfile=dist/index.cjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

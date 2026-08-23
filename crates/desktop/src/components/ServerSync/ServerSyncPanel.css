@@ -1,0 +1,62 @@
+.server-sync-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.server-sync-pair-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.server-sync-pair-form > .btn-accent {
+  align-self: flex-start;
+}
+
+.server-sync-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.server-sync-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.server-sync-quota-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.server-sync-quota-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.server-sync-code {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 4px 0 0;
+}
+
+.server-sync-code-hint {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--text-faint);
+}

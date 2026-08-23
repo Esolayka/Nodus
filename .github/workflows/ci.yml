@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check for stray control characters in source files
+        run: python3 scripts/check-control-chars.py
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt

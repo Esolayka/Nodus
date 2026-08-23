@@ -1,0 +1,252 @@
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-secondary);
+}
+
+.pdf-viewer-loading {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.pdf-toolbar-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-toolbar-btn:hover,
+.pdf-toolbar-btn.active {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.pdf-page-jump,
+.pdf-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pdf-page-jump input {
+  width: 40px;
+  height: 26px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-normal);
+  font-size: 12px;
+}
+
+.pdf-zoom button {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--bg-tertiary);
+  color: var(--text-normal);
+}
+
+.pdf-zoom button:hover {
+  background: var(--bg-hover);
+}
+
+.pdf-zoom span {
+  min-width: 38px;
+  text-align: center;
+}
+
+.pdf-search-input {
+  margin-left: auto;
+  width: 220px;
+}
+
+.pdf-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.pdf-thumbnail-sidebar {
+  width: 130px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-primary);
+  padding: 8px;
+}
+
+.pdf-thumbnail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  padding: 4px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.pdf-thumbnail-btn:hover {
+  background: var(--bg-hover);
+}
+
+.pdf-thumbnail-btn.active {
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.pdf-thumbnail-btn .pdf-page {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  background: #fff;
+}
+
+.pdf-thumbnail-btn .pdf-page-number {
+  display: none;
+}
+
+.pdf-thumbnail-label {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.pdf-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.pdf-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pdf-page-row {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.pdf-page {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.pdf-page-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-page-number {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.pdf-search-status {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.pdf-search-results {
+  max-height: 160px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-search-results button {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-search-results button:hover {
+  background: var(--bg-hover);
+}
+
+.pdf-search-result-page {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pdf-search-result-snippet {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Embedded single-page PDF view inside a note. */
+.cm-pdf-embed-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.cm-pdf-embed-canvas {
+  max-width: 100%;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+}
+
+.cm-pdf-embed-open {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+
+.cm-pdf-embed-open:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.cm-media-embed-error {
+  color: var(--danger);
+  font-size: 12px;
+}

@@ -2,7 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
 use crate::fs_ops;
-use crate::index::{Backlink, GraphData, HeadingEntry, Index, Mention, TagCount};
+use crate::history::{DisplayLine, HistorySettings, HistoryStore, VersionInfo};
+use crate::index::{
+    Backlink, GraphData, HeadingEntry, Index, Mention, OutgoingLink, PropertyRow, TagCount, TaskRow,
+};
 use crate::replace::{self, ReplaceFilePreview, ReplaceSelection};
 use crate::search::SearchFileResult;
 use crate::tree::{self, TreeNode};
@@ -23,6 +26,13 @@ pub struct VaultService {
     /// most dangerous operation in the app has a one-command undo. Only the
     /// most recent replace is kept — this isn't a general undo stack.
     last_replace_undo: Mutex<Option<Vec<(String, String)>>>,
+    history: HistoryStore,
+    /// Lives entirely in the frontend's settings store otherwise; mirrored
+    /// here because whether/how to snapshot has to be decided at write time,
+    /// which happens in this process, not in JS. Kept current via
+    /// `set_history_settings`, called once after opening and again whenever
+    /// the user changes a history setting.
+    history_settings: Mutex<HistorySettings>,
 }
 
 impl VaultService {
@@ -31,13 +41,16 @@ impl VaultService {
     /// background thread) for every external filesystem change, already
     /// filtered for the app's own writes; the index is kept in sync with
     /// external changes automatically, before `on_change` runs.
-    pub fn open<F>(path: impl AsRef<std::path::Path>, mut on_change: F) -> Result<Self>
+    pub fn open<F>(path: impl AsRef<std::path::Path>, history_settings: HistorySettings, mut on_change: F) -> Result<Self>
     where
         F: FnMut(FsChange) + Send + 'static,
     {
         let vault = Vault::open(path)?;
         let index = Arc::new(Index::open(vault.root())?);
         index.reconcile(&vault)?;
+
+        let history = HistoryStore::new(vault.root());
+        history.cleanup_on_startup(&history_settings);
 
         let index_for_watcher = index.clone();
         let vault_for_watcher = vault.clone();
@@ -60,6 +73,8 @@ impl VaultService {
             watcher,
             index,
             last_replace_undo: Mutex::new(None),
+            history,
+            history_settings: Mutex::new(history_settings),
         })
     }
 
@@ -75,11 +90,61 @@ impl VaultService {
         fs_ops::read_note(&self.vault, relative)
     }
 
+    /// Reads any vault file as raw bytes — attachments (images, PDFs,
+    /// audio) aren't UTF-8 text, so [`VaultService::read_note`] doesn't
+    /// fit them.
+    pub fn read_file_bytes(&self, relative: &str) -> Result<Vec<u8>> {
+        let absolute = self.vault.resolve(relative)?;
+        Ok(std::fs::read(absolute)?)
+    }
+
     pub fn write_note(&self, relative: &str, content: &str) -> Result<()> {
         let absolute = self.vault.resolve(relative)?;
+        let old_content = std::fs::read_to_string(&absolute).unwrap_or_default();
         self.watcher.mark_self_write(&absolute);
         fs_ops::write_note(&self.vault, relative, content)?;
-        self.index.update_note(&self.vault, relative)
+        self.index.update_note(&self.vault, relative)?;
+        self.record_history(relative, &old_content, content);
+        Ok(())
+    }
+
+    fn record_history(&self, relative: &str, old_content: &str, new_content: &str) {
+        let settings = self.history_settings.lock().expect("history settings mutex poisoned").clone();
+        let _ = self.history.record_if_changed(relative, old_content, new_content, &settings);
+    }
+
+    pub fn set_history_settings(&self, settings: HistorySettings) {
+        *self.history_settings.lock().expect("history settings mutex poisoned") = settings;
+    }
+
+    pub fn list_note_versions(&self, relative: &str) -> Vec<VersionInfo> {
+        self.history.list_versions(relative)
+    }
+
+    pub fn version_content(&self, relative: &str, id: u64) -> Option<String> {
+        self.history.version_content(relative, id)
+    }
+
+    pub fn compare_version_to_current(&self, relative: &str, id: u64) -> Result<Option<Vec<DisplayLine>>> {
+        let current = self.read_note(relative)?;
+        Ok(self.history.compare_to_current(relative, id, &current))
+    }
+
+    /// Restores `relative` to version `id`'s content. The restore itself is
+    /// recorded as a new history entry, so restoring can itself be undone
+    /// by restoring a later (or the just-superseded) version again.
+    pub fn restore_version(&self, relative: &str, id: u64) -> Result<()> {
+        let absolute = self.vault.resolve(relative)?;
+        let old_content = std::fs::read_to_string(&absolute).unwrap_or_default();
+        let Some(target_content) = self.history.version_content(relative, id) else {
+            return Err(crate::error::Error::NotFound(absolute));
+        };
+        self.watcher.mark_self_write(&absolute);
+        fs_ops::write_note(&self.vault, relative, &target_content)?;
+        self.index.update_note(&self.vault, relative)?;
+        let settings = self.history_settings.lock().expect("history settings mutex poisoned").clone();
+        let _ = self.history.record_restore(relative, &old_content, &target_content, &settings);
+        Ok(())
     }
 
     pub fn create_file(&self, relative: &str) -> Result<()> {
@@ -93,6 +158,38 @@ impl VaultService {
         let absolute = self.vault.resolve(relative)?;
         self.watcher.mark_self_write(&absolute);
         fs_ops::create_folder(&self.vault, relative)
+    }
+
+    /// Copies an external file (drag-and-drop source, "attach file" dialog
+    /// pick) into `folder`, picking a collision-safe name derived from
+    /// `desired_name`. Not indexed — attachments aren't notes. Returns the
+    /// new vault-relative path.
+    pub fn import_attachment_from_path(
+        &self,
+        folder: &str,
+        desired_name: &str,
+        source_absolute: &std::path::Path,
+    ) -> Result<String> {
+        let relative = crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
+        let absolute = self.vault.resolve(&relative)?;
+        self.watcher.mark_self_write(&absolute);
+        fs_ops::copy_attachment_from_path(&self.vault, &relative, source_absolute)?;
+        Ok(relative)
+    }
+
+    /// Same as [`VaultService::import_attachment_from_path`] but for raw
+    /// bytes already in memory (a clipboard-pasted image).
+    pub fn import_attachment_bytes(&self, folder: &str, desired_name: &str, bytes: &[u8]) -> Result<String> {
+        let relative = crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
+        let absolute = self.vault.resolve(&relative)?;
+        self.watcher.mark_self_write(&absolute);
+        fs_ops::write_attachment_bytes(&self.vault, &relative, bytes)?;
+        Ok(relative)
+    }
+
+    /// Vault-relative paths of attachments no note embeds anymore.
+    pub fn find_unused_attachments(&self) -> Result<Vec<String>> {
+        crate::attachments::find_unused_attachments(&self.vault)
     }
 
     /// The vault-relative paths of notes that reference `old_relative` and
@@ -195,6 +292,22 @@ impl VaultService {
         self.index.unlinked_mentions(target_path)
     }
 
+    pub fn outgoing_links(&self, path: &str) -> Result<Vec<OutgoingLink>> {
+        self.index.outgoing_links(&self.vault, path)
+    }
+
+    pub fn all_properties(&self) -> Result<Vec<PropertyRow>> {
+        self.index.all_properties()
+    }
+
+    pub fn bookmarks(&self) -> Vec<String> {
+        crate::bookmarks::read(self.vault.root())
+    }
+
+    pub fn set_bookmarks(&self, paths: Vec<String>) -> Result<()> {
+        crate::bookmarks::write(self.vault.root(), &paths)
+    }
+
     pub fn headings(&self, path: &str) -> Result<Vec<HeadingEntry>> {
         self.index.headings(path)
     }
@@ -231,6 +344,80 @@ impl VaultService {
 
     pub fn search(&self, query: &str) -> Result<Vec<SearchFileResult>> {
         self.index.search(query)
+    }
+
+    /// Every task in the vault, straight from the index — the tasks panel
+    /// does its own filtering/sorting/grouping over this list.
+    pub fn all_tasks(&self) -> Result<Vec<TaskRow>> {
+        self.index.all_tasks()
+    }
+
+    /// Flips a checklist item's `[ ]`/`[x]` marker in place. `marker_start`/
+    /// `marker_end`/`expected_marker` come from a previously read
+    /// [`TaskRow`] and are checked against the file's *current* content
+    /// before anything is written, the same stale-range guard
+    /// [`VaultService::link_mention`] uses — if the file changed since the
+    /// task list was last read, this rejects instead of corrupting it.
+    ///
+    /// Marking a task done (not un-marking it) can do two more things to the
+    /// same line: append a `✅ <today>` completion date, if
+    /// `add_completion_date` is set and the line doesn't already carry one;
+    /// and, if the line has a `🔁 <repeat rule>` marker, insert a fresh
+    /// unchecked occurrence right below it with the due date advanced.
+    pub fn toggle_task(
+        &self,
+        relative: &str,
+        marker_start: usize,
+        marker_end: usize,
+        expected_marker: &str,
+        add_completion_date: bool,
+    ) -> Result<()> {
+        let absolute = self.vault.resolve(relative)?;
+        let content = std::fs::read_to_string(&absolute)?;
+        if content.get(marker_start..marker_end) != Some(expected_marker) {
+            return Err(crate::error::Error::NotFound(absolute));
+        }
+
+        let line_start = content[..marker_start].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_end = content[marker_start..]
+            .find('\n')
+            .map(|i| marker_start + i)
+            .unwrap_or(content.len());
+        let old_line = &content[line_start..line_end];
+
+        let marking_done = expected_marker == "[ ]";
+        let new_marker = if marking_done { "[x]" } else { "[ ]" };
+        let rel_marker_start = marker_start - line_start;
+        let rel_marker_end = marker_end - line_start;
+        let mut new_line = old_line.to_string();
+        new_line.replace_range(rel_marker_start..rel_marker_end, new_marker);
+
+        let mut replacement = new_line;
+        if marking_done {
+            if let Some(task) = crate::tasks::find_tasks(old_line).into_iter().next() {
+                let today = chrono::Local::now().date_naive();
+                if add_completion_date && task.completed.is_none() {
+                    replacement.push_str(&format!(" ✅ {}", today.format("%Y-%m-%d")));
+                }
+                if let Some(repeat) = &task.repeat {
+                    if let Some(next_due) =
+                        crate::tasks::compute_next_due(task.due.as_deref(), repeat, today)
+                    {
+                        let recurring_line =
+                            crate::tasks::build_recurring_line(old_line, task.due.as_deref(), &next_due);
+                        replacement.push('\n');
+                        replacement.push_str(&recurring_line);
+                    }
+                }
+            }
+        }
+
+        let mut new_content = content;
+        new_content.replace_range(line_start..line_end, &replacement);
+
+        self.watcher.mark_self_write(&absolute);
+        fs_ops::write_note(&self.vault, relative, &new_content)?;
+        self.index.update_note(&self.vault, relative)
     }
 
     pub fn tag_counts(&self) -> Result<Vec<TagCount>> {
@@ -383,7 +570,7 @@ mod tests {
     use super::*;
 
     fn open(dir: &std::path::Path) -> VaultService {
-        VaultService::open(dir, |_| {}).unwrap()
+        VaultService::open(dir, crate::history::HistorySettings::default(), |_| {}).unwrap()
     }
 
     #[test]
@@ -564,6 +751,107 @@ mod tests {
     }
 
     #[test]
+    fn toggle_task_flips_marker_and_reindexes() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "- [ ] Buy milk\n").unwrap();
+        let service = open(dir.path());
+
+        let tasks = service.all_tasks().unwrap();
+        assert_eq!(tasks.len(), 1);
+        let t = &tasks[0];
+        assert!(!t.done);
+
+        service
+            .toggle_task("A.md", t.marker_start, t.marker_end, "[ ]", false)
+            .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "- [x] Buy milk\n");
+        let tasks = service.all_tasks().unwrap();
+        assert!(tasks[0].done);
+    }
+
+    #[test]
+    fn toggle_task_rejects_stale_marker_range() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "- [ ] Buy milk\n").unwrap();
+        let service = open(dir.path());
+        let t = &service.all_tasks().unwrap()[0];
+        let (start, end) = (t.marker_start, t.marker_end);
+
+        std::fs::write(dir.path().join("A.md"), "Completely different text now.\n").unwrap();
+
+        let result = service.toggle_task("A.md", start, end, "[ ]", false);
+        assert!(result.is_err());
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "Completely different text now.\n");
+    }
+
+    #[test]
+    fn toggle_task_appends_completion_date_when_enabled() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("A.md"), "- [ ] Buy milk\n").unwrap();
+        let service = open(dir.path());
+        let t = &service.all_tasks().unwrap()[0];
+
+        service
+            .toggle_task("A.md", t.marker_start, t.marker_end, "[ ]", true)
+            .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert!(content.starts_with("- [x] Buy milk ✅ "));
+    }
+
+    #[test]
+    fn toggle_task_does_not_duplicate_existing_completion_date() {
+        let dir = tempfile::tempdir().unwrap();
+        // Already marked done with a completion date; un-marking and
+        // re-marking should not stack a second date on top.
+        std::fs::write(dir.path().join("A.md"), "- [x] Buy milk ✅ 2026-01-01\n").unwrap();
+        let service = open(dir.path());
+        let t = &service.all_tasks().unwrap()[0];
+
+        service
+            .toggle_task("A.md", t.marker_start, t.marker_end, "[x]", true)
+            .unwrap();
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "- [ ] Buy milk ✅ 2026-01-01\n");
+
+        let t = &service.all_tasks().unwrap()[0];
+        service
+            .toggle_task("A.md", t.marker_start, t.marker_end, "[ ]", true)
+            .unwrap();
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "- [x] Buy milk ✅ 2026-01-01\n");
+    }
+
+    #[test]
+    fn toggle_task_with_repeat_marker_inserts_next_occurrence() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "- [ ] Water plants 📅 2026-01-01 🔁 every week\n",
+        )
+        .unwrap();
+        let service = open(dir.path());
+        let t = &service.all_tasks().unwrap()[0];
+
+        service
+            .toggle_task("A.md", t.marker_start, t.marker_end, "[ ]", false)
+            .unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(
+            content,
+            "- [x] Water plants 📅 2026-01-01 🔁 every week\n- [ ] Water plants 📅 2026-01-08 🔁 every week\n"
+        );
+        let tasks = service.all_tasks().unwrap();
+        assert_eq!(tasks.len(), 2);
+        assert!(tasks.iter().any(|t| t.done && t.due.as_deref() == Some("2026-01-01")));
+        assert!(tasks.iter().any(|t| !t.done && t.due.as_deref() == Some("2026-01-08")));
+    }
+
+    #[test]
     fn rename_tag_rewrites_inline_and_frontmatter_occurrences() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("A.md"), "Body with #project tag.\n").unwrap();
@@ -621,5 +909,112 @@ mod tests {
 
         // A second undo has nothing left to do.
         assert!(service.undo_last_replace().unwrap().is_empty());
+    }
+
+    #[test]
+    fn write_note_records_a_history_version_only_when_content_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+
+        service.write_note("A.md", "v1").unwrap();
+        service.write_note("A.md", "v1").unwrap(); // no-op write, same content
+        service.write_note("A.md", "v2").unwrap();
+
+        let versions = service.list_note_versions("A.md");
+        assert_eq!(versions.len(), 2);
+        assert_eq!(service.version_content("A.md", versions[0].id).as_deref(), Some("v1"));
+        assert_eq!(service.version_content("A.md", versions[1].id).as_deref(), Some("v2"));
+    }
+
+    #[test]
+    fn restore_version_writes_content_and_is_itself_recorded() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+
+        service.write_note("A.md", "v1").unwrap();
+        service.write_note("A.md", "v2").unwrap();
+        let v1_id = service.list_note_versions("A.md")[0].id;
+
+        service.restore_version("A.md", v1_id).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("A.md")).unwrap();
+        assert_eq!(content, "v1");
+
+        // The restore itself became a third history entry, so it can be undone too.
+        let versions = service.list_note_versions("A.md");
+        assert_eq!(versions.len(), 3);
+        assert_eq!(service.version_content("A.md", versions[2].id).as_deref(), Some("v1"));
+    }
+
+    #[test]
+    fn compare_version_to_current_diffs_against_live_disk_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+
+        service.write_note("A.md", "line1\nline2").unwrap();
+        let v1_id = service.list_note_versions("A.md")[0].id;
+        service.write_note("A.md", "line1\nline2 changed\nline3").unwrap();
+
+        let lines = service.compare_version_to_current("A.md", v1_id).unwrap().unwrap();
+        use crate::history::DisplayLineKind;
+        assert!(lines.iter().any(|l| l.kind == DisplayLineKind::Added));
+        assert!(lines.iter().any(|l| l.kind == DisplayLineKind::Removed));
+    }
+
+    #[test]
+    fn disabling_history_settings_stops_new_versions_from_being_recorded() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+
+        service.write_note("A.md", "v1").unwrap();
+        service.set_history_settings(crate::history::HistorySettings {
+            enabled: false,
+            ..crate::history::HistorySettings::default()
+        });
+        service.write_note("A.md", "v2").unwrap();
+
+        // Only the version recorded before history was disabled exists.
+        assert_eq!(service.list_note_versions("A.md").len(), 1);
+    }
+
+    #[test]
+    fn import_attachment_from_path_copies_into_target_folder_with_a_free_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+        let source_dir = tempfile::tempdir().unwrap();
+        let source = source_dir.path().join("photo.png");
+        std::fs::write(&source, b"pngdata").unwrap();
+
+        let path = service.import_attachment_from_path("assets", "photo.png", &source).unwrap();
+        assert_eq!(path, "assets/photo.png");
+        assert_eq!(std::fs::read(dir.path().join("assets/photo.png")).unwrap(), b"pngdata");
+
+        // Importing the same name again doesn't clobber the first file.
+        let path2 = service.import_attachment_from_path("assets", "photo.png", &source).unwrap();
+        assert_eq!(path2, "assets/photo 1.png");
+    }
+
+    #[test]
+    fn import_attachment_bytes_writes_pasted_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+        let path = service.import_attachment_bytes("assets", "pasted.png", b"raw bytes").unwrap();
+        assert_eq!(path, "assets/pasted.png");
+        assert_eq!(std::fs::read(dir.path().join("assets/pasted.png")).unwrap(), b"raw bytes");
+    }
+
+    #[test]
+    fn find_unused_attachments_reflects_current_embeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+        std::fs::create_dir_all(dir.path().join("assets")).unwrap();
+        std::fs::write(dir.path().join("assets/orphan.png"), b"a").unwrap();
+        service.create_file("A.md").unwrap();
+
+        let unused = service.find_unused_attachments().unwrap();
+        assert_eq!(unused, vec!["assets/orphan.png".to_string()]);
+
+        service.write_note("A.md", "![[orphan.png]]").unwrap();
+        assert!(service.find_unused_attachments().unwrap().is_empty());
     }
 }

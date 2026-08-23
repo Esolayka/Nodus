@@ -1,0 +1,124 @@
+.tasks-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.tasks-panel-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tasks-status-toggle,
+.tasks-sort-toggle {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.tasks-status-toggle {
+  flex-wrap: wrap;
+}
+
+.tasks-status-toggle button,
+.tasks-sort-toggle button {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tasks-status-toggle button.active,
+.tasks-sort-toggle button.active {
+  background: var(--bg-primary);
+  color: var(--text-normal);
+}
+
+.tasks-filters-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tasks-filters-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.tasks-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tasks-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  padding: 4px 2px;
+}
+
+.tasks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  border-radius: 6px;
+  padding: 0 4px;
+}
+
+.task-row:hover {
+  background: var(--bg-hover);
+}
+
+.task-row input[type="checkbox"] {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.task-row-text {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 0;
+}
+
+.task-row-text:hover {
+  color: var(--accent);
+}
+
+.task-row-done .task-row-text {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.task-badge {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  white-space: nowrap;
+}

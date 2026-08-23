@@ -16,10 +16,20 @@ use serde::Serialize;
 
 use crate::error::{Error, Result};
 use crate::heading::find_headings;
+use crate::properties::find_properties;
 use crate::search::{self, SearchFileResult};
+use crate::tasks::find_tasks;
 use crate::tree::list_markdown_files;
 use crate::vault::Vault;
 use crate::wikilink::{find_wikilinks, LinkKind};
+
+/// Bumped whenever a schema change needs existing vaults to backfill data
+/// for files that won't otherwise get re-indexed (their mtime hasn't
+/// changed). Bumping this wipes the `notes` table's mtime bookkeeping in
+/// [`Index::open`], which makes the next [`Index::reconcile`] treat every
+/// on-disk note as changed — a one-time full reindex, no separate migration
+/// system needed.
+const CURRENT_SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS notes (
@@ -57,6 +67,27 @@ const SCHEMA: &str = "
     );
     CREATE INDEX IF NOT EXISTS tags_path ON tags(path);
     CREATE INDEX IF NOT EXISTS tags_tag ON tags(tag);
+    CREATE TABLE IF NOT EXISTS tasks (
+        path         TEXT NOT NULL,
+        line         INTEGER NOT NULL,
+        done         INTEGER NOT NULL,
+        text         TEXT NOT NULL,
+        due          TEXT,
+        priority     INTEGER,
+        completed    TEXT,
+        repeat       TEXT,
+        marker_start INTEGER NOT NULL,
+        marker_end   INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS tasks_path ON tasks(path);
+    CREATE INDEX IF NOT EXISTS tasks_done ON tasks(done);
+    CREATE TABLE IF NOT EXISTS properties (
+        path  TEXT NOT NULL,
+        key   TEXT NOT NULL,
+        value TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS properties_path ON properties(path);
+    CREATE INDEX IF NOT EXISTS properties_key ON properties(key);
 ";
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,12 +100,50 @@ pub struct Backlink {
     pub line: usize,
 }
 
+/// One link out of a note, resolved from the same `links` table
+/// [`Index::backlinks`] reads in the other direction — so outgoing links,
+/// backlinks, and the graph view all agree, instead of the frontend
+/// re-deriving this by parsing note text itself.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutgoingLink {
+    pub target_text: String,
+    pub to_path: Option<String>,
+    pub kind: String,
+    /// 1-indexed line number within the note that contains this link.
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyRow {
+    pub path: String,
+    pub key: String,
+    pub value: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeadingEntry {
     pub level: u8,
     pub text: String,
     pub position: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskRow {
+    pub path: String,
+    pub line: usize,
+    pub done: bool,
+    pub text: String,
+    pub due: Option<String>,
+    /// 1=low, 2=medium, 3=high — matches `tasks::Priority as u8`.
+    pub priority: Option<u8>,
+    pub completed: Option<String>,
+    pub repeat: Option<String>,
+    pub marker_start: usize,
+    pub marker_end: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -162,6 +231,21 @@ impl Index {
             .map_err(|e| Error::Watch(format!("failed to open index: {e}")))?;
         conn.execute_batch(SCHEMA)
             .map_err(|e| Error::Watch(format!("failed to init index schema: {e}")))?;
+
+        let stored_version: i64 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(|e| Error::Watch(format!("failed to read index schema version: {e}")))?;
+        if stored_version < CURRENT_SCHEMA_VERSION {
+            // Forces the next `reconcile()` to fully re-index every on-disk
+            // note at least once — the only way a newly added column/table
+            // (like `properties`) gets backfilled for files whose mtime
+            // hasn't changed since they were last indexed.
+            conn.execute("DELETE FROM notes", [])
+                .map_err(|e| Error::Watch(format!("failed to clear index for backfill: {e}")))?;
+            conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)
+                .map_err(|e| Error::Watch(format!("failed to write index schema version: {e}")))?;
+        }
+
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -223,6 +307,8 @@ impl Index {
         let links = find_wikilinks(&content);
         let headings = find_headings(&content);
         let tags = crate::tags::find_tags(&content);
+        let tasks = find_tasks(&content);
+        let properties = find_properties(&content);
 
         let conn = self.conn.lock().expect("index mutex poisoned");
         conn.execute(
@@ -244,6 +330,10 @@ impl Index {
         )
         .map_err(index_err)?;
         conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
+        conn.execute("DELETE FROM tasks WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
+        conn.execute("DELETE FROM properties WHERE path = ?1", params![relative])
             .map_err(index_err)?;
 
         for link in &links {
@@ -289,6 +379,34 @@ impl Index {
             .map_err(index_err)?;
         }
 
+        for task in &tasks {
+            conn.execute(
+                "INSERT INTO tasks (path, line, done, text, due, priority, completed, repeat, marker_start, marker_end)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    relative,
+                    task.line,
+                    task.done,
+                    task.text,
+                    task.due,
+                    task.priority.map(|p| p as u8),
+                    task.completed,
+                    task.repeat,
+                    task.marker_start,
+                    task.marker_end,
+                ],
+            )
+            .map_err(index_err)?;
+        }
+
+        for (key, value) in &properties {
+            conn.execute(
+                "INSERT INTO properties (path, key, value) VALUES (?1, ?2, ?3)",
+                params![relative, key, value],
+            )
+            .map_err(index_err)?;
+        }
+
         Ok(())
     }
 
@@ -310,6 +428,10 @@ impl Index {
         .map_err(index_err)?;
         conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
             .map_err(index_err)?;
+        conn.execute("DELETE FROM tasks WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
+        conn.execute("DELETE FROM properties WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
         Ok(())
     }
 
@@ -324,6 +446,8 @@ impl Index {
             "DELETE FROM headings WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
             "DELETE FROM notes_fts WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
             "DELETE FROM tags WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
+            "DELETE FROM tasks WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
+            "DELETE FROM properties WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
         ] {
             conn.execute(sql, params![relative, like_pattern])
                 .map_err(index_err)?;
@@ -365,6 +489,16 @@ impl Index {
         .map_err(index_err)?;
         conn.execute(
             "UPDATE tags SET path = ?2 WHERE path = ?1",
+            params![old, new],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "UPDATE tasks SET path = ?2 WHERE path = ?1",
+            params![old, new],
+        )
+        .map_err(index_err)?;
+        conn.execute(
+            "UPDATE properties SET path = ?2 WHERE path = ?1",
             params![old, new],
         )
         .map_err(index_err)?;
@@ -478,6 +612,36 @@ impl Index {
         Ok(backlinks)
     }
 
+    /// Every link `path` itself makes out to other notes, read from the same
+    /// `links` table `backlinks` reads in the other direction — so this,
+    /// backlinks, and the graph view can never disagree about what a note
+    /// links to. Unlike `backlinks`, no candidate search is needed first:
+    /// the file to parse is already known, so this just re-reads `path`
+    /// directly and resolves each link it finds live (the same
+    /// live-resolution `reindex_note` did at write time, kept in sync here
+    /// rather than trusting a possibly-stale `to_path`).
+    pub fn outgoing_links(&self, vault: &Vault, path: &str) -> Result<Vec<OutgoingLink>> {
+        let absolute = vault.resolve(path)?;
+        let Ok(content) = std::fs::read_to_string(&absolute) else {
+            return Ok(Vec::new());
+        };
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut links = Vec::new();
+        for link in find_wikilinks(&content) {
+            let to_path = resolve_target_locked(&conn, &link.target, path);
+            links.push(OutgoingLink {
+                target_text: link.target,
+                to_path,
+                kind: match link.kind {
+                    LinkKind::Wikilink => "wikilink".to_string(),
+                    LinkKind::Embed => "embed".to_string(),
+                },
+                line: line_of(&content, link.start),
+            });
+        }
+        Ok(links)
+    }
+
     /// Other notes whose plain text contains `target_path`'s title, outside
     /// of any existing `[[link]]`. Candidates are narrowed with the FTS5
     /// index rather than scanning every file on disk — the exact match
@@ -536,6 +700,29 @@ impl Index {
             }
         }
         Ok(mentions)
+    }
+
+    /// Every (path, key, value) property row in the vault, straight from the
+    /// index — one SQL query instead of the frontend reading and re-parsing
+    /// every note's frontmatter itself, which is the part that wouldn't
+    /// scale to a large vault.
+    pub fn all_properties(&self) -> Result<Vec<PropertyRow>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn
+            .prepare("SELECT path, key, value FROM properties ORDER BY key, path")
+            .map_err(index_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(PropertyRow {
+                    path: row.get(0)?,
+                    key: row.get(1)?,
+                    value: row.get(2)?,
+                })
+            })
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        Ok(rows)
     }
 
     /// Headings of a single note, in document order — used to power
@@ -654,6 +841,38 @@ impl Index {
         paths.sort();
         paths.dedup();
         Ok(paths)
+    }
+
+    /// Every task across the whole vault, straight from the index — the
+    /// tasks panel filters/sorts/groups this list itself rather than
+    /// re-reading files, per spec ("данные берутся из индекса").
+    pub fn all_tasks(&self) -> Result<Vec<TaskRow>> {
+        let conn = self.conn.lock().expect("index mutex poisoned");
+        let mut stmt = conn
+            .prepare(
+                "SELECT path, line, done, text, due, priority, completed, repeat, marker_start, marker_end
+                 FROM tasks ORDER BY path ASC, line ASC",
+            )
+            .map_err(index_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(TaskRow {
+                    path: row.get(0)?,
+                    line: row.get(1)?,
+                    done: row.get(2)?,
+                    text: row.get(3)?,
+                    due: row.get(4)?,
+                    priority: row.get(5)?,
+                    completed: row.get(6)?,
+                    repeat: row.get(7)?,
+                    marker_start: row.get(8)?,
+                    marker_end: row.get(9)?,
+                })
+            })
+            .map_err(index_err)?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(index_err)?;
+        Ok(rows)
     }
 }
 
@@ -1010,6 +1229,19 @@ mod tests {
 
         let paths = index.paths_with_tag("project").unwrap();
         assert_eq!(paths, vec!["A.md".to_string()]);
+    }
+
+    #[test]
+    fn all_tasks_reads_from_the_index_not_disk() {
+        let (dir, vault, index) = setup();
+        std::fs::write(dir.path().join("A.md"), "- [ ] First 📅 2026-09-01\n- [x] Second\n").unwrap();
+        std::fs::write(dir.path().join("B.md"), "- [ ] Third ⏫\n").unwrap();
+        index.reconcile(&vault).unwrap();
+
+        let tasks = index.all_tasks().unwrap();
+        assert_eq!(tasks.len(), 3);
+        assert!(tasks.iter().any(|t| t.path == "A.md" && t.text == "First" && t.due.as_deref() == Some("2026-09-01")));
+        assert!(tasks.iter().any(|t| t.path == "B.md" && t.priority == Some(3)));
     }
 
     /// The spec's own bar: on a 500-note vault, a search must resolve in

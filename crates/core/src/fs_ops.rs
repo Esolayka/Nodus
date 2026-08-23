@@ -39,6 +39,37 @@ fn write_atomic(path: &Path, content: &str) -> Result<()> {
     Ok(())
 }
 
+/// Writes binary content (an imported attachment) to `relative`, creating
+/// missing parent folders. Fails if the path is already taken — callers are
+/// expected to have already picked a free name via
+/// [`crate::attachments::unique_attachment_path`].
+pub fn write_attachment_bytes(vault: &Vault, relative: &str, bytes: &[u8]) -> Result<()> {
+    let path = vault.resolve(relative)?;
+    if path.exists() {
+        return Err(Error::AlreadyExists(path));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, bytes)?;
+    Ok(())
+}
+
+/// Copies an external file (e.g. a drag-and-dropped path) into the vault at
+/// `relative`. Same "must not already exist" contract as
+/// [`write_attachment_bytes`].
+pub fn copy_attachment_from_path(vault: &Vault, relative: &str, source_absolute: &Path) -> Result<()> {
+    let path = vault.resolve(relative)?;
+    if path.exists() {
+        return Err(Error::AlreadyExists(path));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::copy(source_absolute, &path)?;
+    Ok(())
+}
+
 /// Creates a new empty file at `relative`. Fails if it already exists.
 pub fn create_file(vault: &Vault, relative: &str) -> Result<()> {
     let path = vault.resolve(relative)?;
@@ -181,5 +212,38 @@ mod tests {
         let vault = Vault::open(dir.path()).unwrap();
         assert!(create_file(&vault, "../escape.md").is_err());
         assert!(read_note(&vault, "../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn write_attachment_bytes_creates_missing_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        write_attachment_bytes(&vault, "assets/photo.png", b"\x89PNG").unwrap();
+        assert_eq!(std::fs::read(dir.path().join("assets/photo.png")).unwrap(), b"\x89PNG");
+    }
+
+    #[test]
+    fn write_attachment_bytes_rejects_existing_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        write_attachment_bytes(&vault, "photo.png", b"a").unwrap();
+        assert!(write_attachment_bytes(&vault, "photo.png", b"b").is_err());
+    }
+
+    #[test]
+    fn copy_attachment_from_path_copies_bytes_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Vault::open(dir.path()).unwrap();
+        let source_dir = tempfile::tempdir().unwrap();
+        let source = source_dir.path().join("original.png");
+        std::fs::write(&source, b"binary data").unwrap();
+
+        copy_attachment_from_path(&vault, "assets/original.png", &source).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join("assets/original.png")).unwrap(),
+            b"binary data"
+        );
+        // The source file is untouched — this is a copy, not a move.
+        assert!(source.exists());
     }
 }
