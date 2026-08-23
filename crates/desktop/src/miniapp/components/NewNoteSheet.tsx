@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { saveNote } from "../sync";
+import { hapticSuccess } from "../telegram";
 import { BottomSheet } from "./BottomSheet";
 
 /** Mirrors the desktop app's own `uniqueName` (store/vaultStore.ts): a
@@ -47,6 +48,7 @@ export function NewNoteSheet({
         setError("Someone else just created a note with that name — try again.");
         return;
       }
+      hapticSuccess();
       onCreated(path);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

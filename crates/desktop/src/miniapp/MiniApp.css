@@ -476,20 +476,6 @@ input.search-input {
   white-space: nowrap;
 }
 
-.editor-status-dot {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  justify-content: center;
-  color: var(--text-faint);
-}
-
-.editor-status-dot-dirty {
-  color: var(--accent);
-}
-
 .editor-conflict-banner {
   margin: 10px 12px;
   padding: 10px 12px;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Hash } from "lucide-react";
 import type { TagCount } from "../../types/vault";
 import { readTags } from "../sync";
+import { haptic } from "../telegram";
 
 export function TagsScreen({ onOpenTag }: { onOpenTag: (tag: string) => void }) {
   const [tags, setTags] = useState<TagCount[] | null>(null);
@@ -28,7 +29,7 @@ export function TagsScreen({ onOpenTag }: { onOpenTag: (tag: string) => void }) 
   return (
     <div className="tags-screen miniapp-card">
       {tags.map((t) => (
-        <button key={t.tag} type="button" className="tag-row" onClick={() => onOpenTag(t.tag)}>
+        <button key={t.tag} type="button" className="tag-row" onClick={() => (haptic(), onOpenTag(t.tag))}>
           <span className="tag-row-icon">
             <Hash size={14} />
           </span>

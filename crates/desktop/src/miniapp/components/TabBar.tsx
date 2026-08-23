@@ -1,5 +1,6 @@
 import { FileText, Hash, ListChecks, Plus, Search } from "lucide-react";
 import type { ReactNode } from "react";
+import { haptic } from "../telegram";
 
 export type Tab = "notes" | "search" | "tags" | "tasks";
 
@@ -18,13 +19,13 @@ export function TabBar({ current, onChange, onQuickAdd }: { current: Tab; onChan
           key={tab.id}
           type="button"
           className={`miniapp-tab${current === tab.id ? " miniapp-tab-active" : ""}`}
-          onClick={() => onChange(tab.id)}
+          onClick={() => (haptic(), onChange(tab.id))}
         >
           <span className="miniapp-tab-icon">{tab.icon}</span>
           <span className="miniapp-tab-label">{tab.label}</span>
         </button>
       ))}
-      <button type="button" className="miniapp-tab miniapp-tab-quickadd" onClick={onQuickAdd}>
+      <button type="button" className="miniapp-tab miniapp-tab-quickadd" onClick={() => (haptic(), onQuickAdd())}>
         <span className="miniapp-tab-icon">
           <Plus size={19} />
         </span>

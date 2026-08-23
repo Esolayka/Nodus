@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import type { SearchFileResult } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import { readSearch } from "../sync";
+import { haptic } from "../telegram";
 
 export function SearchScreen({
   onOpen,
@@ -55,7 +56,7 @@ export function SearchScreen({
       {!searching && results && results.length > 0 && (
         <div className="miniapp-card">
           {results.map((file) => (
-            <button key={file.path} type="button" className="search-result" onClick={() => onOpen(file.path)}>
+            <button key={file.path} type="button" className="search-result" onClick={() => (haptic(), onOpen(file.path))}>
               <div className="search-result-path">{displayName(file.path)}</div>
               {file.matches.slice(0, 2).map((m) => (
                 <div key={m.line} className="search-result-line">

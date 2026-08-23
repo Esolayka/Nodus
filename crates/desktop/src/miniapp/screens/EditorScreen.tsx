@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorState } from "@codemirror/state";
-import { Check, ChevronLeft, Circle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { EditorView } from "@codemirror/view";
 import { buildNoteIndex } from "../../lib/noteIndex";
 import { displayName } from "../../lib/displayName";
 import { SyncIndicator } from "../components/SyncIndicator";
 import { miniAppEditorExtensions } from "../editor/setup";
 import { readNote, readTree, saveNote } from "../sync";
-import { useBackButton, useMainButton } from "../telegram";
+import { haptic, useBackButton, useMainButton } from "../telegram";
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 
@@ -56,11 +56,16 @@ export function EditorScreen({
   }
 
   useBackButton(() => {
+    haptic();
     void save();
     onBack();
   });
 
-  useMainButton({ text: dirty ? "Save" : "Saved", onClick: () => void save(), visible: true, enabled: dirty });
+  // Only surfaced while there's actually something unsaved — autosave
+  // already covers the common case, so a native "Saved" button sitting
+  // there permanently was just a second, redundant status indicator (the
+  // sync bar above already says so) rather than a useful action.
+  useMainButton({ text: "Save", onClick: () => void save(), visible: dirty, enabled: dirty });
 
   useEffect(() => {
     let cancelled = false;
@@ -113,13 +118,15 @@ export function EditorScreen({
     <div className="editor-screen">
       <SyncIndicator />
       <div className="editor-screen-header">
-        <button type="button" className="editor-back-btn" onClick={() => (void save(), onBack())} aria-label="Back to notes">
+        <button
+          type="button"
+          className="editor-back-btn"
+          onClick={() => (haptic(), void save(), onBack())}
+          aria-label="Back to notes"
+        >
           <ChevronLeft size={22} />
         </button>
         <span className="editor-screen-title">{displayName(path)}</span>
-        <span className={`editor-status-dot${dirty ? " editor-status-dot-dirty" : ""}`} title={dirty ? "Unsaved changes" : "Saved"}>
-          {dirty ? <Circle size={9} fill="currentColor" /> : <Check size={17} />}
-        </span>
       </div>
       {conflictNotice && (
         <p className="editor-conflict-banner" onClick={() => setConflictNotice(null)}>

@@ -4,6 +4,7 @@ import type { TaskRow } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import * as api from "../api/client";
 import { readTasks } from "../sync";
+import { haptic, hapticSuccess } from "../telegram";
 
 export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
@@ -23,6 +24,8 @@ export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
     setPending(key);
     try {
       await api.toggleTask(task.path, task.markerStart, task.markerEnd, task.done ? "[x]" : "[ ]", true);
+      if (task.done) haptic();
+      else hapticSuccess();
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -51,7 +54,7 @@ export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
             >
               {task.done ? <CircleCheck size={22} /> : <Circle size={22} />}
             </button>
-            <button type="button" className="task-row-text" onClick={() => onOpen(task.path)}>
+            <button type="button" className="task-row-text" onClick={() => (haptic(), onOpen(task.path))}>
               <span>{task.text || "—"}</span>
               <span className="task-row-path">{displayName(task.path)}</span>
             </button>

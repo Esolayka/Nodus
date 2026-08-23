@@ -44,6 +44,12 @@ interface TelegramBackButton {
   hide(): void;
 }
 
+interface TelegramHapticFeedback {
+  impactOccurred(style: "light" | "medium" | "heavy" | "rigid" | "soft"): void;
+  notificationOccurred(type: "error" | "success" | "warning"): void;
+  selectionChanged(): void;
+}
+
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -57,6 +63,7 @@ interface TelegramWebApp {
   safeAreaInset?: { top: number; bottom: number; left: number; right: number };
   MainButton: TelegramMainButton;
   BackButton: TelegramBackButton;
+  HapticFeedback: TelegramHapticFeedback;
   ready(): void;
   expand(): void;
   onEvent(event: string, cb: () => void): void;
@@ -87,6 +94,18 @@ export function initTelegram(): void {
 
 export function getStartParam(): string | null {
   return getWebApp()?.initDataUnsafe.start_param ?? null;
+}
+
+/** A light tap for ordinary taps (buttons, rows, tabs) — a no-op outside
+ * Telegram, same as every other WebApp call here. */
+export function haptic(): void {
+  getWebApp()?.HapticFeedback.impactOccurred("light");
+}
+
+/** A slightly more distinct buzz for "this completed" moments (note
+ * created, device linked, task checked off) — not just any tap. */
+export function hapticSuccess(): void {
+  getWebApp()?.HapticFeedback.notificationOccurred("success");
 }
 
 export function getInitData(): string | null {

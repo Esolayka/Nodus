@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { appendLineToToday } from "../dailyNote";
+import { hapticSuccess } from "../telegram";
 import { BottomSheet } from "./BottomSheet";
 
 export function QuickAddSheet({ onClose }: { onClose: () => void }) {
@@ -13,6 +14,7 @@ export function QuickAddSheet({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await appendLineToToday(text.trim());
+      hapticSuccess();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

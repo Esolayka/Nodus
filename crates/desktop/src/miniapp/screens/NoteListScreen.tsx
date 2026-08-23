@@ -3,6 +3,7 @@ import { ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
 import type { TreeNode } from "../../types/vault";
 import { NewNoteSheet } from "../components/NewNoteSheet";
 import { readTree } from "../sync";
+import { haptic } from "../telegram";
 
 function FolderRow({
   node,
@@ -22,7 +23,7 @@ function FolderRow({
           type="button"
           className="note-row note-row-folder"
           style={{ paddingLeft: 14 + depth * 16 }}
-          onClick={() => setExpanded((e) => !e)}
+          onClick={() => (haptic(), setExpanded((e) => !e))}
         >
           <span className="note-row-caret">
             <ChevronRight size={14} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s ease" }} />
@@ -40,7 +41,12 @@ function FolderRow({
   if (!node.name.toLowerCase().endsWith(".md")) return null;
 
   return (
-    <button type="button" className="note-row" style={{ paddingLeft: 14 + depth * 16 }} onClick={() => onOpen(node.path)}>
+    <button
+      type="button"
+      className="note-row"
+      style={{ paddingLeft: 14 + depth * 16 }}
+      onClick={() => (haptic(), onOpen(node.path))}
+    >
       <span className="miniapp-row-icon">
         <FileText size={17} />
       </span>
@@ -75,7 +81,7 @@ export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
 
   return (
     <div>
-      <button type="button" className="note-list-new-btn" onClick={() => setCreating(true)}>
+      <button type="button" className="note-list-new-btn" onClick={() => (haptic(), setCreating(true))}>
         <span className="miniapp-row-icon">
           <Plus size={17} />
         </span>

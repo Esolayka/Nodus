@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link2 } from "lucide-react";
 import { useLinkStore } from "../store/linkStore";
-import { getInitData, isInsideTelegram } from "../telegram";
+import { getInitData, hapticSuccess, isInsideTelegram } from "../telegram";
 
 interface LinkResponse {
   telegramUserId: number;
@@ -51,6 +51,7 @@ export function LinkScreen() {
         throw new Error(message || "Could not link this device.");
       }
       const body = (await resp.json()) as LinkResponse;
+      hapticSuccess();
       setLink(baseUrl, body.sessionToken, body.telegramUserId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
