@@ -14,8 +14,10 @@ import {
   type ZoomTransform,
 } from "d3-zoom";
 import { quadtree as d3Quadtree, type Quadtree } from "d3-quadtree";
+import { searchVault } from "../../api/vault";
 import { useSettingsStore } from "../../store/settingsStore";
 import type { GraphData } from "../../types/vault";
+import { GraphControls } from "./GraphControls";
 import type {
   WorkerIn,
   WorkerLinkSpec,
@@ -32,6 +34,9 @@ interface ViewSize {
 interface NodeMeta {
   path: string;
   title: string;
+  kind: "note" | "tag" | "attachment" | "unresolved";
+  createdAt: number;
+  groupColor: string | null;
   baseRadius: number;
 }
 
@@ -45,6 +50,20 @@ interface TooltipState {
   path: string;
   x: number;
   y: number;
+}
+
+interface TimelineState {
+  startedAt: number;
+  from: number;
+  to: number;
+  cutoff: number;
+  running: boolean;
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  index: number;
 }
 
 export interface ForceGraphProps {
@@ -178,26 +197,104 @@ export function ForceGraph({
     startSX: number;
     startSY: number;
   } | null>(null);
-  const searchRef = useRef("");
   const fitPendingRef = useRef(false);
   const dirtyRef = useRef(false);
   const rafRef = useRef(0);
   const focusPathRef = useRef<string | null>(null);
+  const timelineRef = useRef<TimelineState | null>(null);
   focusPathRef.current = focusPath ?? null;
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [search, setSearch] = useState("");
-  const [collapsed, setCollapsed] = useState(false);
+  const [searchMatches, setSearchMatches] = useState<Set<string> | null>(null);
+  const [groupMatches, setGroupMatches] = useState<Map<string, Set<string>>>(new Map());
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   useEffect(() => {
-    searchRef.current = search;
-    dirtyRef.current = true;
+    const query = search.trim();
+    if (!query) {
+      setSearchMatches(null);
+      return;
+    }
+    setSearchMatches(null);
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchVault(query, false)
+        .then((results) => {
+          if (!cancelled) setSearchMatches(new Set(results.map((result) => result.path)));
+        })
+        .catch(() => {
+          if (!cancelled) setSearchMatches(new Set());
+        });
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const groups = graphSettings.groups.filter((group) => group.query.trim());
+    if (groups.length === 0) {
+      setGroupMatches(new Map());
+      return;
+    }
+    void Promise.all(
+      groups.map(async (group) => {
+        const results = await searchVault(group.query, false);
+        return [group.id, new Set(results.map((result) => result.path))] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!cancelled) setGroupMatches(new Map(entries));
+      })
+      .catch(() => {
+        if (!cancelled) setGroupMatches(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [graphSettings.groups]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [contextMenu]);
 
   const localSet = useMemo(() => {
     if (!data || !focusPath) return null;
-    return neighborhood(data, focusPath, localDepth);
-  }, [data, focusPath, localDepth]);
+    const allowed = new Set(
+      data.nodes
+        .filter((node) => {
+          const kind = node.kind ?? "note";
+          if (kind === "tag") return graphSettings.showTags;
+          if (kind === "attachment") return graphSettings.showAttachments;
+          if (kind === "unresolved") return !graphSettings.existingFilesOnly;
+          return true;
+        })
+        .map((node) => node.path),
+    );
+    return neighborhood(
+      {
+        nodes: data.nodes.filter((node) => allowed.has(node.path)),
+        links: data.links.filter(
+          (link) => allowed.has(link.fromPath) && allowed.has(link.toPath),
+        ),
+      },
+      focusPath,
+      localDepth,
+    );
+  }, [
+    data,
+    focusPath,
+    localDepth,
+    graphSettings.showTags,
+    graphSettings.showAttachments,
+    graphSettings.existingFilesOnly,
+  ]);
 
   const requestDraw = useCallback(() => {
     dirtyRef.current = true;
@@ -280,11 +377,13 @@ export function ForceGraph({
     const nodeColor = settings.colors.node || cssVar("--graph-node");
     const accent = settings.colors.accent || cssVar("--accent");
     const labelColor = cssVar("--text-normal");
+    const faintColor = cssVar("--text-faint");
     const labelFont = cssVar("--font-ui") || "sans-serif";
+    const sizeMult = Math.min(Math.max(settings.nodeSize, 0.1), 5);
+    const animationCutoff = timelineRef.current?.cutoff ?? Infinity;
+    const isRevealed = (index: number) => (meta[index]?.createdAt ?? 0) <= animationCutoff;
 
     const hoverIndex = hoverIndexRef.current;
-    const query = searchRef.current.trim().toLowerCase();
-    const queryOn = query !== "";
 
     let neighbor: Set<number> | null = null;
     if (hoverIndex !== null && meta[hoverIndex]) {
@@ -303,25 +402,42 @@ export function ForceGraph({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const linkBaseAlpha = parseColor(linkColor)[3];
-    ctx.lineWidth = 1 / t.k;
+    ctx.lineWidth = settings.linkThickness / t.k;
     for (let i = 0; i < links.length; i += 1) {
       const l = links[i];
-      const aMeta = meta[l.from];
-      const bMeta = meta[l.to];
-      let dimmed =
-        queryOn &&
-        !aMeta.title.toLowerCase().includes(query) &&
-        !bMeta.title.toLowerCase().includes(query);
-      if (neighbor && !dimmed) {
-        dimmed = !neighbor.has(l.from) && !neighbor.has(l.to);
-      }
+      if (!isRevealed(l.from) || !isRevealed(l.to)) continue;
+      const dimmed = !!neighbor && !neighbor.has(l.from) && !neighbor.has(l.to);
       const heat = linkHeatRef.current[i];
       ctx.strokeStyle = heat > 0.01 ? mix(linkColor, accent, heat) : linkColor;
-      ctx.globalAlpha = dimmed ? linkBaseAlpha * 0.35 : linkBaseAlpha;
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.globalAlpha = dimmed ? linkBaseAlpha * 0.25 : linkBaseAlpha;
+      const fromX = pos[l.from * 2];
+      const fromY = pos[l.from * 2 + 1];
+      const toX = pos[l.to * 2];
+      const toY = pos[l.to * 2 + 1];
       ctx.beginPath();
-      ctx.moveTo(pos[l.from * 2], pos[l.from * 2 + 1]);
-      ctx.lineTo(pos[l.to * 2], pos[l.to * 2 + 1]);
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
       ctx.stroke();
+      if (settings.showArrows) {
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        const targetRadius = meta[l.to].baseRadius * sizeMult + 4 / t.k;
+        const tipX = toX - Math.cos(angle) * targetRadius;
+        const tipY = toY - Math.sin(angle) * targetRadius;
+        const arrowSize = 5 / t.k;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(
+          tipX - Math.cos(angle - Math.PI / 6) * arrowSize,
+          tipY - Math.sin(angle - Math.PI / 6) * arrowSize,
+        );
+        ctx.lineTo(
+          tipX - Math.cos(angle + Math.PI / 6) * arrowSize,
+          tipY - Math.sin(angle + Math.PI / 6) * arrowSize,
+        );
+        ctx.closePath();
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
 
@@ -335,19 +451,21 @@ export function ForceGraph({
     // while the label (computed independently in screen space below)
     // keeps following them — reading as the label drifting away, when
     // really it was the node that never moved.
-    const sizeMult = Math.min(Math.max(settings.nodeSize / 6, 0.5), 2.5);
     for (let i = 0; i < meta.length; i += 1) {
       const m = meta[i];
+      if (!isRevealed(i)) continue;
       const scaleV = easeOutCubic(scaleArrRef.current[i] ?? 1);
       const hoverV = hoverArrRef.current[i] ?? 0;
       const dragV = dragArrRef.current[i] ?? 0;
-      const dimmed = queryOn && !m.title.toLowerCase().includes(query);
       const highlighted =
         neighbor === null || neighbor.has(i) || (focusSet?.has(m.path) ?? false);
       const radius =
         m.baseRadius * sizeMult * Math.max(0.15, scaleV) *
         (1 + 0.45 * hoverV + 0.22 * dragV);
-      let color = nodeColor;
+      let color = m.groupColor ?? nodeColor;
+      if (!m.groupColor && m.kind === "tag") color = mix(nodeColor, accent, 0.62);
+      if (!m.groupColor && m.kind === "attachment") color = mix(nodeColor, labelColor, 0.28);
+      if (!m.groupColor && m.kind === "unresolved") color = faintColor;
       if (focusSet?.has(m.path)) color = accent;
       const x = pos[i * 2];
       const y = pos[i * 2 + 1];
@@ -355,7 +473,7 @@ export function ForceGraph({
         ctx.shadowColor = accent;
         ctx.shadowBlur = 14 * hoverV;
       }
-      ctx.globalAlpha = scaleV * (dimmed ? 0.12 : highlighted ? 1 : 0.25);
+      ctx.globalAlpha = scaleV * (highlighted ? 1 : 0.25);
       ctx.fillStyle = mix(color, accent, hoverV * 0.35);
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -365,18 +483,20 @@ export function ForceGraph({
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // --- Labels: screen-space pass, constant 13px, hidden while the
-    // layout is still settling and at low zoom. ---
-    if (settings.showLabels && settledRef.current && t.k >= 0.4) {
-      const zoomAlpha = Math.min(1, Math.max(0, (t.k - 0.4) / 0.5));
+    // --- Labels: screen-space pass, constant 13px. The threshold follows
+    // Obsidian's -3..3 control: lower values reveal labels sooner. ---
+    const fadeStart = Math.min(1.15, Math.max(0.12, 0.42 + settings.textFadeThreshold * 0.1));
+    if (settings.showLabels && t.k >= fadeStart) {
+      const zoomAlpha = Math.min(1, Math.max(0, (t.k - fadeStart) / 0.5));
       ctx.font = `13px ${labelFont}`;
       ctx.textAlign = "center";
       for (let i = 0; i < meta.length; i += 1) {
         const m = meta[i];
-        if (queryOn && !m.title.toLowerCase().includes(query)) continue;
+        if (!isRevealed(i)) continue;
         const scaleV = easeOutCubic(scaleArrRef.current[i] ?? 1);
         const hoverV = hoverArrRef.current[i] ?? 0;
-        const labelAlpha = scaleV * zoomAlpha * (0.72 + 0.28 * hoverV);
+        const neighborhoodAlpha = neighbor && !neighbor.has(i) ? 0.25 : 1;
+        const labelAlpha = scaleV * zoomAlpha * neighborhoodAlpha * (0.72 + 0.28 * hoverV);
         if (labelAlpha <= 0.03) continue;
         const sx = t.x + pos[i * 2] * t.k;
         const sy = t.y + pos[i * 2 + 1] * t.k;
@@ -414,6 +534,14 @@ export function ForceGraph({
     const dragIndex = dragRef.current?.index ?? null;
 
     let animating = false;
+    const timeline = timelineRef.current;
+    if (timeline?.running) {
+      const progress = Math.min(1, (performance.now() - timeline.startedAt) / 10_000);
+      timeline.cutoff = timeline.from + (timeline.to - timeline.from) * progress;
+      timeline.running = progress < 1;
+      animating = timeline.running;
+      dirtyRef.current = true;
+    }
     for (let i = 0; i < n; i += 1) {
       const targetHover = hoverIndex !== null ? (neighbor?.has(i) ? 1 : 0.25) : 0;
       const h = hoverArrRef.current[i] ?? 0;
@@ -427,7 +555,10 @@ export function ForceGraph({
         dragArrRef.current[i] = d + (targetDrag - d) * 0.25;
         animating = true;
       }
-      if ((scaleArrRef.current[i] ?? 1) < 1) {
+      const revealed = (metaRef.current[i]?.createdAt ?? 0) <= (timeline?.cutoff ?? Infinity);
+      if (!revealed) {
+        scaleArrRef.current[i] = 0;
+      } else if ((scaleArrRef.current[i] ?? 1) < 1) {
         scaleArrRef.current[i] = Math.min(1, (scaleArrRef.current[i] ?? 1) + 0.055);
         animating = true;
       }
@@ -487,37 +618,88 @@ export function ForceGraph({
   useEffect(() => {
     if (!data) return;
     const settings = useSettingsStore.getState().settings.graph;
-    const visible = new Set(data.nodes.map((node) => node.path));
-    if (localSet) {
-      for (const path of visible) {
-        if (!localSet.has(path)) visible.delete(path);
+    const query = search.trim().toLowerCase();
+    const visible = new Set<string>();
+    const nodeKind = new Map(
+      data.nodes.map((node) => [node.path, node.kind ?? "note"] as const),
+    );
+    for (const node of data.nodes) {
+      const kind = node.kind ?? "note";
+      if (kind === "tag" && !settings.showTags) continue;
+      if (kind === "attachment" && !settings.showAttachments) continue;
+      if (kind === "unresolved" && settings.existingFilesOnly) continue;
+      if (localSet && !localSet.has(node.path)) continue;
+      if (query) {
+        const noteMatch = kind === "note" && searchMatches?.has(node.path);
+        const directMatch =
+          kind !== "note" &&
+          (node.title.toLowerCase().includes(query) || node.path.toLowerCase().includes(query));
+        if (!noteMatch && !directMatch) continue;
+      }
+      visible.add(node.path);
+    }
+
+    // Non-note nodes adjacent to a matching note remain visible, mirroring
+    // Obsidian's behavior when a file query is combined with tag or
+    // attachment nodes.
+    if (query && searchMatches) {
+      for (const link of data.links) {
+        if (searchMatches.has(link.fromPath) && nodeKind.get(link.toPath) !== "note") {
+          const kind = nodeKind.get(link.toPath);
+          if (kind === "tag" && settings.showTags) visible.add(link.toPath);
+          if (kind === "attachment" && settings.showAttachments) visible.add(link.toPath);
+          if (kind === "unresolved" && !settings.existingFilesOnly) visible.add(link.toPath);
+        }
       }
     }
 
-    const degree = new Map<string, number>();
-    for (const link of data.links) {
-      degree.set(link.fromPath, (degree.get(link.fromPath) ?? 0) + 1);
-      degree.set(link.toPath, (degree.get(link.toPath) ?? 0) + 1);
+    let visibleLinks = data.links.filter(
+      (link) => visible.has(link.fromPath) && visible.has(link.toPath),
+    );
+    if (!settings.showOrphans) {
+      const connected = new Set<string>();
+      for (const link of visibleLinks) {
+        connected.add(link.fromPath);
+        connected.add(link.toPath);
+      }
+      for (const path of visible) {
+        if (!connected.has(path)) visible.delete(path);
+      }
+      visibleLinks = visibleLinks.filter(
+        (link) => visible.has(link.fromPath) && visible.has(link.toPath),
+      );
     }
-    let maxDegree = 0;
-    for (const value of degree.values()) maxDegree = Math.max(maxDegree, value);
+
+    const incoming = new Map<string, number>();
+    for (const link of visibleLinks) {
+      incoming.set(link.toPath, (incoming.get(link.toPath) ?? 0) + 1);
+    }
+    let maxIncoming = 0;
+    for (const value of incoming.values()) maxIncoming = Math.max(maxIncoming, value);
 
     const meta: NodeMeta[] = [];
     const byPath = new Map<string, number>();
     for (const node of data.nodes) {
       if (!visible.has(node.path)) continue;
-      const deg = degree.get(node.path) ?? 0;
+      const references = incoming.get(node.path) ?? 0;
+      const groupColor = settings.groups.find((group) =>
+        groupMatches.get(group.id)?.has(node.path),
+      )?.color ?? null;
       meta.push({
         path: node.path,
         title: node.title,
-        baseRadius: maxDegree > 0 ? 4 + 10 * Math.sqrt(deg / maxDegree) : 4,
+        kind: node.kind ?? "note",
+        createdAt: node.createdAt ?? 0,
+        groupColor,
+        baseRadius:
+          maxIncoming > 0 ? 4 + 10 * Math.sqrt(references / maxIncoming) : 4,
       });
       byPath.set(node.path, meta.length - 1);
     }
 
     const links: SimLink[] = [];
     const adj = new Map<string, number[]>();
-    for (const link of data.links) {
+    for (const link of visibleLinks) {
       const from = byPath.get(link.fromPath);
       const to = byPath.get(link.toPath);
       if (from === undefined || to === undefined) continue;
@@ -555,11 +737,29 @@ export function ForceGraph({
       links: links.map((l): WorkerLinkSpec => ({ from: l.from, to: l.to })),
       linkDistance: settings.linkDistance,
       repulsion: settings.repulsion,
+      centerStrength: settings.centerStrength,
+      linkStrength: settings.linkStrength,
       cx: view.w / 2,
       cy: view.h / 2,
     } satisfies WorkerIn);
     requestDraw();
-  }, [data, localSet, graphSettings.linkDistance, requestDraw]);
+  }, [
+    data,
+    localSet,
+    search,
+    searchMatches,
+    groupMatches,
+    graphSettings.showTags,
+    graphSettings.showAttachments,
+    graphSettings.existingFilesOnly,
+    graphSettings.showOrphans,
+    graphSettings.groups,
+    graphSettings.linkDistance,
+    graphSettings.repulsion,
+    graphSettings.centerStrength,
+    graphSettings.linkStrength,
+    requestDraw,
+  ]);
 
   // Force settings changed: update the worker and let the layout re-settle.
   useEffect(() => {
@@ -567,9 +767,17 @@ export function ForceGraph({
       type: "settings",
       linkDistance: graphSettings.linkDistance,
       repulsion: graphSettings.repulsion,
+      centerStrength: graphSettings.centerStrength,
+      linkStrength: graphSettings.linkStrength,
     } satisfies WorkerIn);
     requestDraw();
-  }, [graphSettings.linkDistance, graphSettings.repulsion, requestDraw]);
+  }, [
+    graphSettings.linkDistance,
+    graphSettings.repulsion,
+    graphSettings.centerStrength,
+    graphSettings.linkStrength,
+    requestDraw,
+  ]);
 
   // Canvas sizing: never restarts the simulation.
   useEffect(() => {
@@ -644,14 +852,17 @@ export function ForceGraph({
     const pos = positionsRef.current;
     const meta = metaRef.current;
     if (!pos || meta.length === 0) return -1;
+    const sizeMult = useSettingsStore.getState().settings.graph.nodeSize;
+    const cutoff = timelineRef.current?.cutoff ?? Infinity;
     const quad = quadRef.current;
     if (quad) {
       const found = quad.find(wx, wy, 40);
       if (found) {
         const i = found[2];
+        if ((meta[i].createdAt ?? 0) > cutoff) return -1;
         const dx = pos[i * 2] - wx;
         const dy = pos[i * 2 + 1] - wy;
-        const hitRadius = meta[i].baseRadius * 2 + 8;
+        const hitRadius = meta[i].baseRadius * sizeMult + 8;
         if (dx * dx + dy * dy <= hitRadius * hitRadius) return i;
       }
       return -1;
@@ -659,10 +870,11 @@ export function ForceGraph({
     let best = -1;
     let bestDist = Infinity;
     for (let i = 0; i < meta.length; i += 1) {
+      if ((meta[i].createdAt ?? 0) > cutoff) continue;
       const dx = pos[i * 2] - wx;
       const dy = pos[i * 2 + 1] - wy;
       const dist = dx * dx + dy * dy;
-      const hitRadius = meta[i].baseRadius * 2 + 8;
+      const hitRadius = meta[i].baseRadius * sizeMult + 8;
       if (dist < hitRadius * hitRadius && dist < bestDist) {
         bestDist = dist;
         best = i;
@@ -768,12 +980,15 @@ export function ForceGraph({
         nodeAtDownRef.current = null;
         sendPin(drag.index, false);
         if (!drag.moved) {
-          const path = metaRef.current[drag.index]?.path;
-          if (path) {
+          const node = metaRef.current[drag.index];
+          const canOpen =
+            node?.kind === "note" ||
+            (node?.kind === "attachment" && /\.(pdf|canvas)$/i.test(node.path));
+          if (node && canOpen) {
             if (e.ctrlKey || e.metaKey) {
-              onOpenNote(path, { split: true });
+              onOpenNote(node.path, { split: true });
             } else {
-              onOpenNote(path);
+              onOpenNote(node.path);
             }
           }
         }
@@ -783,47 +998,76 @@ export function ForceGraph({
       nodeAtDownRef.current = null;
     };
 
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const sx = e.clientX - rect().left;
+      const sy = e.clientY - rect().top;
+      const world = screenToWorld(sx, sy);
+      const index = hitTest(world.x, world.y);
+      const node = metaRef.current[index];
+      const canOpen =
+        node?.kind === "note" ||
+        (node?.kind === "attachment" && /\.(pdf|canvas)$/i.test(node.path));
+      setContextMenu(index >= 0 && canOpen ? { x: e.clientX, y: e.clientY, index } : null);
+    };
+
     canvas.addEventListener("pointerdown", onPointerDown, { capture: true });
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerup", onPointerUp);
     canvas.addEventListener("pointercancel", onPointerUp);
+    canvas.addEventListener("contextmenu", onContextMenu);
     return () => {
       canvas.removeEventListener("pointerdown", onPointerDown, { capture: true });
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("contextmenu", onContextMenu);
     };
   }, [compact, hitTest, onOpenNote, screenToWorld, sendPin, setHoverIndex, requestDraw]);
 
-  const zoomBy = useCallback(
-    (factor: number) => {
-      const canvas = canvasRef.current;
-      const z = zoomRef.current;
-      if (!canvas || !z) return;
-      const view = viewRef.current;
-      const t = transformRef.current;
-      const next = t
-        .translate(view.w / 2, view.h / 2)
-        .scale(factor)
-        .translate(-view.w / 2, -view.h / 2);
-      select(canvas).call(z.transform, next);
-    },
-    [],
-  );
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const z = zoomRef.current;
+    if (!canvas || !z) return;
+    const selection = select(canvas);
+    if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      selection.call(z.scaleBy, 1.2);
+      return;
+    }
+    if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      selection.call(z.scaleBy, 1 / 1.2);
+      return;
+    }
+    const distance = event.shiftKey ? 80 : 28;
+    const scale = transformRef.current.k;
+    const movement: Record<string, [number, number]> = {
+      ArrowLeft: [distance / scale, 0],
+      ArrowRight: [-distance / scale, 0],
+      ArrowUp: [0, distance / scale],
+      ArrowDown: [0, -distance / scale],
+    };
+    const delta = movement[event.key];
+    if (delta) {
+      event.preventDefault();
+      selection.call(z.translateBy, delta[0], delta[1]);
+    }
+  }, []);
 
-  const fitNow = useCallback(() => {
-    fitPendingRef.current = true;
-    applyFit();
-  }, [applyFit]);
-
-  const resetLayout = useCallback(() => {
-    const settings = useSettingsStore.getState().settings.graph;
-    workerRef.current?.postMessage({
-      type: "reset",
-      linkDistance: settings.linkDistance,
-    } satisfies WorkerIn);
-    settledRef.current = false;
-    fitPendingRef.current = true;
+  const startAnimation = useCallback(() => {
+    const times = metaRef.current.map((node) => node.createdAt).filter((value) => value > 0);
+    if (times.length === 0) return;
+    const from = Math.min(...times);
+    const to = Math.max(...times);
+    timelineRef.current = {
+      startedAt: performance.now(),
+      from: from - 1,
+      to: Math.max(from + 1, to),
+      cutoff: from - 1,
+      running: true,
+    };
+    scaleArrRef.current.fill(0);
     requestDraw();
   }, [requestDraw]);
 
@@ -833,7 +1077,13 @@ export function ForceGraph({
       className={`force-graph${compact ? " force-graph-compact" : ""}`}
       onPointerLeave={() => setHoverIndex(null)}
     >
-      <canvas ref={canvasRef} className="force-graph-canvas" />
+      <canvas
+        ref={canvasRef}
+        className="force-graph-canvas"
+        tabIndex={compact ? -1 : 0}
+        aria-label={t("graph.title")}
+        onKeyDown={handleKeyDown}
+      />
       {tooltip && (
         <div
           className="force-graph-tooltip"
@@ -843,100 +1093,41 @@ export function ForceGraph({
           <span className="force-graph-tooltip-path">{tooltip.path}</span>
         </div>
       )}
-      {!compact && (
-        <div className="graph-card">
-          {collapsed ? (
-            <button
-              type="button"
-              className="graph-card-btn"
-              title={t("graph.settings")}
-              onClick={() => setCollapsed(false)}
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <circle cx="8" cy="8" r="2" />
-                <path d="M13 8.5a5 5 0 0 0-.1-1l1.4-1.1-.9-1.6-1.6.6a5 5 0 0 0-1.7-1L9.8 1.7H7.6l-.3 1.7a5 5 0 0 0-1.7 1l-1.6-.6-.9 1.6 1.4 1.1a5 5 0 0 0 0 2l-1.4 1.1.9 1.6 1.6-.6a5 5 0 0 0 1.7 1l.3 1.7h2.2l.3-1.7a5 5 0 0 0 1.7-1l1.6.6.9-1.6-1.4-1.1a5 5 0 0 0 .1-1z" />
-              </svg>
-            </button>
-          ) : (
-            <>
-              <div className="graph-search-wrap">
-                <svg
-                  className="graph-search-icon"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                >
-                  <circle cx="7" cy="7" r="4.2" />
-                  <path d="m10.5 10.5 3 3" />
-                </svg>
-                <input
-                  type="search"
-                  className="field graph-search"
-                  placeholder={t("graph.searchPlaceholder")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-              <div className="graph-card-divider" />
-              <div className="graph-card-actions">
-                <button
-                  type="button"
-                  className="graph-card-btn"
-                  title={t("graph.zoomIn")}
-                  onClick={() => zoomBy(1.25)}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <path d="M8 3v10M3 8h10" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="graph-card-btn"
-                  title={t("graph.zoomOut")}
-                  onClick={() => zoomBy(0.8)}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <path d="M3 8h10" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="graph-card-btn"
-                  title={t("graph.fit")}
-                  onClick={fitNow}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
-                    <path d="M6 6h4v4H6z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="graph-card-btn"
-                  title={t("graph.resetLayout")}
-                  onClick={resetLayout}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
-                    <path d="M13.5 2v2.5H11" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="graph-card-btn"
-                  title={t("graph.collapse")}
-                  onClick={() => setCollapsed(true)}
-                >
-                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <path d="m6 4 4 4-4 4" />
-                  </svg>
-                </button>
-              </div>
-            </>
-          )}
+      {contextMenu && (
+        <div
+          className="graph-context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const path = metaRef.current[contextMenu.index]?.path;
+              if (path) onOpenNote(path);
+              setContextMenu(null);
+            }}
+          >
+            {t("graph.open")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const path = metaRef.current[contextMenu.index]?.path;
+              if (path) onOpenNote(path, { split: true });
+              setContextMenu(null);
+            }}
+          >
+            {t("graph.openInNewPane")}
+          </button>
         </div>
+      )}
+      {!compact && (
+        <GraphControls
+          search={search}
+          onSearchChange={setSearch}
+          local={!!focusPath}
+          onAnimate={startAnimation}
+        />
       )}
     </div>
   );

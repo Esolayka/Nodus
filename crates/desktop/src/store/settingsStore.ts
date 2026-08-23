@@ -17,6 +17,12 @@ export interface GraphColors {
   accent: string;
 }
 
+export interface GraphGroup {
+  id: string;
+  query: string;
+  color: string;
+}
+
 export interface AppSettings {
   theme: ThemePreference;
   language: SupportedLanguage;
@@ -25,10 +31,20 @@ export interface AppSettings {
   };
   graph: {
     showLabels: boolean;
+    showArrows: boolean;
+    showTags: boolean;
+    showAttachments: boolean;
+    existingFilesOnly: boolean;
+    showOrphans: boolean;
+    textFadeThreshold: number;
     nodeSize: number;
+    linkThickness: number;
+    centerStrength: number;
     linkDistance: number;
     repulsion: number;
+    linkStrength: number;
     localDepth: number;
+    groups: GraphGroup[];
     colors: GraphColors;
   };
   /** User overrides only, commandId -> normalized key combo; anything not
@@ -123,10 +139,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   graph: {
     showLabels: true,
-    nodeSize: 6,
-    linkDistance: 45,
-    repulsion: 1000,
-    localDepth: 2,
+    showArrows: false,
+    showTags: false,
+    showAttachments: false,
+    existingFilesOnly: false,
+    showOrphans: true,
+    textFadeThreshold: 0,
+    nodeSize: 1,
+    linkThickness: 1,
+    centerStrength: 0.52,
+    linkDistance: 250,
+    repulsion: 10,
+    linkStrength: 1,
+    localDepth: 1,
+    groups: [],
     colors: {
       background: "",
       link: "",
@@ -227,7 +253,27 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "nodus:settings",
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        if (version >= 2 || !isPlainObject(persisted)) return persisted;
+        const settings = persisted.settings;
+        if (!isPlainObject(settings) || !isPlainObject(settings.graph)) return persisted;
+        const graph = settings.graph;
+        const oldNodeSize = typeof graph.nodeSize === "number" ? graph.nodeSize : 6;
+        const oldLinkDistance = typeof graph.linkDistance === "number" ? graph.linkDistance : 45;
+        return {
+          ...persisted,
+          settings: {
+            ...settings,
+            graph: {
+              ...graph,
+              nodeSize: Math.min(5, Math.max(0.1, oldNodeSize / 6)),
+              linkDistance: Math.min(500, Math.max(30, oldLinkDistance * (250 / 45))),
+              repulsion: 10,
+            },
+          },
+        };
+      },
       partialize: (s) => ({ settings: s.settings }),
       merge: (persisted, current) => ({
         ...current,

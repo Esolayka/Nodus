@@ -316,9 +316,36 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   control={
                     <Slider
                       value={settings.graph.nodeSize}
-                      min={3}
-                      max={14}
+                      min={0.1}
+                      max={5}
+                      step={0.1}
                       onChange={(nodeSize) => setGraph({ nodeSize })}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.graph.linkThickness")}
+                  description={t("settings.graph.linkThicknessDesc")}
+                  control={
+                    <Slider
+                      value={settings.graph.linkThickness}
+                      min={0.1}
+                      max={5}
+                      step={0.1}
+                      onChange={(linkThickness) => setGraph({ linkThickness })}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.graph.centerStrength")}
+                  description={t("settings.graph.centerStrengthDesc")}
+                  control={
+                    <Slider
+                      value={settings.graph.centerStrength}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      onChange={(centerStrength) => setGraph({ centerStrength })}
                     />
                   }
                 />
@@ -328,9 +355,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   control={
                     <Slider
                       value={settings.graph.linkDistance}
-                      min={40}
-                      max={200}
-                      step={5}
+                      min={30}
+                      max={500}
                       onChange={(linkDistance) => setGraph({ linkDistance })}
                     />
                   }
@@ -341,10 +367,23 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   control={
                     <Slider
                       value={settings.graph.repulsion}
-                      min={200}
-                      max={2500}
-                      step={50}
+                      min={0}
+                      max={20}
+                      step={0.25}
                       onChange={(repulsion) => setGraph({ repulsion })}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.graph.linkStrength")}
+                  description={t("settings.graph.linkStrengthDesc")}
+                  control={
+                    <Slider
+                      value={settings.graph.linkStrength}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      onChange={(linkStrength) => setGraph({ linkStrength })}
                     />
                   }
                 />

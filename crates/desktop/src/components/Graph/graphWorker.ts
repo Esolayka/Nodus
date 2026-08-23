@@ -4,6 +4,8 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   type SimulationNodeDatum,
 } from "d3-force";
 
@@ -23,10 +25,18 @@ export type WorkerIn =
       links: WorkerLinkSpec[];
       linkDistance: number;
       repulsion: number;
+      centerStrength: number;
+      linkStrength: number;
       cx: number;
       cy: number;
     }
-  | { type: "settings"; linkDistance: number; repulsion: number }
+  | {
+      type: "settings";
+      linkDistance: number;
+      repulsion: number;
+      centerStrength: number;
+      linkStrength: number;
+    }
   | { type: "center"; cx: number; cy: number }
   | { type: "restart" }
   | { type: "reset"; linkDistance: number }
@@ -52,7 +62,9 @@ let nodes: WNode[] = [];
 let links: WLink[] = [];
 let prevByPath = new Map<string, [number, number]>();
 let linkDistance = 90;
-let repulsion = 700;
+let repulsion = 10;
+let centerStrength = 0.52;
+let linkStrength = 1;
 let cx = 0;
 let cy = 0;
 
@@ -72,11 +84,14 @@ function buildSim(restart: boolean) {
   sim?.stop();
   const linkForce = forceLink<WNode, WLink>(links)
     .id((d) => d.index ?? 0)
-    .distance(linkDistance);
+    .distance(linkDistance)
+    .strength(linkStrength);
   sim = forceSimulation(nodes)
     .force("link", linkForce)
-    .force("charge", forceManyBody().strength(-repulsion * 0.5))
+    .force("charge", forceManyBody().strength(-repulsion * 35))
     .force("center", forceCenter(cx, cy))
+    .force("x", forceX(cx).strength(centerStrength * 0.08))
+    .force("y", forceY(cy).strength(centerStrength * 0.08))
     .alphaDecay(0.02)
     .alphaMin(0.001)
     .on("tick", () => post(false))
@@ -96,6 +111,8 @@ self.onmessage = (e: MessageEvent<WorkerIn>) => {
       );
       linkDistance = msg.linkDistance;
       repulsion = msg.repulsion;
+      centerStrength = msg.centerStrength;
+      linkStrength = msg.linkStrength;
       cx = msg.cx;
       cy = msg.cy;
       const radius = Math.sqrt(Math.max(msg.specs.length, 1)) * linkDistance;
@@ -119,9 +136,12 @@ self.onmessage = (e: MessageEvent<WorkerIn>) => {
         "link",
         forceLink<WNode, WLink>(links)
           .id((d) => d.index ?? 0)
-          .distance(linkDistance),
+          .distance(linkDistance)
+          .strength(linkStrength),
       );
-      sim.force("charge", forceManyBody().strength(-repulsion * 0.5));
+      sim.force("charge", forceManyBody().strength(-repulsion * 35));
+      sim.force("x", forceX(cx).strength(centerStrength * 0.08));
+      sim.force("y", forceY(cy).strength(centerStrength * 0.08));
       sim.alpha(0.3).restart();
       break;
     }
@@ -130,6 +150,8 @@ self.onmessage = (e: MessageEvent<WorkerIn>) => {
       cy = msg.cy;
       if (!sim) break;
       sim.force("center", forceCenter(cx, cy));
+      sim.force("x", forceX(cx).strength(centerStrength * 0.08));
+      sim.force("y", forceY(cy).strength(centerStrength * 0.08));
       break;
     }
     case "restart": {
