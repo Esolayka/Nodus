@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::config;
 use crate::state::AppState;
+use crate::telegram::TelegramState;
 
 /// Grants the asset protocol (used by `convertFileSrc` for images/audio/
 /// video/PDF) access to `new_root` and revokes whatever vault was scoped in
@@ -54,10 +55,21 @@ fn with_service<T>(
     f(service).map_err(|e| e.to_string())
 }
 
+/// Loads (or creates, first time) this vault's Telegram-linking identity
+/// and hands it to the local server — without this, `POST /telegram/link`
+/// always fails with "no vault is open to link" even with a vault
+/// genuinely open, since that route only ever reads this field and
+/// nothing used to write to it at all.
+fn update_telegram_identity(telegram_state: &TelegramState, vault_path: &str) {
+    let identity = nodus_core::telegram_link::load_or_create_identity(std::path::Path::new(vault_path)).ok();
+    *telegram_state.server.identity.lock().expect("mutex poisoned") = identity;
+}
+
 #[tauri::command]
 pub fn open_vault(
     app: AppHandle,
     state: State<AppState>,
+    telegram_state: State<TelegramState>,
     path: String,
     history_settings: HistorySettings,
 ) -> Result<TreeNode, String> {
@@ -66,6 +78,7 @@ pub fn open_vault(
     regrant_asset_scope(&app, &state, service.root());
     *state.service.lock().expect("app state mutex poisoned") = Some(service);
     config::save_last_vault_path(&app, &path).map_err(|e| e.to_string())?;
+    update_telegram_identity(&telegram_state, &path);
     Ok(tree)
 }
 
@@ -116,6 +129,7 @@ pub fn ensure_sandbox_vault() -> Result<String, String> {
 pub fn restore_last_vault(
     app: AppHandle,
     state: State<AppState>,
+    telegram_state: State<TelegramState>,
     history_settings: HistorySettings,
 ) -> Result<Option<RestoredVault>, String> {
     let Some(path) = config::load_last_vault_path(&app).map_err(|e| e.to_string())? else {
@@ -128,6 +142,7 @@ pub fn restore_last_vault(
     let tree = service.tree().map_err(|e| e.to_string())?;
     regrant_asset_scope(&app, &state, service.root());
     *state.service.lock().expect("app state mutex poisoned") = Some(service);
+    update_telegram_identity(&telegram_state, &path);
     Ok(Some(RestoredVault { path, tree }))
 }
 
