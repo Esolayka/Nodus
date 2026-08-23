@@ -21,6 +21,7 @@ import { useWorkspaceStore, isEmptyTab } from "../store/workspaceStore";
 import { useGlobalHotkeys } from "../hooks/useGlobalHotkeys";
 import { useMruTabCycling } from "../hooks/useMruTabCycling";
 import { useOpenVaultFolder } from "../hooks/useOpenVaultFolder";
+import { useTelegramBot } from "../hooks/useTelegramBot";
 import { useVaultEvents } from "../hooks/useVaultEvents";
 import "./AppShell.css";
 import { CalendarPanel } from "./Calendar/CalendarPanel";
@@ -89,6 +90,7 @@ export function AppShell() {
   const activePluginSidebarView = pluginSidebarViews.find((v) => v.id === sidebarView);
 
   useVaultEvents();
+  useTelegramBot();
   useGlobalHotkeys();
   useMruTabCycling();
 

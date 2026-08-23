@@ -148,6 +148,13 @@
     "sandboxDesc": "Play and experiment with features using example notes. Edits here are never your real vault.",
     "sandboxOpen": "Open"
   },
+  "telegramBot": {
+    "forwardedFromUser": "Forwarded from {{name}}:",
+    "forwardedFromChat": "Forwarded from {{name}}:",
+    "emptyMessage": "(empty message)",
+    "savedConfirmation": "✅ Added to today's note",
+    "saveFailed": "⚠️ Couldn't save that — try again in a moment"
+  },
   "settings": {
     "title": "Settings",
     "close": "Close",
