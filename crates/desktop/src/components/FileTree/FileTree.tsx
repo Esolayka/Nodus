@@ -86,12 +86,14 @@ export function FileTree() {
 
   if (!tree) return null;
 
-  // If the vault root holds exactly one folder and nothing else, that folder
-  // is a redundant wrapper — show its contents at level 0 instead.
-  const rawTopLevel =
-    tree.children.length === 1 && tree.children[0].isDir
-      ? tree.children[0].children
-      : tree.children;
+  // If the vault root holds nothing but a single folder, that folder is a
+  // redundant wrapper — show its contents at level 0 instead. Peels every
+  // such layer, not just one, in case the vault root was opened one level
+  // (or more) above the folder that's actually meant to be the vault.
+  let rawTopLevel = tree.children;
+  while (rawTopLevel.length === 1 && rawTopLevel[0].isDir) {
+    rawTopLevel = rawTopLevel[0].children;
+  }
   const topLevel = sortChildren(rawTopLevel, sortReversed);
 
   function toggleExpand(path: string) {
@@ -199,7 +201,6 @@ export function FileTree() {
         <FileTreeNode
           key={child.path}
           node={child}
-          depth={0}
           expanded={expanded}
           activePath={activePane?.activePath ?? null}
           renamingPath={renamingPath}

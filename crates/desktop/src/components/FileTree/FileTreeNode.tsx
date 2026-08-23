@@ -5,7 +5,6 @@ import { sortChildren } from "../../lib/treeSort";
 
 interface FileTreeNodeProps {
   node: TreeNode;
-  depth: number;
   expanded: Set<string>;
   activePath: string | null;
   renamingPath: string | null;
@@ -21,7 +20,7 @@ interface FileTreeNodeProps {
 }
 
 export function FileTreeNode(props: FileTreeNodeProps) {
-  const { node, depth } = props;
+  const { node } = props;
   const isExpanded = props.expanded.has(node.path);
   const isRenaming = props.renamingPath === node.path;
 
@@ -29,7 +28,6 @@ export function FileTreeNode(props: FileTreeNodeProps) {
     <div className="tree-node">
       <div
         className={`tree-item${node.path === props.activePath ? " tree-item-active" : ""}`}
-        style={{ paddingLeft: `${depth * 17 + 12}px` }}
         draggable={!isRenaming}
         onDragStart={(e) => e.dataTransfer.setData("text/nodus-path", node.path)}
         onDragOver={(e) => {
@@ -85,9 +83,9 @@ export function FileTreeNode(props: FileTreeNodeProps) {
         )}
       </div>
       {node.isDir && isExpanded && (
-        <div className="tree-children" style={{ marginLeft: `${depth * 17 + 18}px` }}>
+        <div className="tree-children">
           {sortChildren(node.children, props.sortReversed).map((child) => (
-            <FileTreeNode key={child.path} {...props} node={child} depth={depth + 1} />
+            <FileTreeNode key={child.path} {...props} node={child} />
           ))}
         </div>
       )}

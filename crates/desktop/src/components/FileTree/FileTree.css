@@ -12,6 +12,11 @@
 }
 
 .tree-children {
+  /* 17px total per level (16px margin + the 1px border itself) — each
+     nesting level of this wrapper contributes exactly one increment, so
+     depth never needs to be multiplied in JS. The guide line rides along
+     the same edge that produces the indent. */
+  margin-left: 16px;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -24,6 +29,7 @@
   gap: 4px;
   height: 26px;
   margin: 0 3px;
+  padding-left: 8px;
   padding-right: 8px;
   font-size: 13px;
   line-height: 1.5;
