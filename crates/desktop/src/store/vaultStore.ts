@@ -107,7 +107,18 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   createFileWithExtension: async (parentPath, baseName, extension) => {
     const name = uniqueName(get().tree, parentPath, baseName, extension);
     const path = join(parentPath, name);
-    await api.createFile(path);
+    try {
+      await api.createFile(path);
+    } catch (error) {
+      // Older cores could create a non-Markdown file successfully and then
+      // fail while trying to index it as a note. Re-read the tree before
+      // surfacing the error: if the exact file exists, creation did in fact
+      // complete and callers should still be able to open it.
+      await get().refreshTree();
+      const refreshedTree = get().tree;
+      if (!refreshedTree || !findNode(refreshedTree, path)) throw error;
+      return path;
+    }
     await get().refreshTree();
     return path;
   },

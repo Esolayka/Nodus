@@ -13,6 +13,10 @@ use crate::vault::Vault;
 use crate::watcher::{ChangeKind, FsChange, VaultWatcher};
 use crate::wikilink::find_wikilinks;
 
+fn is_markdown_path(path: &str) -> bool {
+    path.to_ascii_lowercase().ends_with(".md")
+}
+
 /// The single entry point to a vault: every consumer (the desktop app today,
 /// possibly other frontends later) goes through this instead of touching
 /// `fs_ops`/`Vault`/`VaultWatcher`/`Index` directly, so the vault-relative-path
@@ -103,7 +107,13 @@ impl VaultService {
         let old_content = std::fs::read_to_string(&absolute).unwrap_or_default();
         self.watcher.mark_self_write(&absolute);
         fs_ops::write_note(&self.vault, relative, content)?;
-        self.index.update_note(&self.vault, relative)?;
+        // `write_note` is also the raw UTF-8 write path for JSON Canvas.
+        // Only Markdown belongs in the note/link/FTS index; trying to index
+        // a `.canvas` after the disk write can make the command report a
+        // failure even though the file was already changed successfully.
+        if is_markdown_path(relative) {
+            self.index.update_note(&self.vault, relative)?;
+        }
         self.record_history(relative, &old_content, content);
         Ok(())
     }
@@ -141,7 +151,9 @@ impl VaultService {
         };
         self.watcher.mark_self_write(&absolute);
         fs_ops::write_note(&self.vault, relative, &target_content)?;
-        self.index.update_note(&self.vault, relative)?;
+        if is_markdown_path(relative) {
+            self.index.update_note(&self.vault, relative)?;
+        }
         let settings = self.history_settings.lock().expect("history settings mutex poisoned").clone();
         let _ = self.history.record_restore(relative, &old_content, &target_content, &settings);
         Ok(())
@@ -151,7 +163,10 @@ impl VaultService {
         let absolute = self.vault.resolve(relative)?;
         self.watcher.mark_self_write(&absolute);
         fs_ops::create_file(&self.vault, relative)?;
-        self.index.update_note(&self.vault, relative)
+        if is_markdown_path(relative) {
+            self.index.update_note(&self.vault, relative)?;
+        }
+        Ok(())
     }
 
     pub fn create_folder(&self, relative: &str) -> Result<()> {
@@ -701,6 +716,25 @@ mod tests {
         let backlinks = service.backlinks("B.md").unwrap();
         assert_eq!(backlinks.len(), 1);
         assert_eq!(backlinks[0].from_path, "A.md");
+    }
+
+    #[test]
+    fn canvas_create_and_write_stay_out_of_the_markdown_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = open(dir.path());
+        let content = r##"{"nodes":[{"id":"a","type":"text","x":0,"y":0,"width":200,"height":100,"text":"# not a note"}],"edges":[]}"##;
+
+        service.create_file("Board.canvas").unwrap();
+        service.write_note("Board.canvas", content).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("Board.canvas")).unwrap(),
+            content,
+        );
+        let graph = service.graph().unwrap();
+        let board = graph.nodes.iter().find(|node| node.path == "Board.canvas").unwrap();
+        assert_eq!(board.kind, crate::index::GraphNodeKind::Attachment);
+        assert!(service.search("not a note", false).unwrap().is_empty());
     }
 
     #[test]

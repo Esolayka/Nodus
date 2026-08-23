@@ -1,4 +1,5 @@
 import i18next from "../i18n";
+import * as api from "../api/vault";
 import { getEditor } from "../editor/editorRegistry";
 import { openInFileSearch } from "../editor/inFileSearch";
 import { useVaultStore } from "../store/vaultStore";
@@ -9,6 +10,7 @@ import { openAdjacentDailyNote, openTodayNote } from "./dailyNotes";
 import { DEFAULT_BINDINGS, labelForKeys } from "./hotkeyRegistry";
 import { defaultNoteName } from "./noteNaming";
 import { registerCommand } from "./commandRegistry";
+import { emptyCanvas, serializeCanvas } from "./canvasTypes";
 
 function activePane() {
   const state = useWorkspaceStore.getState();
@@ -24,6 +26,17 @@ async function createAndOpenNote() {
 
 async function createAndOpenCanvas() {
   const path = await useVaultStore.getState().createFileWithExtension("", i18next.t("canvas.untitled"), ".canvas");
+  // A new JSON Canvas is an object, not a zero-byte text file. Initialize it
+  // before loading the buffer so it also opens correctly in Obsidian and
+  // other JSON Canvas clients without requiring a first edit in Nodus.
+  try {
+    await api.writeNote(path, serializeCanvas(emptyCanvas()));
+  } catch (error) {
+    // The physical file may still exist (legacy cores used to fail only in
+    // their post-write index step). Opening it is safe because CanvasTab
+    // deliberately accepts an empty file as an empty canvas.
+    console.error("[canvas] failed to initialize new canvas:", error);
+  }
   await useWorkspaceStore.getState().openNote(path);
 }
 
