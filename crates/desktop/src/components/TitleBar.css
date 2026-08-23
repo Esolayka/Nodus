@@ -1,40 +1,13 @@
 .titlebar {
   grid-area: titlebar;
-  display: grid;
-  grid-template-columns:
-    var(--titlebar-left-width)
-    minmax(0, 1fr)
-    var(--titlebar-right-width);
-  align-items: center;
-  height: var(--titlebar-h);
-  background: var(--bg-titlebar);
-  user-select: none;
-}
-
-.titlebar-left,
-.titlebar-center,
-.titlebar-right {
   display: flex;
   align-items: center;
   min-width: 0;
-  height: 100%;
+  height: var(--titlebar-h);
+  background: var(--bg-titlebar);
+  user-select: none;
   gap: 2px;
   padding: 0 4px;
-}
-
-.titlebar-center {
-  padding-left: 14px;
-  background: var(--bg-titlebar);
-}
-
-.titlebar-center > .titlebar-drag-fill {
-  flex: 0 0 8px;
-  min-width: 8px;
-}
-
-.titlebar-right {
-  padding-left: 4px;
-  padding-right: 2px;
 }
 
 .titlebar-drag-fill {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Bookmark, ChevronDown, Folder, Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
@@ -85,13 +85,7 @@ function TabListMenu({ pane }: { pane: Pane }) {
   );
 }
 
-export function TitleBar({
-  leftPanelWidth,
-  rightPanelWidth,
-}: {
-  leftPanelWidth: number;
-  rightPanelWidth: number;
-}) {
+export function TitleBar() {
   const { t } = useTranslation();
   const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
   const toggleRightPanelCollapsed = useUiStore((s) => s.toggleRightPanelCollapsed);
@@ -115,88 +109,78 @@ export function TitleBar({
   }
 
   return (
-    <header
-      className="titlebar"
-      style={
-        {
-          "--titlebar-left-width": `${leftPanelWidth}px`,
-          "--titlebar-right-width": `${rightPanelWidth > 0 ? rightPanelWidth : 90}px`,
-        } as CSSProperties
-      }
-    >
-      <div className="titlebar-left">
-        <Tooltip label={t("sidebar.toggle")} placement="bottom">
-          <button type="button" className="titlebar-app-btn" onClick={toggleSidebarCollapsed}>
-            <PanelLeft size={16} strokeWidth={1.75} />
+    <header className="titlebar">
+      <Tooltip label={t("sidebar.toggle")} placement="bottom">
+        <button type="button" className="titlebar-app-btn" onClick={toggleSidebarCollapsed}>
+          <PanelLeft size={16} strokeWidth={1.75} />
+        </button>
+      </Tooltip>
+      <Tooltip label={t("sidebar.filesView")} placement="bottom">
+        <button
+          type="button"
+          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "files" ? " active" : ""}`}
+          onClick={() => showSidebarView("files")}
+        >
+          <Folder size={16} strokeWidth={1.75} />
+        </button>
+      </Tooltip>
+      <Tooltip label={t("search.title")} placement="bottom">
+        <button
+          type="button"
+          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "search" ? " active" : ""}`}
+          onClick={() => {
+            const opening = sidebarCollapsed || sidebarView !== "search";
+            showSidebarView("search");
+            setSearchOptionsOpen(opening);
+          }}
+        >
+          <Search size={16} strokeWidth={1.75} />
+        </button>
+      </Tooltip>
+      <Tooltip label={t("plugins.bookmarks.title")} placement="bottom">
+        <button
+          type="button"
+          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "core.bookmarks" ? " active" : ""}`}
+          onClick={() => showSidebarView("core.bookmarks")}
+        >
+          <Bookmark size={16} strokeWidth={1.75} />
+        </button>
+      </Tooltip>
+      <div className="titlebar-drag-fill" data-tauri-drag-region />
+      {singlePane && <TabBar pane={singlePane} />}
+      <div className="titlebar-drag-fill" data-tauri-drag-region />
+      {/* Everything from here on is one adjacent cluster pinned to the true
+          right edge — it must never depend on the right panel's own width
+          (that's what previously left a gap that grew/shrank with the
+          panel, since the window controls lived in a separate, independently
+          right-aligned column). */}
+      {singlePane && <TabListMenu pane={singlePane} />}
+      <Tooltip label={t("rightPanel.toggle")} placement="bottom">
+        <button
+          type="button"
+          className={`titlebar-app-btn${!rightPanelCollapsed ? " active" : ""}`}
+          aria-pressed={!rightPanelCollapsed}
+          onClick={toggleRightPanelCollapsed}
+        >
+          <PanelRight size={16} strokeWidth={1.75} />
+        </button>
+      </Tooltip>
+      <div className="titlebar-controls">
+        <Tooltip label={t("titleBar.minimize")} placement="bottom">
+          <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("minimize")}>
+            <Minus size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
-        <Tooltip label={t("sidebar.filesView")} placement="bottom">
-          <button
-            type="button"
-            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "files" ? " active" : ""}`}
-            onClick={() => showSidebarView("files")}
-          >
-            <Folder size={16} strokeWidth={1.75} />
+        <Tooltip label={t("titleBar.maximize")} placement="bottom">
+          <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("maximize")}>
+            <Square size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
-        <Tooltip label={t("search.title")} placement="bottom">
-          <button
-            type="button"
-            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "search" ? " active" : ""}`}
-            onClick={() => {
-              const opening = sidebarCollapsed || sidebarView !== "search";
-              showSidebarView("search");
-              setSearchOptionsOpen(opening);
-            }}
-          >
-            <Search size={16} strokeWidth={1.75} />
+        <Tooltip label={t("titleBar.close")} placement="bottom">
+          <button type="button" className="titlebar-app-btn titlebar-close" onClick={() => void windowAction("close")}>
+            <X size={16} strokeWidth={1.75} />
           </button>
         </Tooltip>
-        <Tooltip label={t("plugins.bookmarks.title")} placement="bottom">
-          <button
-            type="button"
-            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "core.bookmarks" ? " active" : ""}`}
-            onClick={() => showSidebarView("core.bookmarks")}
-          >
-            <Bookmark size={16} strokeWidth={1.75} />
-          </button>
-        </Tooltip>
-        <div className="titlebar-drag-fill" data-tauri-drag-region />
-      </div>
-      <div className="titlebar-center">
-        {singlePane && <TabBar pane={singlePane} />}
-        <div className="titlebar-drag-fill" data-tauri-drag-region />
-        {singlePane && <TabListMenu pane={singlePane} />}
-        <Tooltip label={t("rightPanel.toggle")} placement="bottom">
-          <button
-            type="button"
-            className={`titlebar-app-btn${!rightPanelCollapsed ? " active" : ""}`}
-            aria-pressed={!rightPanelCollapsed}
-            onClick={toggleRightPanelCollapsed}
-          >
-            <PanelRight size={16} strokeWidth={1.75} />
-          </button>
-        </Tooltip>
-      </div>
-      <div className="titlebar-right">
-        <div className="titlebar-drag-fill" data-tauri-drag-region />
-        <div className="titlebar-controls">
-          <Tooltip label={t("titleBar.minimize")} placement="bottom">
-            <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("minimize")}>
-              <Minus size={16} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
-          <Tooltip label={t("titleBar.maximize")} placement="bottom">
-            <button type="button" className="titlebar-app-btn" onClick={() => void windowAction("maximize")}>
-              <Square size={16} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
-          <Tooltip label={t("titleBar.close")} placement="bottom">
-            <button type="button" className="titlebar-app-btn titlebar-close" onClick={() => void windowAction("close")}>
-              <X size={16} strokeWidth={1.75} />
-            </button>
-          </Tooltip>
-        </div>
       </div>
     </header>
   );

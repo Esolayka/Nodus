@@ -52,7 +52,6 @@ const SIDEBAR_DEFAULT = 270;
 const RIGHT_PANEL_MIN = 220;
 const RIGHT_PANEL_MAX = 500;
 const RIGHT_PANEL_DEFAULT = 290;
-const RIBBON_WIDTH = 38;
 
 export function AppShell() {
   const { t, i18n } = useTranslation();
@@ -330,10 +329,7 @@ export function AppShell() {
       className={tree ? "app-shell" : "app-shell no-vault"}
       style={{ gridTemplateColumns: columns }}
     >
-      <TitleBar
-        leftPanelWidth={RIBBON_WIDTH + effectiveSidebarWidth + (sidebarCollapsed ? 0 : 4)}
-        rightPanelWidth={effectiveRightPanelWidth + (rightPanelCollapsed ? 0 : 4)}
-      />
+      <TitleBar />
       <Ribbon
         onOpenFolder={() => void openFolder()}
         onOpenSettings={() => setSettingsOpen(true)}
