@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useLinkStore } from "../store/linkStore";
 import { getInitData, hapticSuccess, isInsideTelegram } from "../telegram";
 
@@ -26,6 +27,7 @@ function codeFromUrl(): string {
 }
 
 export function LinkScreen() {
+  const { t } = useTranslation();
   const setLink = useLinkStore((s) => s.setLink);
   const [code, setCode] = useState(codeFromUrl);
   const [linking, setLinking] = useState(false);
@@ -34,7 +36,7 @@ export function LinkScreen() {
   async function handleConnect(codeToUse: string) {
     const initData = getInitData();
     if (!initData) {
-      setError("Open this from the Telegram app to link — the linking check needs Telegram's own signature.");
+      setError(t("miniapp.link.telegramRequired"));
       return;
     }
     setLinking(true);
@@ -74,23 +76,16 @@ export function LinkScreen() {
       <div className="link-screen-icon">
         <Link2 size={28} />
       </div>
-      <h1>Connect to Nodus</h1>
-      <p className="link-screen-hint">
-        On your computer, open Settings → Telegram, generate a linking code, and enter it below.
-      </p>
-      {!isInsideTelegram() && (
-        <p className="link-screen-warning">
-          This page isn't running inside Telegram, so linking can't be verified here — open it from the Mini App
-          link Telegram gave you.
-        </p>
-      )}
+      <h1>{t("miniapp.link.title")}</h1>
+      <p className="link-screen-hint">{t("miniapp.link.hint")}</p>
+      {!isInsideTelegram() && <p className="link-screen-warning">{t("miniapp.link.warning")}</p>}
       <label className="link-field">
-        <span>Linking code</span>
+        <span>{t("miniapp.link.codeLabel")}</span>
         <input
           className="field"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="ABCD1234"
+          placeholder={t("miniapp.link.codePlaceholder")}
           autoCapitalize="off"
           autoCorrect="off"
         />
@@ -102,7 +97,7 @@ export function LinkScreen() {
         disabled={linking || !code.trim()}
         onClick={() => void handleConnect(code)}
       >
-        {linking ? "Connecting…" : "Connect"}
+        {linking ? t("miniapp.link.connecting") : t("miniapp.link.connect")}
       </button>
     </div>
   );

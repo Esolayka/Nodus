@@ -619,5 +619,85 @@
     "insertTitle": "Insert template",
     "noteNamePlaceholder": "Note name",
     "untitled": "Untitled"
+  },
+  "miniapp": {
+    "common": {
+      "loading": "Loading…"
+    },
+    "tabs": {
+      "notes": "Notes",
+      "search": "Search",
+      "tags": "Tags",
+      "tasks": "Tasks",
+      "today": "Today",
+      "settings": "Settings"
+    },
+    "notes": {
+      "newNote": "New note",
+      "empty": "No notes yet."
+    },
+    "search": {
+      "placeholder": "Search the vault…",
+      "searching": "Searching…",
+      "noMatches": "No matches."
+    },
+    "tags": {
+      "empty": "No tags yet."
+    },
+    "tasks": {
+      "empty": "No tasks yet."
+    },
+    "editor": {
+      "backAria": "Back to notes",
+      "conflictNotice": "Someone else changed this note in the meantime. Your edit was kept as \"{{path}}\" — nothing was lost.",
+      "save": "Save"
+    },
+    "link": {
+      "title": "Connect to Nodus",
+      "hint": "On your computer, open Settings → Telegram, generate a linking code, and enter it below.",
+      "warning": "This page isn't running inside Telegram, so linking can't be verified here — open it from the Mini App link Telegram gave you.",
+      "telegramRequired": "Open this from the Telegram app to link — the linking check needs Telegram's own signature.",
+      "codeLabel": "Linking code",
+      "codePlaceholder": "ABCD1234",
+      "connect": "Connect",
+      "connecting": "Connecting…"
+    },
+    "quickAdd": {
+      "title": "Add to today's note",
+      "placeholder": "Type a line…",
+      "add": "Add",
+      "adding": "Adding…"
+    },
+    "newNote": {
+      "title": "New note",
+      "placeholder": "Note title",
+      "create": "Create",
+      "creating": "Creating…",
+      "collision": "Someone else just created a note with that name — try again."
+    },
+    "sync": {
+      "synced": "Synced",
+      "syncing": "Syncing…",
+      "offline": "Offline — changes will send later",
+      "error": "Sync error",
+      "conflict": "Conflict — check the affected note"
+    },
+    "settings": {
+      "title": "Settings",
+      "appearance": {
+        "title": "Appearance",
+        "system": "Match Telegram",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "language": {
+        "title": "Language",
+        "en": "English",
+        "ru": "Русский"
+      }
+    },
+    "sheet": {
+      "close": "Close"
+    }
   }
 }

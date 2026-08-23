@@ -114,11 +114,22 @@ export function getInitData(): string | null {
   return webApp.initData;
 }
 
+const THEME_PROPERTIES = [
+  "--bg-primary",
+  "--bg-secondary",
+  "--bg-tertiary",
+  "--text-normal",
+  "--text-muted",
+  "--accent",
+  "--accent-text",
+  "--danger",
+] as const;
+
 /** Maps Telegram's theme variables onto our own CSS custom properties, so
  * existing components that already read `var(--bg-primary)` etc. look
  * native inside Telegram without a parallel color system. Falls back to
  * the app's own dark palette outside Telegram. */
-export function applyTelegramTheme(): void {
+function applyTelegramTheme(): void {
   const webApp = getWebApp();
   const root = document.documentElement;
   if (!webApp) {
@@ -138,6 +149,20 @@ export function applyTelegramTheme(): void {
   set("--accent-text", t.button_text_color, "#ffffff");
   set("--danger", t.destructive_text_color, "#e05252");
   root.dataset.theme = webApp.colorScheme;
+}
+
+/** "system" follows Telegram's own theme (the previous, only behavior);
+ * an explicit "light"/"dark" override drops any Telegram-derived inline
+ * values so the app's own built-in palette (themes.css's plain `:root` /
+ * `:root[data-theme="dark"]` rules) takes over instead. */
+export function applyMiniAppTheme(preference: "system" | "light" | "dark"): void {
+  if (preference === "system") {
+    applyTelegramTheme();
+    return;
+  }
+  const root = document.documentElement;
+  THEME_PROPERTIES.forEach((name) => root.style.removeProperty(name));
+  root.dataset.theme = preference;
 }
 
 export function useMainButton(options: { text: string; onClick: () => void; visible: boolean; enabled?: boolean }): void {

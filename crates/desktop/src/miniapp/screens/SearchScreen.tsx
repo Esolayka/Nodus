@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { SearchFileResult } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import { readSearch } from "../sync";
@@ -15,6 +16,7 @@ export function SearchScreen({
    * this screen shouldn't require clearing the field by hand first). */
   initialQuery?: string;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery ?? "");
   const [results, setResults] = useState<SearchFileResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -46,13 +48,13 @@ export function SearchScreen({
           className="field search-input"
           value={query}
           onChange={(e) => void runSearch(e.target.value)}
-          placeholder="Search the vault…"
+          placeholder={t("miniapp.search.placeholder")}
           autoCapitalize="off"
           autoCorrect="off"
         />
       </div>
-      {searching && <p className="miniapp-empty">Searching…</p>}
-      {!searching && results && results.length === 0 && <p className="miniapp-empty">No matches.</p>}
+      {searching && <p className="miniapp-empty">{t("miniapp.search.searching")}</p>}
+      {!searching && results && results.length === 0 && <p className="miniapp-empty">{t("miniapp.search.noMatches")}</p>}
       {!searching && results && results.length > 0 && (
         <div className="miniapp-card">
           {results.map((file) => (

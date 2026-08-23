@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { saveNote } from "../sync";
 import { hapticSuccess } from "../telegram";
 import { BottomSheet } from "./BottomSheet";
@@ -27,6 +28,7 @@ export function NewNoteSheet({
   onClose: () => void;
   onCreated: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function NewNoteSheet({
       // error rather than silently retrying with yet another suffix.
       const outcome = await saveNote(path, "", null);
       if (outcome.status === "conflict") {
-        setError("Someone else just created a note with that name — try again.");
+        setError(t("miniapp.newNote.collision"));
         return;
       }
       hapticSuccess();
@@ -59,12 +61,12 @@ export function NewNoteSheet({
 
   return (
     <BottomSheet onClose={onClose}>
-      <h3 className="miniapp-sheet-title">New note</h3>
+      <h3 className="miniapp-sheet-title">{t("miniapp.newNote.title")}</h3>
       <input
         className="field new-note-input"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Note title"
+        placeholder={t("miniapp.newNote.placeholder")}
         autoFocus
         autoCapitalize="off"
         autoCorrect="off"
@@ -77,7 +79,7 @@ export function NewNoteSheet({
         disabled={saving || !title.trim()}
         onClick={() => void handleCreate()}
       >
-        {saving ? "Creating…" : "Create"}
+        {saving ? t("miniapp.newNote.creating") : t("miniapp.newNote.create")}
       </button>
     </BottomSheet>
   );

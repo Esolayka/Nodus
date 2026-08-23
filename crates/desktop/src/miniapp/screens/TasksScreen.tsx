@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Circle, CircleCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { TaskRow } from "../../types/vault";
 import { displayName } from "../../lib/displayName";
 import * as api from "../api/client";
@@ -7,6 +8,7 @@ import { readTasks } from "../sync";
 import { haptic, hapticSuccess } from "../telegram";
 
 export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -35,8 +37,8 @@ export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
   }
 
   if (error) return <p className="miniapp-empty">{error}</p>;
-  if (!tasks) return <p className="miniapp-empty">Loading…</p>;
-  if (tasks.length === 0) return <p className="miniapp-empty">No tasks yet.</p>;
+  if (!tasks) return <p className="miniapp-empty">{t("miniapp.common.loading")}</p>;
+  if (tasks.length === 0) return <p className="miniapp-empty">{t("miniapp.tasks.empty")}</p>;
 
   return (
     <div className="tasks-screen miniapp-card">

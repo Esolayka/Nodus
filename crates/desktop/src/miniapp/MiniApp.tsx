@@ -6,11 +6,13 @@ import { EditorScreen } from "./screens/EditorScreen";
 import { LinkScreen } from "./screens/LinkScreen";
 import { NoteListScreen } from "./screens/NoteListScreen";
 import { SearchScreen } from "./screens/SearchScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { TagsScreen } from "./screens/TagsScreen";
 import { TasksScreen } from "./screens/TasksScreen";
 import { useLinkStore } from "./store/linkStore";
+import { useMiniAppThemeStore } from "./store/themeStore";
 import { flushQueue } from "./sync";
-import { applyTelegramTheme, initTelegram } from "./telegram";
+import { applyMiniAppTheme, initTelegram } from "./telegram";
 import "./MiniApp.css";
 
 type Screen = { view: "main" } | { view: "editor"; path: string };
@@ -19,15 +21,21 @@ const FLUSH_RETRY_MS = 30_000;
 
 export function MiniApp() {
   const linked = useLinkStore((s) => s.linked);
+  const themePreference = useMiniAppThemeStore((s) => s.preference);
   const [tab, setTab] = useState<Tab>("notes");
   const [screen, setScreen] = useState<Screen>({ view: "main" });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    applyTelegramTheme();
     initTelegram();
   }, []);
+
+  // Re-applies whenever the user flips the Appearance setting, not just on
+  // mount — switching preference is meant to take effect immediately.
+  useEffect(() => {
+    applyMiniAppTheme(themePreference);
+  }, [themePreference]);
 
   useEffect(() => {
     if (!linked) return;
@@ -70,6 +78,7 @@ export function MiniApp() {
           />
         )}
         {tab === "tasks" && <TasksScreen onOpen={(path) => setScreen({ view: "editor", path })} />}
+        {tab === "settings" && <SettingsScreen />}
       </div>
       <TabBar current={tab} onChange={setTab} onQuickAdd={() => setQuickAddOpen(true)} />
       {quickAddOpen && <QuickAddSheet onClose={() => setQuickAddOpen(false)} />}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { TreeNode } from "../../types/vault";
 import { NewNoteSheet } from "../components/NewNoteSheet";
 import { readTree } from "../sync";
@@ -56,6 +57,7 @@ function FolderRow({
 }
 
 export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
+  const { t } = useTranslation();
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -75,7 +77,7 @@ export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
   }, []);
 
   if (error) return <p className="miniapp-empty">{error}</p>;
-  if (!tree) return <p className="miniapp-empty">Loading…</p>;
+  if (!tree) return <p className="miniapp-empty">{t("miniapp.common.loading")}</p>;
 
   const existingRootNames = new Set(tree.children.filter((c) => !c.isDir).map((c) => c.name));
 
@@ -85,10 +87,10 @@ export function NoteListScreen({ onOpen }: { onOpen: (path: string) => void }) {
         <span className="miniapp-row-icon">
           <Plus size={17} />
         </span>
-        <span>New note</span>
+        <span>{t("miniapp.notes.newNote")}</span>
       </button>
       {tree.children.length === 0 ? (
-        <p className="miniapp-empty">No notes yet.</p>
+        <p className="miniapp-empty">{t("miniapp.notes.empty")}</p>
       ) : (
         <div className="note-list miniapp-card">
           {tree.children.map((child) => (

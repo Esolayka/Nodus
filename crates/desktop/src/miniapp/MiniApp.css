@@ -441,6 +441,40 @@ input.search-input {
   color: var(--text-faint);
 }
 
+/* Settings */
+
+.settings-screen {
+  padding-bottom: 16px;
+}
+
+.settings-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 0 14px;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  text-align: left;
+}
+
+.miniapp-card .settings-option-row:last-child {
+  border-bottom: none;
+}
+
+.settings-option-row:active {
+  background: var(--bg-hover);
+}
+
+.settings-option-check {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 /* Editor screen */
 
 .editor-screen {

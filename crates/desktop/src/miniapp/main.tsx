@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { MiniApp } from "./MiniApp";
+import "../i18n";
 import "../theme/themes.css";
 import "katex/dist/katex.min.css";
 

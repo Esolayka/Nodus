@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { EditorState } from "@codemirror/state";
 import { ChevronLeft } from "lucide-react";
 import { EditorView } from "@codemirror/view";
+import { useTranslation } from "react-i18next";
 import { buildNoteIndex } from "../../lib/noteIndex";
 import { displayName } from "../../lib/displayName";
 import { SyncIndicator } from "../components/SyncIndicator";
@@ -20,6 +21,7 @@ export function EditorScreen({
   onBack: () => void;
   onNavigate: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const baseHashRef = useRef<string | null>(null);
@@ -38,9 +40,7 @@ export function EditorScreen({
       baseHashRef.current = outcome.hash ?? baseHashRef.current;
       setDirty(false);
     } else if (outcome.status === "conflict") {
-      setConflictNotice(
-        `Someone else changed this note in the meantime. Your edit was kept as "${outcome.conflictSiblingPath}" — nothing was lost.`,
-      );
+      setConflictNotice(t("miniapp.editor.conflictNotice", { path: outcome.conflictSiblingPath }));
       setDirty(false);
     } else {
       // Queued for later — still counts as "handled," the sync indicator
@@ -65,7 +65,7 @@ export function EditorScreen({
   // already covers the common case, so a native "Saved" button sitting
   // there permanently was just a second, redundant status indicator (the
   // sync bar above already says so) rather than a useful action.
-  useMainButton({ text: "Save", onClick: () => void save(), visible: dirty, enabled: dirty });
+  useMainButton({ text: t("miniapp.editor.save"), onClick: () => void save(), visible: dirty, enabled: dirty });
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +122,7 @@ export function EditorScreen({
           type="button"
           className="editor-back-btn"
           onClick={() => (haptic(), void save(), onBack())}
-          aria-label="Back to notes"
+          aria-label={t("miniapp.editor.backAria")}
         >
           <ChevronLeft size={22} />
         </button>
@@ -134,7 +134,7 @@ export function EditorScreen({
         </p>
       )}
       {error && <p className="miniapp-empty">{error}</p>}
-      {loading && !error && <p className="miniapp-empty">Loading…</p>}
+      {loading && !error && <p className="miniapp-empty">{t("miniapp.common.loading")}</p>}
       <div className="editor-host" ref={hostRef} style={{ display: loading || error ? "none" : "block" }} />
     </div>
   );
