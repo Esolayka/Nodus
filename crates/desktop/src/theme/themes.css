@@ -36,6 +36,9 @@
   --text-faint: #8f8f8f;
   --accent: #7f6df2;
   --accent-hover: #6a57e8;
+  --interactive-accent: #6b6b6b;
+  --interactive-accent-hover: #555555;
+  --interactive-ring: rgba(92, 92, 92, 0.22);
   --border: rgba(0, 0, 0, 0.08);
   --selection: rgba(127, 109, 242, 0.25);
   --danger: #d64545;
@@ -62,6 +65,9 @@
   --text-faint: #6b6b6b;
   --accent: #7f6df2;
   --accent-hover: #8f80f5;
+  --interactive-accent: #858585;
+  --interactive-accent-hover: #9a9a9a;
+  --interactive-ring: rgba(163, 163, 163, 0.24);
   --border: rgba(255, 255, 255, 0.08);
   --selection: rgba(127, 109, 242, 0.28);
   --danger: #e05252;
@@ -111,19 +117,19 @@ button:hover {
 
 /* Акцентная кнопка — не чаще одной на экран. */
 button.btn-accent {
-  background: var(--accent);
+  background: var(--interactive-accent);
   color: #ffffff;
 }
 
 button.btn-accent:hover {
-  background: var(--accent-hover);
+  background: var(--interactive-accent-hover);
 }
 
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--interactive-accent);
   outline-offset: 1px;
 }
 
@@ -151,8 +157,8 @@ textarea::placeholder {
 }
 
 .field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(127, 109, 242, 0.2);
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px var(--interactive-ring);
 }
 
 /* Тонкие полосы прокрутки. */
