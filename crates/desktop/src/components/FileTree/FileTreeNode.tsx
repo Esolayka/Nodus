@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { TreeNode } from "../../types/vault";
+import { isCanvasPath } from "../../lib/canvasTypes";
 import { displayName } from "../../lib/displayName";
 import { sortChildren } from "../../lib/treeSort";
 
@@ -23,6 +24,9 @@ export function FileTreeNode(props: FileTreeNodeProps) {
   const { node } = props;
   const isExpanded = props.expanded.has(node.path);
   const isRenaming = props.renamingPath === node.path;
+  const isCanvas = !node.isDir && isCanvasPath(node.path);
+  const name = displayName(node.path);
+  const visibleName = isCanvas ? name.slice(0, -".canvas".length) : name;
 
   return (
     <div className="tree-node">
@@ -79,7 +83,10 @@ export function FileTreeNode(props: FileTreeNodeProps) {
             onBlur={props.onRenameCommit}
           />
         ) : (
-          <span className="tree-item-name">{displayName(node.path)}</span>
+          <>
+            <span className="tree-item-name">{visibleName}</span>
+            {isCanvas && <span className="tree-item-kind">CANVAS</span>}
+          </>
         )}
       </div>
       {node.isDir && isExpanded && (

@@ -75,8 +75,18 @@
 }
 
 .tree-item-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tree-item-kind {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 .tree-item-rename-input {
