@@ -16,6 +16,7 @@
   grid-template-columns: 28px minmax(0, 1fr) 18px;
   align-items: start;
   gap: 8px;
+  height: auto;
   min-height: 92px;
   padding: 13px 12px;
   border: 1px solid var(--border);
