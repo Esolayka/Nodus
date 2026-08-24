@@ -1,6 +1,6 @@
 [package]
 name = "nodus-sync-server"
-description = "Self-hosted sync server for Nodus: stores versioned, content-addressed blobs and metadata only. Built so it cannot decrypt vault content by construction — there is no key on this side, encrypted or otherwise."
+description = "Self-hosted sync server for Nodus: stores versioned, content-addressed blobs and metadata only. It cannot decrypt vault content by construction because there is no key on this side, encrypted or otherwise."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

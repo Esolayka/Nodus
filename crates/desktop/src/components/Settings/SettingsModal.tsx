@@ -693,7 +693,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <SettingRow
                   label={t("settings.vault.path")}
                   description={t("settings.vault.pathDesc")}
-                  control={<span className="settings-vault-path">{vaultPath ?? "—"}</span>}
+                  control={<span className="settings-vault-path">{vaultPath ?? t("settings.vault.notOpen")}</span>}
                 />
               </div>
               <button type="button" className="btn-accent settings-open-vault" onClick={() => void openFolder()}>

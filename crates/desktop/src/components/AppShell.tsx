@@ -123,7 +123,7 @@ export function AppShell() {
 
   useEffect(() => {
     const title = activeNotePath
-      ? `${displayName(activeNotePath)} — Nodus`
+      ? `${displayName(activeNotePath)} · Nodus`
       : "Nodus";
     document.title = title;
     try {

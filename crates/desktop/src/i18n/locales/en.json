@@ -189,11 +189,11 @@
     "forwardedFromChat": "Forwarded from {{name}}:",
     "emptyMessage": "(empty message)",
     "savedConfirmation": "✅ Added to today's note",
-    "saveFailed": "⚠️ Couldn't save that — try again in a moment",
+    "saveFailed": "⚠️ Couldn't save that. Try again in a moment",
     "startWelcome": "Hi! Tap below to open your vault.",
-    "startLinking": "Got your code — tap below to finish connecting this vault.",
+    "startLinking": "Got your code. Tap below to finish connecting this vault.",
     "openMiniApp": "Open Nodus",
-    "startNoAddress": "The Mini App isn't reachable yet — open Settings → Telegram on your computer and start the tunnel (or set a manual address), then send /start again."
+    "startNoAddress": "The Mini App isn't reachable yet. Open Settings → Telegram on your computer and start the tunnel (or set a manual address), then send /start again."
   },
   "settings": {
     "title": "Settings",
@@ -271,7 +271,8 @@
     "vault": {
       "title": "Vault",
       "path": "Vault path",
-      "pathDesc": "The folder that holds your notes. You can switch it at any time."
+      "pathDesc": "The folder that holds your notes. You can switch it at any time.",
+      "notOpen": "Not open"
     },
     "dailyNotes": {
       "title": "Daily notes",
@@ -413,7 +414,7 @@
       "placementDesc": "Local: this computer serves the Mini App itself, only while it's running. Server: your Nodus server serves it around the clock instead.",
       "placement_local": "Local",
       "placement_server": "Server",
-      "serverPlacementNote": "Configure the bot token on the Nodus server itself (its --telegram-bot-token startup flag) — there's nothing more to set up here.",
+      "serverPlacementNote": "Configure the bot token on the Nodus server with the --telegram-bot-token startup flag. There is nothing more to set up here.",
       "localTitle": "Local hosting",
       "botToken": "Bot token",
       "botTokenDesc": "From @BotFather, kept only for this session's local server to verify Telegram's signature.",
@@ -421,13 +422,13 @@
       "manualAddressDesc": "Fallback address for the Mini App to reach this computer at, if the automatic tunnel isn't available.",
       "linkTitle": "Link a Telegram account",
       "generateCode": "Generate linking code",
-      "generateCodeDesc": "Shows a short code — enter it in the Mini App to connect this vault to your Telegram account.",
+      "generateCodeDesc": "Shows a short code. Enter it in the Mini App to connect this vault to your Telegram account.",
       "codeHint": "Valid for 10 minutes. Enter it in the Mini App to finish linking.",
-      "startLinkHint": "Or skip typing it in: open this link on the phone with Telegram — it messages the bot and finishes linking in one tap.",
+      "startLinkHint": "You can skip typing the code. Open this link on the phone with Telegram to finish linking in one tap.",
       "copyLink": "Copy",
       "openLink": "Open",
       "startTunnel": "Start tunnel",
-      "startTunnelDesc": "Opens a temporary public address via a Cloudflare Quick Tunnel — no account needed. Downloads the small cloudflared tool automatically the first time.",
+      "startTunnelDesc": "Opens a temporary public address via a Cloudflare Quick Tunnel with no account required. Downloads the small cloudflared tool automatically the first time.",
       "startingTunnel": "Starting… (downloads cloudflared the first time, may take a moment)",
       "statusTitle": "Status",
       "botConfigured": "Bot token set",
@@ -579,6 +580,7 @@
   },
   "conflict": {
     "allResolvedHint": "Pick a side for every highlighted section, then finish the merge.",
+    "emptyResult": "Empty",
     "finish": "Finish merge",
     "finishing": "Finishing…",
     "loadFailed": "Couldn't load this file's conflict.",
@@ -636,7 +638,7 @@
     "dailyNotes": "Daily notes folder",
     "openVault": "Open anyway",
     "reportNone": "No incompatibilities found.",
-    "reportSummary": "{{count}} construct(s) won't render — they depend on an Obsidian plugin Nodus doesn't run.",
+    "reportSummary": "{{count}} construct(s) won't render because they depend on an Obsidian plugin Nodus doesn't run.",
     "subtitle": "This looks like an Obsidian vault.",
     "templateFolder": "Template folder",
     "title": "Obsidian vault detected"
@@ -715,6 +717,7 @@
     "allFolders": "All folders",
     "allTags": "All tags",
     "empty": "No tasks found.",
+    "emptyText": "No text",
     "sortDate": "Sort by date",
     "sortPriority": "Sort by priority",
     "status_all": "All",
@@ -759,18 +762,19 @@
       "empty": "No tags yet."
     },
     "tasks": {
-      "empty": "No tasks yet."
+      "empty": "No tasks yet.",
+      "emptyText": "No text"
     },
     "editor": {
       "backAria": "Back to notes",
-      "conflictNotice": "Someone else changed this note in the meantime. Your edit was kept as \"{{path}}\" — nothing was lost.",
+      "conflictNotice": "Someone else changed this note in the meantime. Your edit was kept as \"{{path}}\". Nothing was lost.",
       "save": "Save"
     },
     "link": {
       "title": "Connect to Nodus",
       "hint": "On your computer, open Settings → Telegram, generate a linking code, and enter it below.",
-      "warning": "This page isn't running inside Telegram, so linking can't be verified here — open it from the Mini App link Telegram gave you.",
-      "telegramRequired": "Open this from the Telegram app to link — the linking check needs Telegram's own signature.",
+      "warning": "This page isn't running inside Telegram, so linking can't be verified here. Open it from the Mini App link Telegram gave you.",
+      "telegramRequired": "Open this from the Telegram app to link. The linking check needs Telegram's own signature.",
       "codeLabel": "Linking code",
       "codePlaceholder": "ABCD1234",
       "connect": "Connect",
@@ -787,14 +791,14 @@
       "placeholder": "Note title",
       "create": "Create",
       "creating": "Creating…",
-      "collision": "Someone else just created a note with that name — try again."
+      "collision": "Someone else just created a note with that name. Try again."
     },
     "sync": {
       "synced": "Synced",
       "syncing": "Syncing…",
-      "offline": "Offline — changes will send later",
+      "offline": "Offline. Changes will send later",
       "error": "Sync error",
-      "conflict": "Conflict — check the affected note"
+      "conflict": "Conflict. Check the affected note"
     },
     "settings": {
       "title": "Settings",

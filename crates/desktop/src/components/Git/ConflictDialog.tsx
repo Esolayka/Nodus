@@ -162,7 +162,7 @@ export function ConflictDialog({
                       <div key={i} className="conflict-hunk">
                         <pre className="conflict-pane conflict-pane-mine">{segment.mine}</pre>
                         <div className="conflict-pane conflict-pane-result">
-                          <pre>{resolvedText(segment, choices[i]) || "—"}</pre>
+                          <pre>{resolvedText(segment, choices[i]) || t("conflict.emptyResult")}</pre>
                           <div className="conflict-choice-buttons">
                             <button
                               type="button"

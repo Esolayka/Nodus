@@ -37,7 +37,7 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
 
   if (resp.status === 401) {
     useLinkStore.getState().unlink();
-    throw new ApiError(401, "session expired — please relink");
+    throw new ApiError(401, "session expired. Please link the app again");
   }
   return resp;
 }

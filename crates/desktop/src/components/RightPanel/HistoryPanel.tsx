@@ -122,7 +122,7 @@ export function HistoryPanel({ path }: { path: string }) {
     const content = await api.getVersionContent(path, id);
     const version = versions.find((v) => v.id === id);
     if (content != null && version) {
-      setViewer({ title: `${path} — ${formatTimestamp(version.timestamp)}`, content });
+      setViewer({ title: `${path} · ${formatTimestamp(version.timestamp)}`, content });
     }
   }
 

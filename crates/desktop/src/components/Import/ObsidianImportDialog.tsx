@@ -125,7 +125,7 @@ export function ObsidianImportDialog({ path, inspection, onOpen, onClose }: Prop
                 {incompatibilities.map((block, i) => (
                   <li key={i}>
                     <div className="obsidian-import-report-location">
-                      {block.path}:{block.line} — {block.plugin}
+                      {block.path}:{block.line} · {block.plugin}
                     </div>
                     <pre className="obsidian-import-report-content">{block.rawContent}</pre>
                   </li>

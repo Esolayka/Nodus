@@ -6,13 +6,13 @@
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError {
-    #[error("this API key was rejected — check that it's correct and still active")]
+    #[error("this API key was rejected. Check that it's correct and still active")]
     InvalidApiKey,
     #[error("the provider says this key's usage quota is used up")]
     QuotaExceeded,
     #[error("couldn't reach {address}: {reason}")]
     Unreachable { address: String, reason: String },
-    #[error("this request is too large for {model} — shorten the selection or include less context")]
+    #[error("this request is too large for {model}. Shorten the selection or include less context")]
     RequestTooLarge { model: String },
     #[error("the provider returned something Nodus didn't expect: {0}")]
     UnexpectedResponse(String),

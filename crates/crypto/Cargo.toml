@@ -1,6 +1,6 @@
 [package]
 name = "nodus-crypto"
-description = "End-to-end encryption for Nodus sync: password/recovery-phrase key derivation, content encryption, and deterministic filename hiding. No filesystem or vault concerns — purely a crypto toolkit the sync layer calls into."
+description = "End-to-end encryption for Nodus sync: password/recovery-phrase key derivation, content encryption, and deterministic filename hiding. No filesystem or vault concerns. This is purely a crypto toolkit the sync layer calls into."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

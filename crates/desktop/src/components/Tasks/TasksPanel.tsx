@@ -29,6 +29,7 @@ function PriorityIcon({ priority }: { priority: TaskRow["priority"] }) {
 }
 
 function TaskRowView({ task }: { task: TaskRow }) {
+  const { t } = useTranslation();
   const jumpToLine = useWorkspaceStore((s) => s.jumpToLine);
   const autoCompletionDate = useSettingsStore((s) => s.settings.tasks.autoCompletionDate);
   const [pending, setPending] = useState(false);
@@ -53,7 +54,7 @@ function TaskRowView({ task }: { task: TaskRow }) {
     <li className={`task-row${task.done ? " task-row-done" : ""}`}>
       <input type="checkbox" checked={task.done} disabled={pending} onChange={() => void toggle()} />
       <button type="button" className="task-row-text" onClick={() => void jumpToLine(task.path, task.line)}>
-        {task.text || <em>—</em>}
+        {task.text || <em>{t("tasks.emptyText")}</em>}
       </button>
       {task.priority != null && (
         <span className="task-badge task-badge-priority">

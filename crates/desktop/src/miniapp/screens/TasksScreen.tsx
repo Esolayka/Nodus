@@ -57,7 +57,7 @@ export function TasksScreen({ onOpen }: { onOpen: (path: string) => void }) {
               {task.done ? <CircleCheck size={22} /> : <Circle size={22} />}
             </button>
             <button type="button" className="task-row-text" onClick={() => (haptic(), onOpen(task.path))}>
-              <span>{task.text || "—"}</span>
+              <span>{task.text || t("miniapp.tasks.emptyText")}</span>
               <span className="task-row-path">{displayName(task.path)}</span>
             </button>
           </div>

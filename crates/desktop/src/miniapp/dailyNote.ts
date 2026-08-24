@@ -29,6 +29,6 @@ export async function appendLineToToday(line: string): Promise<void> {
   if (outcome.status === "conflict") {
     // The append itself still landed (as the kept sibling copy) — nothing
     // is lost, just surfaced to the caller so it can tell the user.
-    throw new Error("Today's note changed elsewhere — your line was saved separately so nothing was lost.");
+    throw new Error("Today's note changed elsewhere. Your line was saved separately, so nothing was lost.");
   }
 }

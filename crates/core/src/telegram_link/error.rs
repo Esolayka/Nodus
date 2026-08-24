@@ -1,6 +1,6 @@
 #[derive(Debug, thiserror::Error)]
 pub enum TelegramLinkError {
-    #[error("linking code has expired — generate a new one")]
+    #[error("linking code has expired. Generate a new one")]
     TokenExpired,
     #[error("linking code does not match")]
     TokenMismatch,
