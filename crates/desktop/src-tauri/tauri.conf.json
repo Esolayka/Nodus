@@ -3,7 +3,7 @@
   "productName": "Nodus",
   "mainBinaryName": "Nodus",
   "version": "0.1.0",
-  "identifier": "io.github.nodus-app.nodus",
+  "identifier": "io.github.esolayka.nodus",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

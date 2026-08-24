@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-24
+
 ### Fixed
 
 - Linux shells can match the running Nodus window to its desktop launcher and icon.
@@ -17,7 +19,3 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Git and server synchronization options.
 - Telegram Mini App integration.
 - Obsidian and Notion import tools.
-
-## [0.1.0] - Unreleased
-
-Initial public pre-release.
