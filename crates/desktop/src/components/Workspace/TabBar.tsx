@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+} from "react";
 import { FileText, Network, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { displayName } from "../../lib/displayName";
@@ -37,6 +44,13 @@ export function TabBar({ pane }: { pane: Pane }) {
   const tabIds = orderedPaneTabIds(pane);
   const orderKey = tabIds.join("\u0000");
   const activeId = pane.view === "graph" ? GRAPH_TAB_ID : pane.activePath;
+  const closingCount = tabIds.reduce(
+    (count, id) => count + Number(Boolean(closingTabs[tabAnimationKey(pane.id, id)])),
+    0,
+  );
+  const stripStyle = {
+    "--tab-slots": Math.max(0, tabIds.length - closingCount),
+  } as CSSProperties;
   const previousIdsRef = useRef(tabIds);
   const openingTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -142,7 +156,13 @@ export function TabBar({ pane }: { pane: Pane }) {
 
   return (
     <div className="tab-bar">
-      <div ref={stripRef} className="tab-strip" role="tablist" onDragOver={scrollWhileDragging}>
+      <div
+        ref={stripRef}
+        className="tab-strip"
+        role="tablist"
+        style={stripStyle}
+        onDragOver={scrollWhileDragging}
+      >
         {tabIds.map((id) => {
           const graph = id === GRAPH_TAB_ID;
           const blank = !graph && isEmptyTab(id);

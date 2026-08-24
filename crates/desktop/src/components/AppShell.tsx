@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CircleHelp, Settings as SettingsIcon } from "lucide-react";
@@ -332,7 +332,11 @@ export function AppShell() {
   return (
     <div
       className={tree ? "app-shell" : "app-shell no-vault"}
-      style={{ gridTemplateColumns: columns }}
+      style={{
+        gridTemplateColumns: columns,
+        "--titlebar-sidebar-width": `${effectiveSidebarWidth}px`,
+        "--titlebar-resizer-width": sidebarCollapsed ? "0px" : "4px",
+      } as CSSProperties}
     >
       <TitleBar />
       <Ribbon />

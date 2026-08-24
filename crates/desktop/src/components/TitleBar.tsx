@@ -110,42 +110,44 @@ export function TitleBar() {
 
   return (
     <header className="titlebar">
-      <Tooltip label={t("sidebar.toggle")} placement="bottom">
-        <button type="button" className="titlebar-app-btn" onClick={toggleSidebarCollapsed}>
-          <PanelLeft size={16} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
-      <Tooltip label={t("sidebar.filesView")} placement="bottom">
-        <button
-          type="button"
-          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "files" ? " active" : ""}`}
-          onClick={() => showSidebarView("files")}
-        >
-          <Folder size={16} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
-      <Tooltip label={t("search.title")} placement="bottom">
-        <button
-          type="button"
-          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "search" ? " active" : ""}`}
-          onClick={() => {
-            const opening = sidebarCollapsed || sidebarView !== "search";
-            showSidebarView("search");
-            setSearchOptionsOpen(opening);
-          }}
-        >
-          <Search size={16} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
-      <Tooltip label={t("plugins.bookmarks.title")} placement="bottom">
-        <button
-          type="button"
-          className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "core.bookmarks" ? " active" : ""}`}
-          onClick={() => showSidebarView("core.bookmarks")}
-        >
-          <Bookmark size={16} strokeWidth={1.75} />
-        </button>
-      </Tooltip>
+      <div className="titlebar-left-actions">
+        <Tooltip label={t("sidebar.toggle")} placement="bottom">
+          <button type="button" className="titlebar-app-btn" onClick={toggleSidebarCollapsed}>
+            <PanelLeft size={16} strokeWidth={1.75} />
+          </button>
+        </Tooltip>
+        <Tooltip label={t("sidebar.filesView")} placement="bottom">
+          <button
+            type="button"
+            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "files" ? " active" : ""}`}
+            onClick={() => showSidebarView("files")}
+          >
+            <Folder size={16} strokeWidth={1.75} />
+          </button>
+        </Tooltip>
+        <Tooltip label={t("search.title")} placement="bottom">
+          <button
+            type="button"
+            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "search" ? " active" : ""}`}
+            onClick={() => {
+              const opening = sidebarCollapsed || sidebarView !== "search";
+              showSidebarView("search");
+              setSearchOptionsOpen(opening);
+            }}
+          >
+            <Search size={16} strokeWidth={1.75} />
+          </button>
+        </Tooltip>
+        <Tooltip label={t("plugins.bookmarks.title")} placement="bottom">
+          <button
+            type="button"
+            className={`titlebar-app-btn${!sidebarCollapsed && sidebarView === "core.bookmarks" ? " active" : ""}`}
+            onClick={() => showSidebarView("core.bookmarks")}
+          >
+            <Bookmark size={16} strokeWidth={1.75} />
+          </button>
+        </Tooltip>
+      </div>
       {singlePane && <TabBar pane={singlePane} />}
       <div className="titlebar-drag-fill" data-tauri-drag-region />
       {/* Everything from here on is one adjacent cluster pinned to the true

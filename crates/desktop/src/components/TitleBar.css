@@ -16,6 +16,22 @@
   height: 100%;
 }
 
+.titlebar-left-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: calc(var(--ribbon-width) + var(--titlebar-sidebar-width) + var(--titlebar-resizer-width));
+  min-width: 118px;
+  flex-shrink: 0;
+}
+
+.titlebar > .tab-bar {
+  /* In the single-pane title bar the tab row must size from its tabs.
+     `flex: 1` uses a zero basis and makes it split spare space 50/50 with
+     the draggable area, which is what forced every tab down to 110px. */
+  flex: 0 1 auto;
+}
+
 .titlebar-controls {
   display: flex;
   align-items: center;
