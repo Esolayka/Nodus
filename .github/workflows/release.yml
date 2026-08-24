@@ -30,14 +30,6 @@ jobs:
       - name: Install frontend dependencies
         working-directory: crates/desktop
         run: npm ci
-      - name: Check source files
-        run: python3 scripts/check-control-chars.py
-      - name: Verify Rust formatting
-        run: cargo fmt --all --check
-      - name: Lint Rust
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test Rust workspace
-        run: cargo test --workspace
       - name: Test frontend
         working-directory: crates/desktop
         run: npm test
@@ -47,6 +39,14 @@ jobs:
       - name: Build frontend
         working-directory: crates/desktop
         run: npm run build
+      - name: Check source files
+        run: python3 scripts/check-control-chars.py
+      - name: Verify Rust formatting
+        run: cargo fmt --all --check
+      - name: Lint Rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test Rust workspace
+        run: cargo test --workspace
 
   publish:
     needs: verify
