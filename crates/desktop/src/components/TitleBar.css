@@ -84,31 +84,73 @@
   z-index: 120;
   display: flex;
   flex-direction: column;
-  min-width: 200px;
-  max-height: 60vh;
-  overflow-y: auto;
+  width: 264px;
+  max-width: calc(100vw - 8px);
+  max-height: min(60vh, 440px);
+  overflow: hidden;
   background: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
   box-shadow: var(--shadow-menu);
   padding: 4px;
 }
 
 .tab-list-menu button {
-  display: block;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 7px;
   width: 100%;
   text-align: left;
-  height: 28px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
   font-size: var(--fs-ui);
   font-weight: 400;
   background: transparent;
   color: var(--text-normal);
+}
+
+.tab-list-menu button:hover {
+  background: var(--bg-hover);
+}
+
+.tab-list-menu button:disabled {
+  color: var(--text-faint);
+  opacity: 0.55;
+}
+
+.tab-list-menu button:disabled:hover {
+  background: transparent;
+}
+
+.tab-list-actions button span,
+.tab-list-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tab-list-menu button:hover {
+.tab-list-actions button span {
+  grid-column: 2 / 4;
+}
+
+.tab-list-separator {
+  height: 1px;
+  margin: 4px -4px;
+  background: var(--border);
+}
+
+.tab-list-items {
+  overflow-y: auto;
+}
+
+.tab-list-items button.active {
   background: var(--bg-hover);
+}
+
+.tab-list-check {
+  color: var(--text-normal);
+  justify-self: center;
 }

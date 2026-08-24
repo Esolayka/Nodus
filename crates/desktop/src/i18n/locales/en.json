@@ -27,6 +27,9 @@
     "closePane": "Close pane",
     "newTab": "New tab",
     "tabList": "List tabs",
+    "bookmarkTab": "Add tab to bookmarks",
+    "bookmarkTabUnavailable": "Open a note first",
+    "closeAllTabs": "Close all tabs",
     "emptyTabNewFile": "Create new file",
     "emptyTabGoToFile": "Go to file",
     "emptyTabCloseAction": "Close"

@@ -1,8 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Bookmark, ChevronDown, Folder, Minus, PanelLeft, PanelRight, Search, Square, X } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkPlus,
+  Check,
+  ChevronDown,
+  FileText,
+  Folder,
+  LayoutDashboard,
+  Minus,
+  Network,
+  PanelLeft,
+  PanelRight,
+  Search,
+  Square,
+  X,
+} from "lucide-react";
 import { displayName } from "../lib/displayName";
+import { isCanvasPath } from "../lib/canvasTypes";
+import { useBookmarksCacheStore } from "../store/bookmarksStore";
 import {
   GRAPH_TAB_ID,
   isEmptyTab,
@@ -41,44 +58,109 @@ function TabListMenu({ pane }: { pane: Pane }) {
   const [open, setOpen] = useState(false);
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
   const setActiveView = useWorkspaceStore((s) => s.setActiveView);
+  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const closeView = useWorkspaceStore((s) => s.closeView);
+  const addBookmark = useBookmarksCacheStore((s) => s.add);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const tabs = orderedPaneTabIds(pane);
+  const activeId = pane.view === "graph" ? GRAPH_TAB_ID : pane.activePath;
+  const bookmarkPath = pane.view === null && pane.activePath && !isEmptyTab(pane.activePath)
+    ? pane.activePath
+    : null;
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
+
+  function closeAllTabs() {
+    setOpen(false);
+    for (const path of pane.tabs) closeTab(pane.id, path);
+    if (pane.graphOpen) closeView(pane.id);
+  }
+
+  function tabIcon(path: string) {
+    if (path === GRAPH_TAB_ID) return <Network size={15} strokeWidth={1.75} />;
+    if (isCanvasPath(path)) return <LayoutDashboard size={15} strokeWidth={1.75} />;
+    return <FileText size={15} strokeWidth={1.75} />;
+  }
 
   return (
     <div className="tab-list-menu-wrap" ref={wrapRef}>
       <Tooltip label={t("workspace.tabList")} placement="bottom">
-        <button type="button" className="titlebar-app-btn" onClick={() => setOpen((o) => !o)}>
+        <button
+          type="button"
+          className="titlebar-app-btn"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          onClick={() => setOpen((o) => !o)}
+        >
           <ChevronDown size={16} />
         </button>
       </Tooltip>
       {open && (
-        <div className="tab-list-menu">
-          {tabs.map((path) => (
+        <div className="tab-list-menu" role="menu">
+          <div className="tab-list-actions">
             <button
-              key={path}
               type="button"
+              role="menuitem"
+              disabled={!bookmarkPath}
+              title={!bookmarkPath ? t("workspace.bookmarkTabUnavailable") : undefined}
               onClick={() => {
-                if (path === GRAPH_TAB_ID) setActiveView(pane.id, "graph");
-                else setActiveTab(pane.id, path);
+                if (!bookmarkPath) return;
                 setOpen(false);
+                void addBookmark(bookmarkPath);
               }}
             >
-              {path === GRAPH_TAB_ID
-                ? t("graph.title")
-                : isEmptyTab(path)
-                  ? t("workspace.newTab")
-                  : displayName(path)}
+              <BookmarkPlus size={15} strokeWidth={1.75} />
+              <span>{t("workspace.bookmarkTab")}</span>
             </button>
-          ))}
+            <button type="button" role="menuitem" onClick={closeAllTabs}>
+              <X size={15} strokeWidth={1.75} />
+              <span>{t("workspace.closeAllTabs")}</span>
+            </button>
+          </div>
+          <div className="tab-list-separator" role="separator" />
+          <div className="tab-list-items">
+            {tabs.map((path) => {
+              const active = path === activeId;
+              return (
+                <button
+                  key={path}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={active}
+                  className={active ? "active" : ""}
+                  onClick={() => {
+                    if (path === GRAPH_TAB_ID) setActiveView(pane.id, "graph");
+                    else setActiveTab(pane.id, path);
+                    setOpen(false);
+                  }}
+                >
+                  {tabIcon(path)}
+                  <span className="tab-list-label">
+                    {path === GRAPH_TAB_ID
+                      ? t("graph.title")
+                      : isEmptyTab(path)
+                        ? t("workspace.newTab")
+                        : displayName(path)}
+                  </span>
+                  {active && <Check className="tab-list-check" size={15} strokeWidth={1.75} />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

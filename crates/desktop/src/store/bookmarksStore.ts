@@ -10,6 +10,7 @@ interface BookmarksCacheState {
   paths: string[];
   loadedForVault: string | null;
   ensureLoaded: (vaultPath: string | null) => void;
+  add: (path: string) => Promise<void>;
   toggle: (path: string) => Promise<void>;
 }
 
@@ -22,6 +23,19 @@ export const useBookmarksCacheStore = create<BookmarksCacheState>((set, get) => 
     void getBookmarks().then((paths) => {
       if (get().loadedForVault === vaultPath) set({ paths });
     });
+  },
+  add: async (path) => {
+    // The title-bar menu can be used before the bookmarks panel has ever
+    // mounted, so read the persisted list instead of assuming the cache is
+    // already warm and accidentally replacing existing bookmarks.
+    const current = await getBookmarks();
+    if (current.includes(path)) {
+      set({ paths: current });
+      return;
+    }
+    const next = [...current, path];
+    await setBookmarks(next);
+    set({ paths: next });
   },
   toggle: async (path) => {
     const current = get().paths;

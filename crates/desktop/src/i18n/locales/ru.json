@@ -27,6 +27,9 @@
     "closePane": "Закрыть панель",
     "newTab": "Новая вкладка",
     "tabList": "Список вкладок",
+    "bookmarkTab": "Добавить вкладку в закладки",
+    "bookmarkTabUnavailable": "Сначала откройте заметку",
+    "closeAllTabs": "Закрыть все вкладки",
     "emptyTabNewFile": "Создать новый файл",
     "emptyTabGoToFile": "Перейти к файлу",
     "emptyTabCloseAction": "Закрыть"
