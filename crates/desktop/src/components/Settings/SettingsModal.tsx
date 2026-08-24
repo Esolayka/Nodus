@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { Palette } from "lucide-react";
 import { useOpenVaultFolder } from "../../hooks/useOpenVaultFolder";
 import { ObsidianImportDialog } from "../Import/ObsidianImportDialog";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../../i18n";
@@ -18,17 +19,18 @@ import {
   DEFAULT_SETTINGS,
   useSettingsStore,
   type GraphColors,
-  type ThemePreference,
 } from "../../store/settingsStore";
 import { useVaultStore } from "../../store/vaultStore";
 import { TelegramSettings } from "./TelegramSettings";
 import { SyncSettings } from "./SyncSettings";
 import { Select } from "../ui/Select";
 import { Toggle } from "../ui/Toggle";
+import { AppearanceSettings } from "./AppearanceSettings";
 import "./SettingsModal.css";
 
 type Section =
   | "general"
+  | "appearance"
   | "editor"
   | "graph"
   | "hotkeys"
@@ -134,7 +136,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const setTheme = (theme: ThemePreference) => setSettings({ theme });
   const setLanguage = (language: SupportedLanguage) => setSettings({ language });
   const setEditor = (partial: Partial<typeof settings.editor>) =>
     setSettings({ editor: { ...settings.editor, ...partial } });
@@ -153,6 +154,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: "general", label: t("settings.sections.general"), icon: slidersIcon },
+    { id: "appearance", label: t("settings.sections.appearance"), icon: <Palette size={15} /> },
     { id: "editor", label: t("settings.sections.editor"), icon: penIcon },
     { id: "graph", label: t("settings.sections.graph"), icon: graphIcon },
     { id: "hotkeys", label: t("settings.sections.hotkeys"), icon: keyIcon },
@@ -237,24 +239,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <SectionTitle>{t("settings.general.title")}</SectionTitle>
               <div className="settings-card">
                 <SettingRow
-                  label={t("settings.general.theme")}
-                  description={t("settings.general.themeDesc")}
-                  control={
-                    <div className="settings-segmented">
-                      {(["light", "dark", "system"] as ThemePreference[]).map((pref) => (
-                        <button
-                          key={pref}
-                          type="button"
-                          className={settings.theme === pref ? "active" : ""}
-                          onClick={() => setTheme(pref)}
-                        >
-                          {t(`settings.general.theme_${pref}`)}
-                        </button>
-                      ))}
-                    </div>
-                  }
-                />
-                <SettingRow
                   label={t("settings.general.language")}
                   description={t("settings.general.languageDesc")}
                   control={
@@ -269,6 +253,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               </div>
             </>
           )}
+
+          {section === "appearance" && <AppearanceSettings />}
 
           {section === "editor" && (
             <>

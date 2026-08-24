@@ -205,6 +205,7 @@
     "groupLabel": "Options",
     "sections": {
       "general": "General",
+      "appearance": "Appearance",
       "editor": "Editor",
       "graph": "Graph",
       "hotkeys": "Hotkeys",
@@ -227,7 +228,7 @@
       "reassign": "Reassign"
     },
     "general": {
-      "title": "Appearance",
+      "title": "General",
       "theme": "Theme",
       "themeDesc": "The look of the app. Light and dark are fixed; System follows your operating system.",
       "theme_light": "Light",
@@ -235,6 +236,42 @@
       "theme_system": "System",
       "language": "Language",
       "languageDesc": "Interface language. Applies immediately, no restart needed."
+    },
+    "appearance": {
+      "title": "Appearance",
+      "builtinTitle": "Built-in themes",
+      "theme": "Base theme",
+      "themeDesc": "Choose the light, dark, or system theme.",
+      "customTitle": "Custom themes",
+      "customDesc": "Create your own palettes from the current appearance.",
+      "create": "Create theme",
+      "defaultCustomName": "My theme {{number}}",
+      "copyName": "{{name}}, copy",
+      "duplicate": "Duplicate theme",
+      "delete": "Delete theme",
+      "empty": "There are no custom themes yet. Create the first one from the current appearance.",
+      "editorTitle": "Theme editor",
+      "name": "Name",
+      "base": "Base",
+      "baseDesc": "Controls system colors that the palette does not override.",
+      "fontsTitle": "Fonts",
+      "interfaceFont": "Interface font",
+      "fontDesc": "Enter the name of an installed system font. Leave blank to use the default.",
+      "monospaceFont": "Monospace font",
+      "monospaceFontDesc": "Used for code, hotkeys, and technical values.",
+      "defaultFont": "Default",
+      "colors": {
+        "background": "Main background",
+        "secondary": "Secondary background",
+        "surface": "Cards and fields",
+        "sidebar": "Sidebars",
+        "titlebar": "Top bar",
+        "text": "Main text",
+        "mutedText": "Muted text",
+        "faintText": "Faint text",
+        "accent": "Accent",
+        "danger": "Errors"
+      }
     },
     "editor": {
       "title": "Editor",

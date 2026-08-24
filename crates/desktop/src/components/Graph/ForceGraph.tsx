@@ -981,6 +981,18 @@ export function ForceGraph({
     return () => observer.disconnect();
   }, [requestDraw]);
 
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      dirtyRef.current = true;
+      requestDraw();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-custom-theme", "style"],
+    });
+    return () => observer.disconnect();
+  }, [requestDraw]);
+
   // d3 handles direct pan and pinch. Wheel/trackpad zoom is accumulated into
   // a target transform and eased on animation frames; applying every wheel
   // event immediately was the source of the old stepped, jittery motion.

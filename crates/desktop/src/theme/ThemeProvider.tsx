@@ -3,11 +3,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { useSettingsStore, type ThemePreference } from "../store/settingsStore";
+import { CUSTOM_THEME_COLOR_FIELDS } from "./customThemes";
 
 type EffectiveTheme = "light" | "dark";
 
@@ -30,29 +32,70 @@ function resolveEffectiveTheme(preference: ThemePreference): EffectiveTheme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const preference = useSettingsStore((s) => s.settings.theme);
+  const appearance = useSettingsStore((s) => s.settings.appearance);
   const setSettings = useSettingsStore((s) => s.setSettings);
-  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>(() =>
-    resolveEffectiveTheme(preference),
+  const [systemTheme, setSystemTheme] = useState<EffectiveTheme>(() =>
+    resolveEffectiveTheme("system"),
   );
 
   useEffect(() => {
-    setEffectiveTheme(resolveEffectiveTheme(preference));
-
-    if (preference !== "system") {
-      return;
-    }
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setEffectiveTheme(resolveEffectiveTheme("system"));
+    const onChange = () => setSystemTheme(media.matches ? "dark" : "light");
+    onChange();
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, [preference]);
+  }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = effectiveTheme;
-  }, [effectiveTheme]);
+  const customTheme = useMemo(
+    () =>
+      appearance.customThemes.find(
+        (theme) => theme.id === appearance.activeCustomThemeId,
+      ) ?? null,
+    [appearance.activeCustomThemeId, appearance.customThemes],
+  );
+
+  const effectiveTheme: EffectiveTheme = customTheme?.base ??
+    (preference === "system" ? systemTheme : preference);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = effectiveTheme;
+
+    for (const field of CUSTOM_THEME_COLOR_FIELDS) {
+      root.style.removeProperty(field.cssVariable);
+    }
+    root.style.removeProperty("--font-ui");
+    root.style.removeProperty("--font-text");
+    root.style.removeProperty("--font-mono");
+
+    if (customTheme) {
+      root.dataset.customTheme = customTheme.id;
+      for (const field of CUSTOM_THEME_COLOR_FIELDS) {
+        root.style.setProperty(field.cssVariable, customTheme.colors[field.key]);
+      }
+      root.style.setProperty("--accent-hover", customTheme.colors.accent);
+    } else {
+      delete root.dataset.customTheme;
+      root.style.removeProperty("--accent-hover");
+    }
+
+    const interfaceFont = appearance.interfaceFont.trim();
+    if (interfaceFont) {
+      root.style.setProperty("--font-ui", interfaceFont);
+      root.style.setProperty("--font-text", interfaceFont);
+    }
+    const monospaceFont = appearance.monospaceFont.trim();
+    if (monospaceFont) root.style.setProperty("--font-mono", monospaceFont);
+  }, [appearance.interfaceFont, appearance.monospaceFont, customTheme, effectiveTheme]);
 
   const setPreference = useCallback(
-    (next: ThemePreference) => setSettings({ theme: next }),
+    (next: ThemePreference) => {
+      const currentAppearance = useSettingsStore.getState().settings.appearance;
+      setSettings({
+        theme: next,
+        appearance: { ...currentAppearance, activeCustomThemeId: null },
+      });
+    },
     [setSettings],
   );
 

@@ -380,7 +380,10 @@ export function CanvasTab({ path }: { path: string }) {
     if (addToolbarRef.current) observer.observe(addToolbarRef.current);
     alignAddToolbar();
     const themeObserver = new MutationObserver(() => redraw());
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-custom-theme", "style"],
+    });
     return () => {
       observer.disconnect();
       themeObserver.disconnect();

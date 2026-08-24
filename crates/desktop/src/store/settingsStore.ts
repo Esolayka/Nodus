@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { detectLanguage, type SupportedLanguage } from "../i18n";
+import type { CustomTheme } from "../theme/customThemes";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -25,6 +26,12 @@ export interface GraphGroup {
 
 export interface AppSettings {
   theme: ThemePreference;
+  appearance: {
+    activeCustomThemeId: string | null;
+    customThemes: CustomTheme[];
+    interfaceFont: string;
+    monospaceFont: string;
+  };
   language: SupportedLanguage;
   editor: {
     fontSize: number;
@@ -133,6 +140,12 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
+  appearance: {
+    activeCustomThemeId: null,
+    customThemes: [],
+    interfaceFont: "",
+    monospaceFont: "",
+  },
   language: detectLanguage(),
   editor: {
     fontSize: 16,
