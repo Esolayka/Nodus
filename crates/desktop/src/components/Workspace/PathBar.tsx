@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BookOpen, ChevronLeft, ChevronRight, EllipsisVertical, PencilLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { displayName } from "../../lib/displayName";
 import { isCanvasPath } from "../../lib/canvasTypes";
@@ -59,9 +60,7 @@ export function PathBar({ pane }: { pane: Pane }) {
           onClick={() => navigateHistory(pane.id, -1)}
           title={t("pathBar.back")}
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M10 3 5 8l5 5" />
-          </svg>
+          <ChevronLeft size={16} strokeWidth={1.75} />
         </button>
         <button
           type="button"
@@ -70,9 +69,7 @@ export function PathBar({ pane }: { pane: Pane }) {
           onClick={() => navigateHistory(pane.id, 1)}
           title={t("pathBar.forward")}
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="m6 3 5 5-5 5" />
-          </svg>
+          <ChevronRight size={16} strokeWidth={1.75} />
         </button>
       </div>
       <div className="path-bar-crumbs">
@@ -94,25 +91,6 @@ export function PathBar({ pane }: { pane: Pane }) {
         ))}
       </div>
       <div className="path-bar-actions">
-        {!isCanvas && (
-          <button
-            type="button"
-            className={`path-bar-btn${readMode ? " path-bar-btn-active" : ""}`}
-            onClick={() => path && toggleReading(path)}
-            title={t("pathBar.readMode")}
-          >
-            {readMode ? (
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z" />
-                <path d="M8 6.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.8 3.2a7 7 0 0 1 0 9.6M5.5 5.5a3.5 3.5 0 0 0 0 5M3.2 3.2a7 7 0 0 0 0 9.6" />
-              </svg>
-            )}
-          </button>
-        )}
         <div className="path-bar-menu-wrap">
           <button
             type="button"
@@ -123,9 +101,7 @@ export function PathBar({ pane }: { pane: Pane }) {
             }}
             title={t("pathBar.menu")}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M8 3v.1M8 8v.1M8 13v.1" />
-            </svg>
+            <EllipsisVertical size={16} strokeWidth={1.75} />
           </button>
           {menuOpen && (
             <div className="path-bar-menu" onClick={(e) => e.stopPropagation()}>
@@ -142,6 +118,20 @@ export function PathBar({ pane }: { pane: Pane }) {
             </div>
           )}
         </div>
+        {!isCanvas && (
+          <button
+            type="button"
+            className={`path-bar-btn${readMode ? " path-bar-btn-active" : ""}`}
+            onClick={() => path && toggleReading(path)}
+            title={t(readMode ? "pathBar.editMode" : "pathBar.readMode")}
+          >
+            {readMode ? (
+              <PencilLine size={16} strokeWidth={1.75} />
+            ) : (
+              <BookOpen size={16} strokeWidth={1.75} />
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
