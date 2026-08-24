@@ -22,6 +22,7 @@ import {
 } from "../../store/settingsStore";
 import { useVaultStore } from "../../store/vaultStore";
 import { TelegramSettings } from "./TelegramSettings";
+import { SyncSettings } from "./SyncSettings";
 import { Select } from "../ui/Select";
 import { Toggle } from "../ui/Toggle";
 import "./SettingsModal.css";
@@ -149,12 +150,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     setSettings({ history: { ...settings.history, ...partial } });
   const setAttachments = (partial: Partial<typeof settings.attachments>) =>
     setSettings({ attachments: { ...settings.attachments, ...partial } });
-  const setSyncMechanism = (mechanism: (typeof settings.sync)["mechanism"]) =>
-    setSettings({ sync: { ...settings.sync, mechanism } });
-  const setSyncGit = (partial: Partial<typeof settings.sync.git>) =>
-    setSettings({ sync: { ...settings.sync, git: { ...settings.sync.git, ...partial } } });
-  const setSyncServer = (partial: Partial<typeof settings.sync.server>) =>
-    setSettings({ sync: { ...settings.sync, server: { ...settings.sync.server, ...partial } } });
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: "general", label: t("settings.sections.general"), icon: slidersIcon },
@@ -679,222 +674,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           {section === "sync" && (
             <>
               <SectionTitle>{t("settings.sync.title")}</SectionTitle>
-              <div className="settings-card">
-                <SettingRow
-                  label={t("settings.sync.mechanism")}
-                  description={t("settings.sync.mechanismDesc")}
-                  control={
-                    <div className="settings-segmented">
-                      {(["none", "git", "server", "cloud"] as const).map((mechanism) => (
-                        <button
-                          key={mechanism}
-                          type="button"
-                          disabled={mechanism === "cloud"}
-                          className={settings.sync.mechanism === mechanism ? "active" : ""}
-                          onClick={() => setSyncMechanism(mechanism)}
-                          title={mechanism === "cloud" ? t(`settings.sync.mechanism_${mechanism}ComingSoon`) : undefined}
-                        >
-                          {t(`settings.sync.mechanism_${mechanism}`)}
-                        </button>
-                      ))}
-                    </div>
-                  }
-                />
-              </div>
-
-              {settings.sync.mechanism === "git" && (
-                <>
-                  <p className="settings-warning">{t("settings.sync.gitEncryptionWarning")}</p>
-                  <h3 className="settings-card-label">{t("settings.sync.git.title")}</h3>
-                  <div className="settings-card">
-                    <SettingRow
-                      label={t("settings.sync.git.remoteName")}
-                      description={t("settings.sync.git.remoteNameDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 160 }}
-                          value={settings.sync.git.remoteName}
-                          onChange={(e) => setSyncGit({ remoteName: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.remoteUrl")}
-                      description={t("settings.sync.git.remoteUrlDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 260 }}
-                          value={settings.sync.git.remoteUrl}
-                          onChange={(e) => setSyncGit({ remoteUrl: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.branch")}
-                      description={t("settings.sync.git.branchDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 160, fontFamily: "var(--font-mono)" }}
-                          value={settings.sync.git.branch}
-                          onChange={(e) => setSyncGit({ branch: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.authorName")}
-                      description={t("settings.sync.git.authorDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 200 }}
-                          value={settings.sync.git.authorName}
-                          onChange={(e) => setSyncGit({ authorName: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.authorEmail")}
-                      description={t("settings.sync.git.authorDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 200 }}
-                          value={settings.sync.git.authorEmail}
-                          onChange={(e) => setSyncGit({ authorEmail: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.autocommit")}
-                      description={t("settings.sync.git.autocommitDesc")}
-                      control={
-                        <div className="settings-segmented">
-                          {(["off", "manual", "scheduled"] as const).map((mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              className={settings.sync.git.autocommit === mode ? "active" : ""}
-                              onClick={() => setSyncGit({ autocommit: mode })}
-                            >
-                              {t(`settings.sync.git.autocommit_${mode}`)}
-                            </button>
-                          ))}
-                        </div>
-                      }
-                    />
-                    {settings.sync.git.autocommit === "scheduled" && (
-                      <SettingRow
-                        label={t("settings.sync.git.autocommitInterval")}
-                        description={t("settings.sync.git.autocommitIntervalDesc")}
-                        control={
-                          <Slider
-                            value={settings.sync.git.autocommitIntervalMinutes}
-                            min={5}
-                            max={180}
-                            step={5}
-                            onChange={(autocommitIntervalMinutes) => setSyncGit({ autocommitIntervalMinutes })}
-                          />
-                        }
-                      />
-                    )}
-                    <SettingRow
-                      label={t("settings.sync.git.autopullOnStartup")}
-                      description={t("settings.sync.git.autopullOnStartupDesc")}
-                      control={
-                        <Toggle
-                          checked={settings.sync.git.autopullOnStartup}
-                          onChange={(autopullOnStartup) => setSyncGit({ autopullOnStartup })}
-                          ariaLabel={t("settings.sync.git.autopullOnStartup")}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.git.commitMessageTemplate")}
-                      description={t("settings.sync.git.commitMessageTemplateDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 260, fontFamily: "var(--font-mono)" }}
-                          value={settings.sync.git.commitMessageTemplate}
-                          onChange={(e) => setSyncGit({ commitMessageTemplate: e.target.value })}
-                        />
-                      }
-                    />
-                  </div>
-                </>
-              )}
-
-              {settings.sync.mechanism === "server" && (
-                <>
-                  <h3 className="settings-card-label">{t("settings.sync.server.title")}</h3>
-                  <div className="settings-card">
-                    <SettingRow
-                      label={t("settings.sync.server.baseUrl")}
-                      description={t("settings.sync.server.baseUrlDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 260 }}
-                          value={settings.sync.server.baseUrl}
-                          onChange={(e) => setSyncServer({ baseUrl: e.target.value })}
-                          placeholder="https://sync.example.com"
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.server.deviceName")}
-                      description={t("settings.sync.server.deviceNameDesc")}
-                      control={
-                        <input
-                          className="field"
-                          style={{ width: 200 }}
-                          value={settings.sync.server.deviceName}
-                          onChange={(e) => setSyncServer({ deviceName: e.target.value })}
-                        />
-                      }
-                    />
-                    <SettingRow
-                      label={t("settings.sync.server.autoSync")}
-                      description={t("settings.sync.server.autoSyncDesc")}
-                      control={
-                        <div className="settings-segmented">
-                          {(["off", "manual", "scheduled"] as const).map((mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              className={settings.sync.server.autoSync === mode ? "active" : ""}
-                              onClick={() => setSyncServer({ autoSync: mode })}
-                            >
-                              {t(`settings.sync.git.autocommit_${mode}`)}
-                            </button>
-                          ))}
-                        </div>
-                      }
-                    />
-                    {settings.sync.server.autoSync === "scheduled" && (
-                      <SettingRow
-                        label={t("settings.sync.server.autoSyncInterval")}
-                        description={t("settings.sync.server.autoSyncIntervalDesc")}
-                        control={
-                          <Slider
-                            value={settings.sync.server.autoSyncIntervalMinutes}
-                            min={5}
-                            max={180}
-                            step={5}
-                            onChange={(autoSyncIntervalMinutes) => setSyncServer({ autoSyncIntervalMinutes })}
-                          />
-                        }
-                      />
-                    )}
-                  </div>
-                </>
-              )}
+              <SyncSettings />
             </>
           )}
-
           {section === "telegram" && (
             <>
               <SectionTitle>{t("settings.sections.telegram")}</SectionTitle>
