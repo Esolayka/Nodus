@@ -134,6 +134,7 @@ export function AppShell() {
   }, [activeNotePath]);
 
   useEffect(() => {
+    if (!useSettingsStore.getState().settings.general.reopenLastVault) return;
     void restoreLast().then(() => {
       if (useSettingsStore.getState().settings.dailyNotes.openOnStartup && useVaultStore.getState().tree) {
         void openTodayNote();

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { previewRename } from "../../api/vault";
+import { useSettingsStore } from "../../store/settingsStore";
 import { useVaultStore } from "../../store/vaultStore";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import type { TreeNode } from "../../types/vault";
@@ -200,7 +201,14 @@ export function FileTree() {
 
   async function handleDelete(node: TreeNode) {
     setContextMenu(null);
-    if (!window.confirm(t("fileTree.confirmDelete", { name: node.name }))) return;
+    const confirmDeletion =
+      useSettingsStore.getState().settings.general.confirmFileDeletion;
+    if (
+      confirmDeletion &&
+      !window.confirm(t("fileTree.confirmDelete", { name: node.name }))
+    ) {
+      return;
+    }
     await deleteEntry(node.path);
     closePath(node.path);
   }

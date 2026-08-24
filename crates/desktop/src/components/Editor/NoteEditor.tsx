@@ -6,6 +6,7 @@ import { buildExtensions, externalUpdate } from "../../editor/markdownSetup";
 import { setEditorMode } from "../../editor/modeState";
 import type { FollowLink } from "../../editor/wikilinks";
 import { useVaultStore } from "../../store/vaultStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import {
   consumePendingJump,
   jumpEditorToLine,
@@ -26,12 +27,18 @@ interface ContextMenuState {
 }
 
 const onFollowLink: FollowLink = async (target, resolvedPath, newTab) => {
+  const shouldOpenNewTab =
+    newTab || useSettingsStore.getState().settings.general.openLinksInNewTab;
   if (resolvedPath) {
-    await useWorkspaceStore.getState().navigateTo(resolvedPath, { newTab });
+    await useWorkspaceStore.getState().navigateTo(resolvedPath, {
+      newTab: shouldOpenNewTab,
+    });
     return;
   }
   const newPath = await useVaultStore.getState().createFile("", target);
-  await useWorkspaceStore.getState().navigateTo(newPath, { newTab });
+  await useWorkspaceStore.getState().navigateTo(newPath, {
+    newTab: shouldOpenNewTab,
+  });
 };
 
 export function NoteEditor({ path }: NoteEditorProps) {

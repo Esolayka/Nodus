@@ -389,12 +389,13 @@
   gap: 6px;
   flex-shrink: 0;
   padding: 0 11px;
-  color: #fff;
-  background: var(--accent);
+  border: 1px solid var(--border);
+  color: var(--text-normal);
+  background: var(--bg-tertiary);
 }
 
 .appearance-create-button:hover {
-  background: var(--accent-hover);
+  background: var(--bg-hover);
 }
 
 .appearance-theme-list {
@@ -414,7 +415,7 @@
 }
 
 .appearance-theme-item.active {
-  border-color: var(--accent);
+  border-color: var(--text-faint);
   background: var(--bg-active);
 }
 

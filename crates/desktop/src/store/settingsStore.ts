@@ -26,6 +26,11 @@ export interface GraphGroup {
 
 export interface AppSettings {
   theme: ThemePreference;
+  general: {
+    reopenLastVault: boolean;
+    confirmFileDeletion: boolean;
+    openLinksInNewTab: boolean;
+  };
   appearance: {
     activeCustomThemeId: string | null;
     customThemes: CustomTheme[];
@@ -140,6 +145,11 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
+  general: {
+    reopenLastVault: true,
+    confirmFileDeletion: true,
+    openLinksInNewTab: false,
+  },
   appearance: {
     activeCustomThemeId: null,
     customThemes: [],

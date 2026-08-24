@@ -137,6 +137,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const setLanguage = (language: SupportedLanguage) => setSettings({ language });
+  const setGeneral = (partial: Partial<typeof settings.general>) =>
+    setSettings({ general: { ...settings.general, ...partial } });
   const setEditor = (partial: Partial<typeof settings.editor>) =>
     setSettings({ editor: { ...settings.editor, ...partial } });
   const setGraph = (partial: Partial<typeof settings.graph>) =>
@@ -247,6 +249,45 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       value={settings.language}
                       options={languageOptions}
                       onChange={(value) => setLanguage(value as SupportedLanguage)}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.general.reopenLastVault")}
+                  description={t("settings.general.reopenLastVaultDesc")}
+                  control={
+                    <Toggle
+                      checked={settings.general.reopenLastVault}
+                      onChange={(reopenLastVault) =>
+                        setGeneral({ reopenLastVault })
+                      }
+                      ariaLabel={t("settings.general.reopenLastVault")}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.general.confirmFileDeletion")}
+                  description={t("settings.general.confirmFileDeletionDesc")}
+                  control={
+                    <Toggle
+                      checked={settings.general.confirmFileDeletion}
+                      onChange={(confirmFileDeletion) =>
+                        setGeneral({ confirmFileDeletion })
+                      }
+                      ariaLabel={t("settings.general.confirmFileDeletion")}
+                    />
+                  }
+                />
+                <SettingRow
+                  label={t("settings.general.openLinksInNewTab")}
+                  description={t("settings.general.openLinksInNewTabDesc")}
+                  control={
+                    <Toggle
+                      checked={settings.general.openLinksInNewTab}
+                      onChange={(openLinksInNewTab) =>
+                        setGeneral({ openLinksInNewTab })
+                      }
+                      ariaLabel={t("settings.general.openLinksInNewTab")}
                     />
                   }
                 />

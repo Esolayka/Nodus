@@ -235,7 +235,13 @@
       "theme_dark": "Dark",
       "theme_system": "System",
       "language": "Language",
-      "languageDesc": "Interface language. Applies immediately, no restart needed."
+      "languageDesc": "Interface language. Applies immediately, no restart needed.",
+      "reopenLastVault": "Open the last vault",
+      "reopenLastVaultDesc": "Nodus opens the vault you were using when the app starts.",
+      "confirmFileDeletion": "Confirm file deletion",
+      "confirmFileDeletionDesc": "Nodus asks before deleting a file or folder from the tree.",
+      "openLinksInNewTab": "Open links in a new tab",
+      "openLinksInNewTabDesc": "A regular click on an internal link does not replace the current tab."
     },
     "appearance": {
       "title": "Appearance",
