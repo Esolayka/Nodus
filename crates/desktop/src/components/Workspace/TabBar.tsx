@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type DragEvent } from "react";
 import { FileText, Network, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { displayName } from "../../lib/displayName";
-import { useUiStore } from "../../store/uiStore";
 import {
   GRAPH_TAB_ID,
   isEmptyTab,
@@ -27,7 +26,6 @@ export function TabBar({ pane }: { pane: Pane }) {
   const closeView = useWorkspaceStore((s) => s.closeView);
   const reorderTab = useWorkspaceStore((s) => s.reorderTab);
   const openEmptyTab = useWorkspaceStore((s) => s.openEmptyTab);
-  const setQuickSwitcherOpen = useUiStore((s) => s.setQuickSwitcherOpen);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -163,10 +161,7 @@ export function TabBar({ pane }: { pane: Pane }) {
         type="button"
         className="tab-add"
         aria-label={t("workspace.newTab")}
-        onClick={() => {
-          openEmptyTab();
-          setQuickSwitcherOpen(true);
-        }}
+        onClick={() => openEmptyTab()}
         title={t("workspace.newTab")}
       >
         <Plus size={14} strokeWidth={1.75} />

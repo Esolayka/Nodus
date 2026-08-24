@@ -59,7 +59,6 @@ export function registerBuiltinCommands(): () => void {
   // picks "create new file" (or a file) from it.
   reg("app.newTab", i18next.t("commands.newTab"), () => {
     useWorkspaceStore.getState().openEmptyTab();
-    useUiStore.getState().setQuickSwitcherOpen(true);
   });
 
   reg("app.save", i18next.t("commands.save"), () => {
