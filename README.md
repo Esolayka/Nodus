@@ -1,58 +1,88 @@
 # Nodus
 
+<img src="crates/desktop/public/nodus-logo.png" alt="Nodus" width="96" />
+
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
-Свободная (AGPL-3.0), кроссплатформенная (Windows / Linux / macOS) программа для ведения связанных заметок — функциональный аналог Obsidian с полностью открытым кодом.
+Nodus is a free and open source desktop workspace for linked Markdown notes. It is built with Tauri 2, React and Rust and runs on Linux, Windows and macOS.
 
-Заметки — это обычные `.md` файлы в обычной папке на диске. Никакого проприетарного формата и никакого обязательного облака. Второй полноценный клиент — Telegram Mini App.
+Notes remain ordinary `.md` files in a folder chosen by the user. Nodus does not require a proprietary file format or a cloud account.
 
-## Роадмап
+## Current status
 
-Порядок важен: каждый этап опирается на предыдущий.
+Nodus 0.1 is a pre-release. The main desktop workflows are implemented, but file formats and experimental integrations can still change.
 
-0. **Фундамент** ✅ — структура монорепозитория, Tauri, лицензия, каркас интерфейса, темы, локализация, сборка под три платформы через CI.
-1. **Файлы и редактор** ✅ — vault как папка, дерево файлов, редактор на CodeMirror 6 с live-preview, frontmatter.
-2. **Связи** ✅ — `[[wikilinks]]`, автодополнение, backlinks, «упоминания без ссылки», починка ссылок при переименовании, оглавление, индекс в SQLite.
-3. **Поиск, теги, ежедневные заметки** 🚧 — полнотекстовый поиск (FTS5), теги, палитра команд, горячие клавиши.
-4. **Медиа** — изображения, вложения, PDF, аудио/видео, канвас.
-5. **Движок плагинов** — публичный API, изолированная среда выполнения, SDK.
-6. **Синхронизация и шифрование** — Git-интеграция, свой sync-сервер (Rust/axum), E2E-шифрование.
-7. **Telegram Mini App** — второй полноценный клиент.
-8. **Импорт** — Obsidian, Notion.
-9. **ИИ-помощник** — свой ключ, локальная модель или произвольный сервер.
-10. **Каталог расширений и релиз**.
+Available now:
 
-Минимально жизнеспособная версия — этапы 0–3.
+- Markdown editing with live preview and frontmatter
+- tabs, file tree, quick switcher, command palette and hotkeys
+- wikilinks, backlinks, outgoing links and unlinked mentions
+- full-text search, tags, tasks, bookmarks and daily notes
+- interactive graph and visual canvas
+- images, attachments, PDF, audio and video embeds
+- note history, templates and Obsidian or Notion import
+- Git sync and experimental Nodus server sync
+- experimental local Telegram bot and Mini App
+- light, dark and custom themes in Russian and English
 
-## Структура репозитория
+Server sync currently transfers plaintext content. Treat it as experimental and use only a server you trust. End-to-end encryption is not connected to server sync yet.
 
-```
+## Repository structure
+
+```text
 crates/
-├── core/              # Логика vault'а: файлы, frontmatter, wikilinks, watcher, SQLite-индекс. Без GUI и сети.
-└── desktop/           # Десктоп-приложение (Tauri 2)
-    ├── src/            # React + TypeScript фронтенд, редактор на CodeMirror 6
-    └── src-tauri/      # Rust: команды Tauri, тонкие обёртки над crates/core
+|-- ai/                 AI indexing and vector storage
+|-- core/               Vault, index, history, search, sync and import logic
+|-- crypto/             Cryptographic primitives
+|-- desktop/            Tauri 2 and React desktop application
+|-- sync-server/        Self-hosted synchronization server
+`-- telegram/           Telegram validation helpers
 ```
 
-Sync-сервер, SDK плагинов и Telegram Mini App появятся на соответствующих этапах роадмапа — см. `docs/architecture.md`.
+Architecture notes are stored in [`docs/architecture.md`](docs/architecture.md).
 
-## Сборка из исходников
+## Development
 
-Требуется:
+Required tools:
 
-- Rust (stable, см. [`rust-toolchain.toml`](rust-toolchain.toml))
-- Node.js 18+ и npm
-- Платформенные зависимости Tauri:
-  - **Linux**: `webkit2gtk-4.1`, `build-essential` (или аналог для вашего дистрибутива) — см. [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
-  - **macOS**: Xcode Command Line Tools
-  - **Windows**: WebView2 (обычно уже установлен в Windows 10/11) + Visual Studio Build Tools
+- Rust stable, pinned by [`rust-toolchain.toml`](rust-toolchain.toml)
+- Node.js 20 or newer and npm
+- the platform dependencies listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ```sh
 cd crates/desktop
-npm install
+npm ci
 npm run tauri dev
 ```
 
-## Почему AGPL, а не MIT
+## Verification
 
-Nodus распространяется под AGPL-3.0, а не под более разрешительной лицензией вроде MIT. Это осознанный выбор: AGPL требует, чтобы любой, кто модифицирует Nodus и предоставляет его как сервис (например, облачную версию), тоже открывал исходный код своих изменений. Это защищает проект от того, что кто-то возьмёт открытый код, надстроит закрытый SaaS и не отдаст улучшения обратно сообществу. Личное использование, форки, плагины, коммерческое использование внутри компании — всё это AGPL не ограничивает.
+Run the same checks used by CI before opening a pull request:
+
+```sh
+python3 scripts/check-control-chars.py
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cd crates/desktop
+npm ci
+npm test
+npm run build
+```
+
+On modern Linux distributions, build the AppImage with stripping disabled because the `linuxdeploy` binary bundled by Tauri cannot read newer `.relr.dyn` sections:
+
+```sh
+cd crates/desktop
+npm run build:appimage
+```
+
+CI builds `.deb`, `.rpm`, AppImage, `.app`, `.dmg` and NSIS artifacts. Pushing a `v*` tag creates a draft GitHub Release and attaches the packages after every platform succeeds.
+
+## Release notes and security
+
+Changes are tracked in [`CHANGELOG.md`](CHANGELOG.md). Please follow [`SECURITY.md`](SECURITY.md) when reporting security problems.
+
+## License
+
+Nodus is distributed under AGPL-3.0-or-later. See [`LICENSE`](LICENSE).
