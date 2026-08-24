@@ -98,8 +98,13 @@
 
 .settings-search {
   width: 100%;
-  padding-left: 30px;
   background: var(--bg-tertiary);
+}
+
+/* Keep the shared `.field` padding shorthand from removing the icon inset.
+   The iconless hotkey search also reuses `.settings-search`. */
+.settings-search-wrap .field.settings-search {
+  padding: 0 10px 0 30px;
 }
 
 .settings-group-label {
