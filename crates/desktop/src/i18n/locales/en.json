@@ -445,7 +445,7 @@
       "serverReadyTitle": "Configuration happens on the server",
       "connectTitle": "Connect your bot",
       "connectDesc": "Paste the token; Nodus starts the tunnel, creates a code, and opens Telegram.",
-      "botTokenSimpleDesc": "Copy the token from @BotFather. It is stored only on this device.",
+      "botTokenSimpleDesc": "Copy the token from @BotFather. It is kept only until Nodus closes.",
       "connect": "Connect Telegram",
       "connecting": "Connecting…",
       "connectHint": "The first connection may take a moment.",
@@ -675,6 +675,11 @@
     "restoreButton": "Restore",
     "restoreConfirmApply": "Restore",
     "restoreConfirmTitle": "Restore this version? Your current content will be saved as a new version first."
+  },
+  "media": {
+    "play": "Play",
+    "pause": "Pause",
+    "fullscreen": "Fullscreen"
   },
   "images": {
     "saveLocally": "Save a local copy"

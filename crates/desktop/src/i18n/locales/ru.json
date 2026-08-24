@@ -71,12 +71,15 @@
     "backlinks_one": "{{count}} обратная ссылка",
     "backlinks_few": "{{count}} обратные ссылки",
     "backlinks_many": "{{count}} обратных ссылок",
+    "backlinks_other": "{{count}} обратных ссылок",
     "words_one": "{{count}} слово",
     "words_few": "{{count}} слова",
     "words_many": "{{count}} слов",
+    "words_other": "{{count}} слов",
     "chars_one": "{{count}} символ",
     "chars_few": "{{count}} символа",
     "chars_many": "{{count}} символов",
+    "chars_other": "{{count}} символов",
     "saved": "Сохранено",
     "saving": "Сохранение…",
     "saveError": "Ошибка сохранения",
@@ -452,7 +455,7 @@
       "serverReadyTitle": "Настройка выполняется на сервере",
       "connectTitle": "Подключите бота",
       "connectDesc": "Вставьте токен. Nodus сам запустит туннель, создаст код и откроет Telegram.",
-      "botTokenSimpleDesc": "Скопируйте токен из сообщения @BotFather. Он хранится только на этом устройстве.",
+      "botTokenSimpleDesc": "Скопируйте токен из сообщения @BotFather. Он хранится только до закрытия Nodus.",
       "connect": "Подключить Telegram",
       "connecting": "Подключение…",
       "connectHint": "Первый запуск может занять немного времени.",
@@ -694,6 +697,11 @@
     "restoreButton": "Восстановить",
     "restoreConfirmApply": "Восстановить",
     "restoreConfirmTitle": "Восстановить эту версию? Текущее содержимое сначала сохранится как новая версия."
+  },
+  "media": {
+    "play": "Воспроизвести",
+    "pause": "Пауза",
+    "fullscreen": "На весь экран"
   },
   "images": {
     "saveLocally": "Сохранить локальную копию"

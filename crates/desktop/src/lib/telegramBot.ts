@@ -225,11 +225,35 @@ async function renderMessage(token: string, msg: TgMessage): Promise<string> {
   return lines.length > 0 ? lines.join("\n") : i18next.t("telegramBot.emptyMessage");
 }
 
+const OFFSET_STORAGE_PREFIX = "nodus:telegram-bot-offset:";
+const OFFSET_STORAGE_V2_PREFIX = `${OFFSET_STORAGE_PREFIX}v2:`;
+
+function tokenFingerprint(token: string): string {
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < token.length; index += 1) {
+    const code = token.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+  }
+  return `${(first >>> 0).toString(16).padStart(8, "0")}${(second >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 function offsetStorageKey(token: string): string {
-  return `nodus:telegram-bot-offset:${token}`;
+  return `${OFFSET_STORAGE_V2_PREFIX}${tokenFingerprint(token)}`;
+}
+
+function removeLegacyOffsetKeys(): void {
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(OFFSET_STORAGE_PREFIX) && !key.startsWith(OFFSET_STORAGE_V2_PREFIX)) {
+      localStorage.removeItem(key);
+    }
+  }
 }
 
 function loadOffset(token: string): number | undefined {
+  removeLegacyOffsetKeys();
   const raw = localStorage.getItem(offsetStorageKey(token));
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) ? parsed : undefined;

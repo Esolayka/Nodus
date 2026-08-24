@@ -10,6 +10,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import { useVaultStore } from "../store/vaultStore";
 import { codeRanges, inCodeRange } from "./codeRanges";
 import { editorModeField } from "./modeState";
+import "./mediaEmbeds.css";
 
 /** A minimal single-item context menu for external images ("save locally")
  * — plain DOM since it's triggered from inside a CodeMirror widget, not React. */

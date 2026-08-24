@@ -112,9 +112,8 @@ export interface AppSettings {
     server: {
       /** Address of a `nodus-sync-server` instance, e.g. `https://sync.example.com`. */
       baseUrl: string;
-      /** Device token from pairing. Persisted like any other sync-client
-       * credential our own server issues — unlike a third-party Git PAT,
-       * losing it just means re-pairing this one device. */
+      /** Device token from pairing. Kept in memory only so renderer storage
+       * never contains a reusable credential. */
       token: string;
       deviceName: string;
       autoSync: ServerAutoSync;
@@ -128,9 +127,7 @@ export interface AppSettings {
      * its own `--telegram-bot-token`) serves it instead, around the clock —
      * nothing here to configure beyond picking this mode. */
     placement: TelegramPlacement;
-    /** Only meaningful for "local" placement. Persisted — the local HTTP
-     * server needs it to verify every linking attempt, session to session,
-     * the same way a self-hosted server's own bot-token flag would. */
+    /** Only meaningful for "local" placement. Kept in memory only. */
     botToken: string;
     /** Fallback address for the Mini App to reach this device at, if the
      * automatic tunnel or discovery service isn't available. */
@@ -267,6 +264,25 @@ function deepMerge<T>(base: T, incoming: unknown): T {
   return result as T;
 }
 
+/** Credentials must never be serialized into the WebView's localStorage.
+ * This also strips values left by versions that persisted the whole store. */
+function withoutPersistedCredentials(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    sync: {
+      ...settings.sync,
+      server: { ...settings.sync.server, token: "" },
+    },
+    telegram: { ...settings.telegram, botToken: "" },
+  };
+}
+
+function sanitizePersistedState(persisted: unknown): unknown {
+  if (!isPlainObject(persisted) || !isPlainObject(persisted.settings)) return persisted;
+  const settings = deepMerge(DEFAULT_SETTINGS, persisted.settings);
+  return { ...persisted, settings: withoutPersistedCredentials(settings) };
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -276,31 +292,38 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "nodus:settings",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
-        if (version >= 2 || !isPlainObject(persisted)) return persisted;
-        const settings = persisted.settings;
-        if (!isPlainObject(settings) || !isPlainObject(settings.graph)) return persisted;
-        const graph = settings.graph;
-        const oldNodeSize = typeof graph.nodeSize === "number" ? graph.nodeSize : 6;
-        const oldLinkDistance = typeof graph.linkDistance === "number" ? graph.linkDistance : 45;
-        return {
-          ...persisted,
-          settings: {
-            ...settings,
-            graph: {
-              ...graph,
-              nodeSize: Math.min(5, Math.max(0.1, oldNodeSize / 6)),
-              linkDistance: Math.min(500, Math.max(30, oldLinkDistance * (250 / 45))),
-              repulsion: 10,
-            },
-          },
-        };
+        let migrated = persisted;
+        if (version < 2 && isPlainObject(persisted)) {
+          const settings = persisted.settings;
+          if (isPlainObject(settings) && isPlainObject(settings.graph)) {
+            const graph = settings.graph;
+            const oldNodeSize = typeof graph.nodeSize === "number" ? graph.nodeSize : 6;
+            const oldLinkDistance = typeof graph.linkDistance === "number" ? graph.linkDistance : 45;
+            migrated = {
+              ...persisted,
+              settings: {
+                ...settings,
+                graph: {
+                  ...graph,
+                  nodeSize: Math.min(5, Math.max(0.1, oldNodeSize / 6)),
+                  linkDistance: Math.min(500, Math.max(30, oldLinkDistance * (250 / 45))),
+                  repulsion: 10,
+                },
+              },
+            };
+          }
+        }
+        return sanitizePersistedState(migrated);
       },
-      partialize: (s) => ({ settings: s.settings }),
+      partialize: (s) => ({ settings: withoutPersistedCredentials(s.settings) }),
       merge: (persisted, current) => ({
         ...current,
-        settings: deepMerge(current.settings, (persisted as Partial<SettingsState> | undefined)?.settings),
+        settings: deepMerge(
+          current.settings,
+          (sanitizePersistedState(persisted) as Partial<SettingsState> | undefined)?.settings,
+        ),
       }),
     },
   ),

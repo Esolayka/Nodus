@@ -1,0 +1,75 @@
+.cm-av-embed-wrap {
+  display: block;
+  width: min(100%, 640px);
+  margin: 10px 0;
+}
+
+.nodus-media-player {
+  overflow: hidden;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.nodus-media-element {
+  display: none;
+}
+
+.nodus-media-video .nodus-media-element {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  background: #000;
+}
+
+.nodus-media-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 5px 8px;
+}
+
+.nodus-media-play-btn,
+.nodus-media-fullscreen-btn {
+  display: inline-flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.nodus-media-play-btn:hover,
+.nodus-media-fullscreen-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.nodus-media-play-btn svg,
+.nodus-media-fullscreen-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.nodus-media-seek {
+  flex: 1;
+  min-width: 60px;
+  accent-color: var(--text-muted);
+}
+
+.nodus-media-time {
+  flex: 0 0 auto;
+  min-width: 78px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}

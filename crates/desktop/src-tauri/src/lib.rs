@@ -18,7 +18,8 @@ pub fn run() {
         .setup(|app| {
             let app_state = app.state::<state::AppState>();
             let telegram_state = telegram::TelegramState::new(app_state.service.clone());
-            match telegram::start_local_server(telegram_state.server.clone(), telegram::dev_miniapp_dist_dir()) {
+            let miniapp_dist = telegram::miniapp_dist_dir(app.handle());
+            match telegram::start_local_server(telegram_state.server.clone(), miniapp_dist) {
                 Ok(port) => {
                     *telegram_state.local_port.lock().expect("mutex poisoned") = Some(port);
                 }

@@ -18,7 +18,10 @@ use std::time::Duration;
 
 use nodus_core::local_server::{self, LocalServerState};
 use nodus_core::VaultService;
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager};
+
+const CLOUDFLARED_VERSION: &str = "2026.7.3";
 
 pub struct TelegramState {
     pub server: LocalServerState,
@@ -49,21 +52,22 @@ impl TelegramState {
     }
 }
 
-/// Where the Mini App's built assets live during `cargo tauri dev` — Vite
-/// writes `miniapp.html` (and its own chunks) into the same `dist/` folder
-/// as the main app, right next to `index.html` (see `vite.config.ts`'s
-/// `build.rollupOptions.input`). `CARGO_MANIFEST_DIR` is
-/// `crates/desktop/src-tauri`, so one level up is `crates/desktop`, where
-/// `dist/` sits — matching `tauri.conf.json`'s own `frontendDist: "../dist"`.
-///
-/// This only resolves in a dev checkout with the source tree present; a
-/// packaged build has no `crates/` to look inside and needs its own
-/// bundled-resource path instead (not wired up yet — a real installer for
-/// this app is a separate, later concern from "the Mini App is reachable
-/// at all", which is what this unblocks today).
-pub fn dev_miniapp_dist_dir() -> Option<std::path::PathBuf> {
-    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../dist");
-    dir.join("miniapp.html").is_file().then_some(dir)
+/// Resolves the Mini App bundle in both installed and development builds.
+/// Tauri copies `dist/` into `$RESOURCES/miniapp` for installers, while a
+/// development checkout can use Vite's output directly.
+pub fn miniapp_dist_dir(app: &AppHandle) -> Option<PathBuf> {
+    if let Ok(resources) = app.path().resource_dir() {
+        let bundled = resources.join("miniapp");
+        if bundled.join("miniapp.html").is_file() {
+            return Some(bundled);
+        }
+    }
+
+    let development = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../dist");
+    development
+        .join("miniapp.html")
+        .is_file()
+        .then_some(development)
 }
 
 /// Binds the local-mode HTTP server to an OS-assigned loopback port and
@@ -75,7 +79,10 @@ pub fn dev_miniapp_dist_dir() -> Option<std::path::PathBuf> {
 /// same tunnel serves both the API and the page the phone loads; `None`
 /// means the tunnel exposes the API alone, with no page for a phone to
 /// actually load.
-pub fn start_local_server(state: LocalServerState, miniapp_dist_dir: Option<std::path::PathBuf>) -> std::io::Result<u16> {
+pub fn start_local_server(
+    state: LocalServerState,
+    miniapp_dist_dir: Option<std::path::PathBuf>,
+) -> std::io::Result<u16> {
     let std_listener = std::net::TcpListener::bind("127.0.0.1:0")?;
     std_listener.set_nonblocking(true)?;
     let port = std_listener.local_addr()?.port();
@@ -159,32 +166,76 @@ fn cloudflared_cache_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("could not resolve the app data directory: {e}"))?
         .join("bin");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let name = if cfg!(target_os = "windows") { "cloudflared.exe" } else { "cloudflared" };
+    let name = if cfg!(target_os = "windows") {
+        "cloudflared.exe"
+    } else {
+        "cloudflared"
+    };
     Ok(dir.join(name))
 }
 
 /// The GitHub release asset for this OS/arch, and whether it's a `.tgz`
 /// archive (macOS) rather than a raw executable (Linux, Windows).
-fn cloudflared_asset_for(os: &str, arch: &str) -> Result<(&'static str, bool), String> {
+fn cloudflared_asset_for(
+    os: &str,
+    arch: &str,
+) -> Result<(&'static str, bool, &'static str), String> {
     match (os, arch) {
-        ("linux", "x86_64") => Ok(("cloudflared-linux-amd64", false)),
-        ("linux", "aarch64") => Ok(("cloudflared-linux-arm64", false)),
-        ("macos", "x86_64") => Ok(("cloudflared-darwin-amd64.tgz", true)),
-        ("macos", "aarch64") => Ok(("cloudflared-darwin-arm64.tgz", true)),
-        ("windows", "x86_64") => Ok(("cloudflared-windows-amd64.exe", false)),
-        (os, arch) => Err(format!("cloudflared has no published build for {os}/{arch}")),
+        ("linux", "x86_64") => Ok((
+            "cloudflared-linux-amd64",
+            false,
+            "9d71c677db00134c1bd4144b7783486b654ad281b1ea62b4972098d19f770f17",
+        )),
+        ("linux", "aarch64") => Ok((
+            "cloudflared-linux-arm64",
+            false,
+            "65259e652a7bea08bf5df603233ab22b8bf3116af8df9f9206209af6a1b955c0",
+        )),
+        ("macos", "x86_64") => Ok((
+            "cloudflared-darwin-amd64.tgz",
+            true,
+            "e88fe5874d42a94f49a7ea59cabc3722d2962d0449232b0f3b1a426a712e275c",
+        )),
+        ("macos", "aarch64") => Ok((
+            "cloudflared-darwin-arm64.tgz",
+            true,
+            "f35c50089cd25f77a4cb5a2152036bc26db15aa31fbe11f7995d2e42a4ed6257",
+        )),
+        ("windows", "x86_64") => Ok((
+            "cloudflared-windows-amd64.exe",
+            false,
+            "8635da433b6df8194746e88ed9d2589566c20e38bfc2a80e431a348b7c765841",
+        )),
+        (os, arch) => Err(format!(
+            "cloudflared has no published build for {os}/{arch}"
+        )),
     }
 }
 
-fn cloudflared_asset() -> Result<(&'static str, bool), String> {
+fn cloudflared_asset() -> Result<(&'static str, bool, &'static str), String> {
     cloudflared_asset_for(std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn verify_sha256(bytes: &[u8], expected: &str) -> Result<(), String> {
+    let actual = format!("{:x}", Sha256::digest(bytes));
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "cloudflared checksum mismatch: expected {expected}, got {actual}"
+        ))
+    }
 }
 
 /// Downloads the archive into `tmp_dir` and extracts the `cloudflared`
 /// binary out of it into `dest`. Shells out to the system `tar` rather than
 /// adding a tar/gzip crate dependency just for this one platform — macOS
 /// always ships both as core utilities.
-fn extract_cloudflared_archive(archive_bytes: &[u8], tmp_dir: &std::path::Path, dest: &std::path::Path) -> Result<(), String> {
+fn extract_cloudflared_archive(
+    archive_bytes: &[u8],
+    tmp_dir: &std::path::Path,
+    dest: &std::path::Path,
+) -> Result<(), String> {
     std::fs::create_dir_all(tmp_dir).map_err(|e| e.to_string())?;
     let archive_path = tmp_dir.join("cloudflared.tgz");
     std::fs::write(&archive_path, archive_bytes).map_err(|e| e.to_string())?;
@@ -206,7 +257,9 @@ fn extract_cloudflared_archive(archive_bytes: &[u8], tmp_dir: &std::path::Path, 
 #[cfg(unix)]
 fn make_executable(path: &std::path::Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(path).map_err(|e| e.to_string())?.permissions();
+    let mut perms = std::fs::metadata(path)
+        .map_err(|e| e.to_string())?
+        .permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(path, perms).map_err(|e| e.to_string())
 }
@@ -227,12 +280,18 @@ fn ensure_cloudflared_binary(app: &AppHandle) -> Result<PathBuf, String> {
     }
 
     let cached = cloudflared_cache_path(app)?;
-    if cached.is_file() {
+    let version_marker = cached.with_extension("version");
+    let cache_is_current = std::fs::read_to_string(&version_marker)
+        .map(|version| version.trim() == CLOUDFLARED_VERSION)
+        .unwrap_or(false);
+    if cached.is_file() && cache_is_current {
         return Ok(cached);
     }
 
-    let (asset, is_archive) = cloudflared_asset()?;
-    let url = format!("https://github.com/cloudflare/cloudflared/releases/latest/download/{asset}");
+    let (asset, is_archive, expected_sha256) = cloudflared_asset()?;
+    let url = format!(
+        "https://github.com/cloudflare/cloudflared/releases/download/{CLOUDFLARED_VERSION}/{asset}"
+    );
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(180))
         .build()
@@ -244,6 +303,7 @@ fn ensure_cloudflared_binary(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("failed to download cloudflared from {url}: {e}"))?
         .bytes()
         .map_err(|e| format!("failed to read the cloudflared download: {e}"))?;
+    verify_sha256(&bytes, expected_sha256)?;
 
     if is_archive {
         let tmp_dir = cached.with_file_name("cloudflared-download");
@@ -252,6 +312,7 @@ fn ensure_cloudflared_binary(app: &AppHandle) -> Result<PathBuf, String> {
         std::fs::write(&cached, &bytes).map_err(|e| e.to_string())?;
     }
     make_executable(&cached)?;
+    std::fs::write(&version_marker, CLOUDFLARED_VERSION).map_err(|e| e.to_string())?;
 
     Ok(cached)
 }
@@ -259,7 +320,12 @@ fn ensure_cloudflared_binary(app: &AppHandle) -> Result<PathBuf, String> {
 fn extract_trycloudflare_url(line: &str) -> Option<String> {
     line.split_whitespace()
         .find(|word| word.contains("trycloudflare.com"))
-        .map(|s| s.trim_matches(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '.' | ':' | '/' | '-'))).to_string())
+        .map(|s| {
+            s.trim_matches(|c: char| {
+                !(c.is_ascii_alphanumeric() || matches!(c, '.' | ':' | '/' | '-'))
+            })
+            .to_string()
+        })
 }
 
 #[cfg(test)]
@@ -269,7 +335,10 @@ mod tests {
     #[test]
     fn extracts_the_url_from_a_realistic_cloudflared_log_line() {
         let line = "2026-08-22T10:00:00Z INF |  https://random-words-here.trycloudflare.com                                     |";
-        assert_eq!(extract_trycloudflare_url(line), Some("https://random-words-here.trycloudflare.com".to_string()));
+        assert_eq!(
+            extract_trycloudflare_url(line),
+            Some("https://random-words-here.trycloudflare.com".to_string())
+        );
     }
 
     #[test]
@@ -280,11 +349,22 @@ mod tests {
 
     #[test]
     fn resolves_every_supported_platform() {
-        assert_eq!(cloudflared_asset_for("linux", "x86_64"), Ok(("cloudflared-linux-amd64", false)));
-        assert_eq!(cloudflared_asset_for("linux", "aarch64"), Ok(("cloudflared-linux-arm64", false)));
-        assert_eq!(cloudflared_asset_for("macos", "x86_64"), Ok(("cloudflared-darwin-amd64.tgz", true)));
-        assert_eq!(cloudflared_asset_for("macos", "aarch64"), Ok(("cloudflared-darwin-arm64.tgz", true)));
-        assert_eq!(cloudflared_asset_for("windows", "x86_64"), Ok(("cloudflared-windows-amd64.exe", false)));
+        for (os, arch) in [
+            ("linux", "x86_64"),
+            ("linux", "aarch64"),
+            ("macos", "x86_64"),
+            ("macos", "aarch64"),
+            ("windows", "x86_64"),
+        ] {
+            let (name, _, checksum) = cloudflared_asset_for(os, arch).expect("supported platform");
+            assert!(!name.is_empty());
+            assert_eq!(checksum.len(), 64);
+        }
+    }
+
+    #[test]
+    fn rejects_a_wrong_cloudflared_checksum() {
+        assert!(verify_sha256(b"not cloudflared", &"0".repeat(64)).is_err());
     }
 
     #[test]
