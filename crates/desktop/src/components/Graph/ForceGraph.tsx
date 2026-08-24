@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Application, Container, Graphics, Text } from "pixi.js";
 import { select } from "d3-selection";
 import {
   zoom,
@@ -66,6 +67,17 @@ interface ContextMenuState {
   index: number;
 }
 
+interface PixiGraphScene {
+  app: Application;
+  world: Container;
+  links: Graphics;
+  nodes: Graphics;
+  labelsLayer: Container;
+  labels: Text[];
+  labelMeta: NodeMeta[] | null;
+  labelStyleKey: string;
+}
+
 export interface ForceGraphProps {
   data: GraphData | null;
   /** When set, only nodes within `depth` hops of this note are shown. */
@@ -108,6 +120,14 @@ function parseColor(color: string): [number, number, number, number] {
   const n = parseInt(full, 16);
   if (Number.isNaN(n)) return [0, 0, 0, 1];
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
+}
+
+function pixiPaint(color: string, alpha = 1): { color: number; alpha: number } {
+  const [r, g, b, sourceAlpha] = parseColor(color);
+  return {
+    color: (r << 16) | (g << 8) | b,
+    alpha: Math.min(1, Math.max(0, sourceAlpha * alpha)),
+  };
 }
 
 function mix(a: string, b: string, t: number): string {
@@ -172,6 +192,7 @@ export function ForceGraph({
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pixiRef = useRef<PixiGraphScene | null>(null);
   const graphSettings = useSettingsStore((s) => s.settings.graph);
 
   const workerRef = useRef<Worker | null>(null);
@@ -432,24 +453,21 @@ export function ForceGraph({
   }, [animateViewTo, compact, requestDraw]);
 
   const drawFrame = useCallback(() => {
-    const canvas = canvasRef.current;
+    const scene = pixiRef.current;
     const pos = positionsRef.current;
-    if (!canvas || !pos) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!scene || !pos) return;
     const dpr = window.devicePixelRatio || 1;
     const view = viewRef.current;
     if (view.w === 0) return;
 
+    const { app, world, links: linkGraphics, nodes: nodeGraphics, labelsLayer } = scene;
     const settings = useSettingsStore.getState().settings.graph;
     const meta = metaRef.current;
     const links = linksRef.current;
     const t = transformRef.current;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, view.w, view.h);
-    ctx.fillStyle = settings.colors.background || cssVar("--bg-primary");
-    ctx.fillRect(0, 0, view.w, view.h);
+    app.renderer.background.color = settings.colors.background || cssVar("--bg-primary");
+    world.position.set(t.x, t.y);
+    world.scale.set(t.k);
 
     const linkColor = settings.colors.link || cssVar("--graph-edge");
     const nodeColor = settings.colors.node || cssVar("--graph-node");
@@ -473,62 +491,53 @@ export function ForceGraph({
     const focusPathActive = focusPathRef.current;
     const focusSet = focusPathActive ? new Set([focusPathActive]) : null;
 
-    // --- Edges ---
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.scale(t.k, t.k);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const linkBaseAlpha = parseColor(linkColor)[3];
-    ctx.lineWidth = settings.linkThickness / t.k;
+    // The simulation keeps producing plain graph-space coordinates. PixiJS
+    // owns the GPU scene: one transformed world layer for geometry and a
+    // separate screen-space layer for labels that stay sharp while zooming.
+    linkGraphics.clear();
     for (let i = 0; i < links.length; i += 1) {
       const l = links[i];
       if (!isRevealed(l.from) || !isRevealed(l.to)) continue;
       const dimmed = !!neighbor && !neighbor.has(l.from) && !neighbor.has(l.to);
       const heat = linkHeatRef.current[i];
-      ctx.strokeStyle = heat > 0.01 ? mix(linkColor, accent, heat) : linkColor;
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.globalAlpha = dimmed ? linkBaseAlpha * 0.25 : linkBaseAlpha;
+      const paint = pixiPaint(
+        heat > 0.01 ? mix(linkColor, accent, heat) : linkColor,
+        dimmed ? 0.25 : 1,
+      );
       const fromX = pos[l.from * 2];
       const fromY = pos[l.from * 2 + 1];
       const toX = pos[l.to * 2];
       const toY = pos[l.to * 2 + 1];
-      ctx.beginPath();
-      ctx.moveTo(fromX, fromY);
-      ctx.lineTo(toX, toY);
-      ctx.stroke();
+      linkGraphics
+        .moveTo(fromX, fromY)
+        .lineTo(toX, toY)
+        .stroke({
+          color: paint.color,
+          alpha: paint.alpha,
+          width: settings.linkThickness / t.k,
+          cap: "round",
+          join: "round",
+        });
       if (settings.showArrows) {
         const angle = Math.atan2(toY - fromY, toX - fromX);
         const targetRadius = meta[l.to].baseRadius * sizeMult + 4 / t.k;
         const tipX = toX - Math.cos(angle) * targetRadius;
         const tipY = toY - Math.sin(angle) * targetRadius;
         const arrowSize = 5 / t.k;
-        ctx.beginPath();
-        ctx.moveTo(tipX, tipY);
-        ctx.lineTo(
-          tipX - Math.cos(angle - Math.PI / 6) * arrowSize,
-          tipY - Math.sin(angle - Math.PI / 6) * arrowSize,
-        );
-        ctx.lineTo(
-          tipX - Math.cos(angle + Math.PI / 6) * arrowSize,
-          tipY - Math.sin(angle + Math.PI / 6) * arrowSize,
-        );
-        ctx.closePath();
-        ctx.fill();
+        linkGraphics
+          .poly([
+            tipX,
+            tipY,
+            tipX - Math.cos(angle - Math.PI / 6) * arrowSize,
+            tipY - Math.sin(angle - Math.PI / 6) * arrowSize,
+            tipX - Math.cos(angle + Math.PI / 6) * arrowSize,
+            tipY - Math.sin(angle + Math.PI / 6) * arrowSize,
+          ])
+          .fill(paint);
       }
     }
-    ctx.globalAlpha = 1;
 
-    // --- Nodes ---
-    // Stays inside the same translate(t.x,t.y)+scale(t.k) block as the
-    // edges above — this used to restore() before drawing nodes, which
-    // left them at their raw simulation (graph-space) coordinates while
-    // edges and labels both correctly tracked pan/zoom. At the identity
-    // transform (freshly opened, unzoomed) that's invisible; the moment
-    // the user actually zooms or pans, nodes stay frozen where they were
-    // while the label (computed independently in screen space below)
-    // keeps following them — reading as the label drifting away, when
-    // really it was the node that never moved.
+    nodeGraphics.clear();
     for (let i = 0; i < meta.length; i += 1) {
       const m = meta[i];
       if (!isRevealed(i)) continue;
@@ -548,47 +557,69 @@ export function ForceGraph({
       const x = pos[i * 2];
       const y = pos[i * 2 + 1];
       if (hoverV > 0.02) {
-        ctx.shadowColor = accent;
-        ctx.shadowBlur = 14 * hoverV;
+        nodeGraphics
+          .circle(x, y, radius + 8 / t.k)
+          .fill(pixiPaint(accent, 0.12 * hoverV));
       }
-      ctx.globalAlpha = scaleV * (highlighted ? 1 : 0.25);
-      ctx.fillStyle = mix(color, accent, hoverV * 0.35);
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      nodeGraphics
+        .circle(x, y, radius)
+        .fill(pixiPaint(mix(color, accent, hoverV * 0.35), scaleV * (highlighted ? 1 : 0.25)));
     }
-    ctx.globalAlpha = 1;
-    ctx.restore();
 
-    // --- Labels: screen-space pass, constant 13px. The threshold follows
-    // Obsidian's -3..3 control: lower values reveal labels sooner. ---
+    const labelStyleKey = `${labelFont}\u0000${labelColor}\u0000${dpr}`;
+    if (scene.labelMeta !== meta || scene.labelStyleKey !== labelStyleKey) {
+      labelsLayer.removeChildren();
+      for (const label of scene.labels) {
+        label.destroy({ texture: true, textureSource: true });
+      }
+      scene.labels = meta.map((node) => new Text({
+        text: node.title,
+        style: {
+          fill: pixiPaint(labelColor).color,
+          fontFamily: labelFont,
+          fontSize: 13,
+        },
+        anchor: { x: 0.5, y: 0 },
+        resolution: dpr,
+      }));
+      labelsLayer.addChild(...scene.labels);
+      scene.labelMeta = meta;
+      scene.labelStyleKey = labelStyleKey;
+    }
+
     const fadeStart = Math.min(1.15, Math.max(0.12, 0.42 + settings.textFadeThreshold * 0.1));
-    if (settings.showLabels && t.k >= fadeStart) {
+    const labelsVisible = settings.showLabels && t.k >= fadeStart;
+    labelsLayer.visible = labelsVisible;
+    if (labelsVisible) {
       const zoomAlpha = Math.min(1, Math.max(0, (t.k - fadeStart) / 0.5));
-      ctx.font = `13px ${labelFont}`;
-      ctx.textAlign = "center";
       for (let i = 0; i < meta.length; i += 1) {
         const m = meta[i];
-        if (!isRevealed(i)) continue;
+        const label = scene.labels[i];
+        if (!isRevealed(i)) {
+          label.visible = false;
+          continue;
+        }
         const scaleV = easeOutCubic(scaleArrRef.current[i] ?? 1);
         const hoverV = hoverArrRef.current[i] ?? 0;
         const neighborhoodAlpha = neighbor && !neighbor.has(i) ? 0.25 : 1;
         const labelAlpha = scaleV * zoomAlpha * neighborhoodAlpha * (0.72 + 0.28 * hoverV);
-        if (labelAlpha <= 0.03) continue;
+        if (labelAlpha <= 0.03) {
+          label.visible = false;
+          continue;
+        }
         const sx = t.x + pos[i * 2] * t.k;
         const sy = t.y + pos[i * 2 + 1] * t.k;
         if (sx < -160 || sx > view.w + 160 || sy < -20 || sy > view.h + 20) {
+          label.visible = false;
           continue;
         }
-        const radius =
-          m.baseRadius * sizeMult * Math.max(0.15, scaleV);
-        ctx.globalAlpha = labelAlpha;
-        ctx.fillStyle = labelColor;
-        ctx.fillText(m.title, sx, sy + radius * t.k + 8);
+        const radius = m.baseRadius * sizeMult * Math.max(0.15, scaleV);
+        label.visible = true;
+        label.alpha = labelAlpha;
+        label.position.set(sx, sy + radius * t.k + 8);
       }
-      ctx.globalAlpha = 1;
     }
+    app.render();
   }, []);
 
   const frame = useCallback(() => {
@@ -665,6 +696,71 @@ export function ForceGraph({
       rafRef.current = requestAnimationFrame(frame);
     }
   }, [drawFrame]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let disposed = false;
+    let initialized = false;
+    const app = new Application();
+
+    void Promise.resolve().then(async () => {
+      // React StrictMode mounts, immediately cleans up, and mounts effects
+      // again in development. Deferring one microtask prevents that probe
+      // from starting two renderers against the same canvas concurrently.
+      if (disposed) return;
+      await app.init({
+        canvas,
+        width: Math.max(1, viewRef.current.w || canvas.clientWidth),
+        height: Math.max(1, viewRef.current.h || canvas.clientHeight),
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+        autoStart: false,
+        antialias: true,
+        background: cssVar("--bg-primary"),
+        preference: ["webgl", "canvas"],
+        powerPreference: "high-performance",
+        roundPixels: false,
+      });
+      initialized = true;
+      if (disposed) {
+        app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
+        return;
+      }
+      const world = new Container();
+      const linkGraphics = new Graphics();
+      const nodeGraphics = new Graphics();
+      const labelsLayer = new Container();
+      world.addChild(linkGraphics, nodeGraphics);
+      app.stage.addChild(world, labelsLayer);
+      pixiRef.current = {
+        app,
+        world,
+        links: linkGraphics,
+        nodes: nodeGraphics,
+        labelsLayer,
+        labels: [],
+        labelMeta: null,
+        labelStyleKey: "",
+      };
+      const view = viewRef.current;
+      if (view.w > 0 && view.h > 0) {
+        app.renderer.resize(view.w, view.h, window.devicePixelRatio || 1);
+      }
+      dirtyRef.current = true;
+      requestDraw();
+    }).catch((error) => {
+      if (!disposed) console.error("[graph] PixiJS renderer initialization failed:", error);
+    });
+
+    return () => {
+      disposed = true;
+      if (pixiRef.current?.app === app) pixiRef.current = null;
+      if (initialized) {
+        app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
+      }
+    };
+  }, [requestDraw]);
 
   // Simulation worker: receives Float32Array positions on every tick.
   useEffect(() => {
@@ -860,17 +956,17 @@ export function ForceGraph({
   // Canvas sizing: never restarts the simulation.
   useEffect(() => {
     const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    if (!container) return;
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(rect.width * dpr));
-      canvas.height = Math.max(1, Math.round(rect.height * dpr));
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
       viewRef.current = { w: rect.width, h: rect.height };
+      pixiRef.current?.app.renderer.resize(
+        Math.max(1, rect.width),
+        Math.max(1, rect.height),
+        dpr,
+      );
       workerRef.current?.postMessage({
         type: "center",
         cx: rect.width / 2,
@@ -1012,13 +1108,16 @@ export function ForceGraph({
 
   const setHoverIndex = useCallback(
     (index: number | null, clientX?: number, clientY?: number) => {
-      hoverIndexRef.current = index;
-      if (index !== null && clientX !== undefined && clientY !== undefined) {
+      const validIndex = index !== null && index >= 0 && metaRef.current[index]
+        ? index
+        : null;
+      hoverIndexRef.current = validIndex;
+      if (validIndex !== null && clientX !== undefined && clientY !== undefined) {
         const rect = canvasRef.current?.getBoundingClientRect();
-        const m = metaRef.current[index];
+        const m = metaRef.current[validIndex];
         setTooltip({
-          title: m?.title ?? "",
-          path: m?.path ?? "",
+          title: m.title,
+          path: m.path,
           x: clientX - (rect?.left ?? 0),
           y: clientY - (rect?.top ?? 0),
         });

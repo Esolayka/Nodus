@@ -7,6 +7,8 @@
 
 .force-graph-canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   cursor: grab;
   touch-action: none;
 }

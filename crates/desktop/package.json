@@ -32,6 +32,7 @@
     "lucide-react": "^1.33.0",
     "mermaid": "^11.17.0",
     "pdfjs-dist": "^6.2.108",
+    "pixi.js": "^8.20.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^15",
