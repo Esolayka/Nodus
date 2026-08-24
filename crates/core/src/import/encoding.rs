@@ -39,7 +39,10 @@ mod tests {
     fn windows_1251_cyrillic_is_detected_and_decoded_correctly() {
         let original = "Заметка из старой программы под Windows";
         let (encoded, _, had_errors) = encoding_rs::WINDOWS_1251.encode(original);
-        assert!(!had_errors, "test setup: this string must be representable in windows-1251");
+        assert!(
+            !had_errors,
+            "test setup: this string must be representable in windows-1251"
+        );
         assert_eq!(decode_text(&encoded), original);
     }
 
@@ -47,7 +50,10 @@ mod tests {
     fn windows_1252_western_european_is_detected_and_decoded_correctly() {
         let original = "café, naïve résumé — exported from an old Windows note app";
         let (encoded, _, had_errors) = encoding_rs::WINDOWS_1252.encode(original);
-        assert!(!had_errors, "test setup: this string must be representable in windows-1252");
+        assert!(
+            !had_errors,
+            "test setup: this string must be representable in windows-1252"
+        );
         assert_eq!(decode_text(&encoded), original);
     }
 }

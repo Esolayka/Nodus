@@ -28,7 +28,10 @@ fn ensure_gitignore_adds_derived_data_entries() {
     sync.ensure_gitignore().unwrap();
     let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
     for entry in GITIGNORE_ENTRIES {
-        assert!(content.lines().any(|l| l.trim() == *entry), "missing {entry} in {content}");
+        assert!(
+            content.lines().any(|l| l.trim() == *entry),
+            "missing {entry} in {content}"
+        );
     }
 }
 
@@ -36,7 +39,11 @@ fn ensure_gitignore_adds_derived_data_entries() {
 fn ensure_gitignore_does_not_duplicate_existing_entries() {
     let dir = tempfile::tempdir().unwrap();
     let sync = init_client(dir.path());
-    std::fs::write(dir.path().join(".gitignore"), ".nodus/index.db\nsome-other-thing\n").unwrap();
+    std::fs::write(
+        dir.path().join(".gitignore"),
+        ".nodus/index.db\nsome-other-thing\n",
+    )
+    .unwrap();
     sync.ensure_gitignore().unwrap();
     sync.ensure_gitignore().unwrap(); // idempotent
     let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
@@ -59,7 +66,9 @@ fn commit_all_returns_none_when_nothing_changed() {
     let sync = init_client(dir.path());
     std::fs::write(dir.path().join("A.md"), "hello").unwrap();
     sync.commit_all("first", NAME, EMAIL).unwrap();
-    let second = sync.commit_all("second, but nothing changed", NAME, EMAIL).unwrap();
+    let second = sync
+        .commit_all("second, but nothing changed", NAME, EMAIL)
+        .unwrap();
     assert!(second.is_none());
 }
 
@@ -127,7 +136,10 @@ fn a_commit_pushed_by_one_instance_reaches_another_via_the_shared_remote() {
     fetch_into(&b);
     let outcome = b.merge_after_fetch("main").unwrap();
     assert_eq!(outcome, MergeOutcome::FastForwarded);
-    assert_eq!(std::fs::read_to_string(b.path().join("Note.md")).unwrap(), "from device A");
+    assert_eq!(
+        std::fs::read_to_string(b.path().join("Note.md")).unwrap(),
+        "from device A"
+    );
 }
 
 #[test]
@@ -163,7 +175,10 @@ fn simultaneous_edits_to_different_files_merge_cleanly() {
     push_from(&b);
     fetch_into(&a);
     let outcome = a.merge_after_fetch("main").unwrap();
-    assert!(matches!(outcome, MergeOutcome::FastForwarded | MergeOutcome::Merged));
+    assert!(matches!(
+        outcome,
+        MergeOutcome::FastForwarded | MergeOutcome::Merged
+    ));
     assert!(a.path().join("B-only.md").exists());
 }
 
@@ -174,7 +189,11 @@ fn conflicting_edits_to_the_same_lines_are_reported_and_resolved_without_losing_
 
     let a = init_client(&root.path().join("device-a"));
     a.add_remote("origin", &remote_url).unwrap();
-    std::fs::write(a.path().join("Shared.md"), "line one\nline two\nline three\n").unwrap();
+    std::fs::write(
+        a.path().join("Shared.md"),
+        "line one\nline two\nline three\n",
+    )
+    .unwrap();
     a.commit_all("base", NAME, EMAIL).unwrap();
     push_from(&a);
 
@@ -184,11 +203,19 @@ fn conflicting_edits_to_the_same_lines_are_reported_and_resolved_without_losing_
     b.merge_after_fetch("main").unwrap();
 
     // Both edit the same line, differently, without ever syncing in between.
-    std::fs::write(a.path().join("Shared.md"), "line one\nA's version\nline three\n").unwrap();
+    std::fs::write(
+        a.path().join("Shared.md"),
+        "line one\nA's version\nline three\n",
+    )
+    .unwrap();
     a.commit_all("A edits line two", NAME, EMAIL).unwrap();
     push_from(&a);
 
-    std::fs::write(b.path().join("Shared.md"), "line one\nB's version\nline three\n").unwrap();
+    std::fs::write(
+        b.path().join("Shared.md"),
+        "line one\nB's version\nline three\n",
+    )
+    .unwrap();
     b.commit_all("B edits line two", NAME, EMAIL).unwrap();
 
     fetch_into(&b);
@@ -201,7 +228,10 @@ fn conflicting_edits_to_the_same_lines_are_reported_and_resolved_without_losing_
 
     // The working file must never show raw git conflict markers.
     let working_copy = std::fs::read_to_string(b.path().join("Shared.md")).unwrap();
-    assert!(working_copy.contains("<<<<<<<"), "sanity: libgit2 does write markers into the worktree");
+    assert!(
+        working_copy.contains("<<<<<<<"),
+        "sanity: libgit2 does write markers into the worktree"
+    );
 
     let segments = b.conflict_segments("Shared.md").unwrap();
     assert_eq!(conflict::conflict_count(&segments), 1);
@@ -217,7 +247,10 @@ fn conflicting_edits_to_the_same_lines_are_reported_and_resolved_without_losing_
     let final_content = std::fs::read_to_string(b.path().join("Shared.md")).unwrap();
     assert_eq!(final_content, resolved);
     assert!(!final_content.contains("<<<<<<<"));
-    assert!(b.status().unwrap().is_empty(), "the merge commit must leave a clean working tree");
+    assert!(
+        b.status().unwrap().is_empty(),
+        "the merge commit must leave a clean working tree"
+    );
 }
 
 #[test]
@@ -244,7 +277,10 @@ fn a_deleted_file_does_not_come_back_when_the_other_device_syncs() {
     fetch_into(&b);
     let outcome = b.merge_after_fetch("main").unwrap();
     assert_eq!(outcome, MergeOutcome::FastForwarded);
-    assert!(!b.path().join("ToDelete.md").exists(), "deletion must propagate, not be resurrected");
+    assert!(
+        !b.path().join("ToDelete.md").exists(),
+        "deletion must propagate, not be resurrected"
+    );
 }
 
 #[test]
@@ -254,7 +290,11 @@ fn renaming_the_same_file_differently_on_both_sides_keeps_both_names() {
 
     let a = init_client(&root.path().join("device-a"));
     a.add_remote("origin", &remote_url).unwrap();
-    std::fs::write(a.path().join("Original.md"), "content that stays the same\nacross the rename\n").unwrap();
+    std::fs::write(
+        a.path().join("Original.md"),
+        "content that stays the same\nacross the rename\n",
+    )
+    .unwrap();
     a.commit_all("base", NAME, EMAIL).unwrap();
     push_from(&a);
 
@@ -279,7 +319,10 @@ fn renaming_the_same_file_differently_on_both_sides_keeps_both_names() {
         MergeOutcome::Merged | MergeOutcome::FastForwarded => {
             let a_name_exists = b.path().join("RenamedByA.md").exists();
             let b_name_exists = b.path().join("RenamedByB.md").exists();
-            assert!(a_name_exists || b_name_exists, "at least one rename must survive a clean merge");
+            assert!(
+                a_name_exists || b_name_exists,
+                "at least one rename must survive a clean merge"
+            );
         }
         MergeOutcome::Conflicts { paths } => {
             assert!(!paths.is_empty());

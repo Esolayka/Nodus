@@ -15,9 +15,15 @@ use crate::{SearchFileResult, TagCount, TaskRow, TreeNode, VaultService};
 use super::auth::ApiError;
 use super::LocalServerState;
 
-fn with_service<T>(state: &LocalServerState, f: impl FnOnce(&VaultService) -> crate::Result<T>) -> Result<T, ApiError> {
+fn with_service<T>(
+    state: &LocalServerState,
+    f: impl FnOnce(&VaultService) -> crate::Result<T>,
+) -> Result<T, ApiError> {
     let guard = state.vault_service.lock().expect("mutex poisoned");
-    let service = guard.as_ref().ok_or((StatusCode::SERVICE_UNAVAILABLE, "no vault is open".to_string()))?;
+    let service = guard.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "no vault is open".to_string(),
+    ))?;
     f(service).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
@@ -89,7 +95,10 @@ pub async fn write_note(
     Json(body): Json<WriteNoteRequest>,
 ) -> Result<Response, ApiError> {
     let guard = state.vault_service.lock().expect("mutex poisoned");
-    let service = guard.as_ref().ok_or((StatusCode::SERVICE_UNAVAILABLE, "no vault is open".to_string()))?;
+    let service = guard.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "no vault is open".to_string(),
+    ))?;
 
     let current = service.read_note(&body.path).ok();
     let conflict = match (&body.base_hash, &current) {
@@ -101,11 +110,26 @@ pub async fn write_note(
     if conflict {
         let current_content = current.unwrap_or_default();
         let current_hash = content_hash(&current_content);
-        return Ok((StatusCode::CONFLICT, Json(WriteConflict { current_content, current_hash })).into_response());
+        return Ok((
+            StatusCode::CONFLICT,
+            Json(WriteConflict {
+                current_content,
+                current_hash,
+            }),
+        )
+            .into_response());
     }
 
-    service.write_note(&body.path, &body.content).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    Ok((StatusCode::OK, Json(WriteOk { hash: content_hash(&body.content) })).into_response())
+    service
+        .write_note(&body.path, &body.content)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok((
+        StatusCode::OK,
+        Json(WriteOk {
+            hash: content_hash(&body.content),
+        }),
+    )
+        .into_response())
 }
 
 pub async fn read_attachment(
@@ -180,6 +204,12 @@ pub async fn toggle_task(
     Json(body): Json<ToggleTaskRequest>,
 ) -> Result<(), ApiError> {
     with_service(&state, |s| {
-        s.toggle_task(&body.path, body.marker_start, body.marker_end, &body.expected_marker, body.add_completion_date)
+        s.toggle_task(
+            &body.path,
+            body.marker_start,
+            body.marker_end,
+            &body.expected_marker,
+            body.add_completion_date,
+        )
     })
 }

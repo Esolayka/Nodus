@@ -32,7 +32,10 @@ pub fn is_obsidian_vault(root: &Path) -> bool {
 }
 
 fn read_json(path: &Path) -> serde_json::Value {
-    std::fs::read_to_string(path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::Value::Null)
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(serde_json::Value::Null)
 }
 
 /// Reads whatever `.obsidian/app.json` and its neighbors have — every
@@ -45,14 +48,18 @@ pub fn read_settings(root: &Path) -> ObsidianSettings {
     let daily_notes_json = read_json(&obsidian_dir.join("daily-notes.json"));
     let templates_json = read_json(&obsidian_dir.join("templates.json"));
 
-    let str_field = |v: &serde_json::Value, key: &str| v.get(key).and_then(|v| v.as_str()).map(str::to_string);
+    let str_field =
+        |v: &serde_json::Value, key: &str| v.get(key).and_then(|v| v.as_str()).map(str::to_string);
 
     ObsidianSettings {
         attachment_folder: str_field(&app_json, "attachmentFolderPath"),
         template_folder: str_field(&templates_json, "folder"),
         daily_note_folder: str_field(&daily_notes_json, "folder"),
         daily_note_format: str_field(&daily_notes_json, "format"),
-        uses_wikilinks: app_json.get("useMarkdownLinks").and_then(|v| v.as_bool()).map(|use_markdown| !use_markdown),
+        uses_wikilinks: app_json
+            .get("useMarkdownLinks")
+            .and_then(|v| v.as_bool())
+            .map(|use_markdown| !use_markdown),
     }
 }
 
@@ -74,7 +81,9 @@ pub fn scan_incompatible_constructs(root: &Path) -> Vec<IncompatibleBlock> {
     let mut found = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().into_owned();
@@ -88,9 +97,13 @@ pub fn scan_incompatible_constructs(root: &Path) -> Vec<IncompatibleBlock> {
             if !name.to_lowercase().ends_with(".md") {
                 continue;
             }
-            let Ok(bytes) = std::fs::read(&path) else { continue };
+            let Ok(bytes) = std::fs::read(&path) else {
+                continue;
+            };
             let content = encoding::decode_text(&bytes);
-            let Ok(relative) = path.strip_prefix(root) else { continue };
+            let Ok(relative) = path.strip_prefix(root) else {
+                continue;
+            };
             let relative_str = relative.to_string_lossy().replace('\\', "/");
             found.extend(scan_note(&relative_str, &content));
         }
@@ -162,9 +175,21 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let obsidian = dir.path().join(".obsidian");
         std::fs::create_dir(&obsidian).unwrap();
-        std::fs::write(obsidian.join("app.json"), r#"{"attachmentFolderPath": "attachments", "useMarkdownLinks": false}"#).unwrap();
-        std::fs::write(obsidian.join("daily-notes.json"), r#"{"folder": "Daily", "format": "YYYY-MM-DD"}"#).unwrap();
-        std::fs::write(obsidian.join("templates.json"), r#"{"folder": "Templates"}"#).unwrap();
+        std::fs::write(
+            obsidian.join("app.json"),
+            r#"{"attachmentFolderPath": "attachments", "useMarkdownLinks": false}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            obsidian.join("daily-notes.json"),
+            r#"{"folder": "Daily", "format": "YYYY-MM-DD"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            obsidian.join("templates.json"),
+            r#"{"folder": "Templates"}"#,
+        )
+        .unwrap();
 
         let settings = read_settings(dir.path());
         assert_eq!(settings.attachment_folder.as_deref(), Some("attachments"));
@@ -186,7 +211,11 @@ mod tests {
     #[test]
     fn finds_a_dataview_query_block() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Note.md"), "Some text.\n\n```dataview\nLIST FROM #project\n```\n").unwrap();
+        std::fs::write(
+            dir.path().join("Note.md"),
+            "Some text.\n\n```dataview\nLIST FROM #project\n```\n",
+        )
+        .unwrap();
         let found = scan_incompatible_constructs(dir.path());
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].plugin, "Dataview");
@@ -202,14 +231,22 @@ mod tests {
         )
         .unwrap();
         let found = scan_incompatible_constructs(dir.path());
-        assert_eq!(found.len(), 1, "an ordinary checklist item must not be flagged");
+        assert_eq!(
+            found.len(),
+            1,
+            "an ordinary checklist item must not be flagged"
+        );
         assert_eq!(found[0].plugin, "Tasks");
     }
 
     #[test]
     fn finds_templater_tags_anywhere_in_the_note() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Template.md"), "Today is <% tp.date.now() %>.\n").unwrap();
+        std::fs::write(
+            dir.path().join("Template.md"),
+            "Today is <% tp.date.now() %>.\n",
+        )
+        .unwrap();
         let found = scan_incompatible_constructs(dir.path());
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].plugin, "Templater");
@@ -218,7 +255,11 @@ mod tests {
     #[test]
     fn a_plain_vanilla_note_has_nothing_to_report() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Note.md"), "# Just a note\n\nWith a [[link]] and a #tag.\n").unwrap();
+        std::fs::write(
+            dir.path().join("Note.md"),
+            "# Just a note\n\nWith a [[link]] and a #tag.\n",
+        )
+        .unwrap();
         assert!(scan_incompatible_constructs(dir.path()).is_empty());
     }
 
@@ -226,7 +267,11 @@ mod tests {
     fn does_not_descend_into_dotfolders_like_dot_obsidian_or_dot_nodus() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir(dir.path().join(".obsidian")).unwrap();
-        std::fs::write(dir.path().join(".obsidian/workspace.json"), "```dataview\nLIST\n```").unwrap();
+        std::fs::write(
+            dir.path().join(".obsidian/workspace.json"),
+            "```dataview\nLIST\n```",
+        )
+        .unwrap();
         assert!(scan_incompatible_constructs(dir.path()).is_empty());
     }
 }

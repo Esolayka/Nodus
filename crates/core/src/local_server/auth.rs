@@ -29,19 +29,34 @@ pub struct AuthedSession;
 impl FromRequestParts<LocalServerState> for AuthedSession {
     type Rejection = ApiError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &LocalServerState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &LocalServerState,
+    ) -> Result<Self, Self::Rejection> {
         let header = parts
             .headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .ok_or((StatusCode::UNAUTHORIZED, "missing authorization header".to_string()))?;
-        let token = header
-            .strip_prefix("Bearer ")
-            .ok_or((StatusCode::UNAUTHORIZED, "malformed authorization header".to_string()))?;
-        if state.session_tokens.lock().expect("mutex poisoned").contains(token) {
+            .ok_or((
+                StatusCode::UNAUTHORIZED,
+                "missing authorization header".to_string(),
+            ))?;
+        let token = header.strip_prefix("Bearer ").ok_or((
+            StatusCode::UNAUTHORIZED,
+            "malformed authorization header".to_string(),
+        ))?;
+        if state
+            .session_tokens
+            .lock()
+            .expect("mutex poisoned")
+            .contains(token)
+        {
             Ok(AuthedSession)
         } else {
-            Err((StatusCode::UNAUTHORIZED, "invalid or expired session".to_string()))
+            Err((
+                StatusCode::UNAUTHORIZED,
+                "invalid or expired session".to_string(),
+            ))
         }
     }
 }

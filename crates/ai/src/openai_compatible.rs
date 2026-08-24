@@ -26,11 +26,17 @@ impl OpenAiCompatibleClient {
             .timeout(Duration::from_secs(120))
             .build()
             .expect("building the HTTP client cannot fail with no custom TLS config");
-        Self { base_url, api_key, client }
+        Self {
+            base_url,
+            api_key,
+            client,
+        }
     }
 
     fn request(&self, method: Method, path: &str) -> reqwest::blocking::RequestBuilder {
-        let mut req = self.client.request(method, format!("{}{path}", self.base_url));
+        let mut req = self
+            .client
+            .request(method, format!("{}{path}", self.base_url));
         if let Some(key) = &self.api_key {
             req = req.bearer_auth(key);
         }
@@ -95,13 +101,19 @@ impl ChatProvider for OpenAiCompatibleClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.base_url))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.base_url))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.base_url))?;
         if !status.is_success() {
             return Err(classify_error_response(status.as_u16(), &body, ""));
         }
-        let parsed: ModelsResponse =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
-        Ok(parsed.data.into_iter().map(|m| ModelInfo { id: m.id }).collect())
+        let parsed: ModelsResponse = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        Ok(parsed
+            .data
+            .into_iter()
+            .map(|m| ModelInfo { id: m.id })
+            .collect())
     }
 
     fn complete(&self, request: &ChatRequest) -> Result<ChatResponse> {
@@ -110,7 +122,10 @@ impl ChatProvider for OpenAiCompatibleClient {
             messages: request
                 .messages
                 .iter()
-                .map(|m| WireMessage { role: role_str(m.role), content: &m.content })
+                .map(|m| WireMessage {
+                    role: role_str(m.role),
+                    content: &m.content,
+                })
                 .collect(),
             max_tokens: request.max_output_tokens,
         };
@@ -120,16 +135,30 @@ impl ChatProvider for OpenAiCompatibleClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.base_url))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.base_url))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.base_url))?;
         if !status.is_success() {
-            return Err(classify_error_response(status.as_u16(), &body, &request.model));
+            return Err(classify_error_response(
+                status.as_u16(),
+                &body,
+                &request.model,
+            ));
         }
-        let parsed: CompletionResponse =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
-        let content = parsed.choices.into_iter().next().map(|c| c.message.content).unwrap_or_default();
+        let parsed: CompletionResponse = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        let content = parsed
+            .choices
+            .into_iter()
+            .next()
+            .map(|c| c.message.content)
+            .unwrap_or_default();
         let usage = parsed
             .usage
-            .map(|u| ChatUsage { prompt_tokens: u.prompt_tokens, completion_tokens: u.completion_tokens })
+            .map(|u| ChatUsage {
+                prompt_tokens: u.prompt_tokens,
+                completion_tokens: u.completion_tokens,
+            })
             .unwrap_or_default();
         Ok(ChatResponse { content, usage })
     }
@@ -146,14 +175,21 @@ mod tests {
         (server, format!("http://{addr}"))
     }
 
-    fn respond_once(server: tiny_http::Server, status: u16, body: &'static str) -> std::thread::JoinHandle<Vec<u8>> {
+    fn respond_once(
+        server: tiny_http::Server,
+        status: u16,
+        body: &'static str,
+    ) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut request = server.recv().unwrap();
             let mut received = Vec::new();
             request.as_reader().read_to_end(&mut received).unwrap();
             let response = tiny_http::Response::from_string(body)
                 .with_status_code(status)
-                .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap());
+                .with_header(
+                    tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])
+                        .unwrap(),
+                );
             request.respond(response).unwrap();
             received
         })
@@ -162,11 +198,18 @@ mod tests {
     #[test]
     fn lists_models_from_a_real_local_http_response() {
         let (server, url) = spawn_server();
-        let handle = respond_once(server, 200, r#"{"data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]}"#);
+        let handle = respond_once(
+            server,
+            200,
+            r#"{"data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]}"#,
+        );
         let client = OpenAiCompatibleClient::new(url, Some("sk-test".to_string()));
         let models = client.list_models().unwrap();
         handle.join().unwrap();
-        assert_eq!(models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), vec!["gpt-4o", "gpt-4o-mini"]);
+        assert_eq!(
+            models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            vec!["gpt-4o", "gpt-4o-mini"]
+        );
     }
 
     #[test]
@@ -197,7 +240,11 @@ mod tests {
     #[test]
     fn an_invalid_key_response_is_classified_as_such() {
         let (server, url) = spawn_server();
-        let handle = respond_once(server, 401, r#"{"error": {"message": "Incorrect API key provided"}}"#);
+        let handle = respond_once(
+            server,
+            401,
+            r#"{"error": {"message": "Incorrect API key provided"}}"#,
+        );
         let client = OpenAiCompatibleClient::new(url, Some("sk-bad".to_string()));
         let err = client.list_models().unwrap_err();
         handle.join().unwrap();

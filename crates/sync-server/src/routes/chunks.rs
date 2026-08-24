@@ -31,7 +31,11 @@ pub async fn missing_chunks(
     let conn = state.conn.lock().expect("db mutex poisoned");
     let mut missing = Vec::new();
     for id in body.ids {
-        let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)", [&id], |row| row.get(0))?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)",
+            [&id],
+            |row| row.get(0),
+        )?;
         if !exists {
             missing.push(id);
         }
@@ -55,13 +59,18 @@ pub async fn put_chunk(
     let size = body.len() as u64;
     if let Some(max) = state.max_file_size_bytes {
         if size > max {
-            return Err(ApiError::PayloadTooLarge { max_file_size_bytes: max });
+            return Err(ApiError::PayloadTooLarge {
+                max_file_size_bytes: max,
+            });
         }
     }
 
     let conn = state.conn.lock().expect("db mutex poisoned");
-    let already_exists: bool =
-        conn.query_row("SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)", [&id], |row| row.get(0))?;
+    let already_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)",
+        [&id],
+        |row| row.get(0),
+    )?;
     if already_exists {
         // Identical content already stored — by this file's own history, or
         // by dedup against a completely different file — so there's
@@ -73,7 +82,10 @@ pub async fn put_chunk(
     if let Some(max) = state.max_storage_bytes {
         let used = db::used_bytes(&conn)?;
         if used + size > max {
-            return Err(ApiError::StorageQuotaExceeded { used_bytes: used, max_bytes: max });
+            return Err(ApiError::StorageQuotaExceeded {
+                used_bytes: used,
+                max_bytes: max,
+            });
         }
     }
 

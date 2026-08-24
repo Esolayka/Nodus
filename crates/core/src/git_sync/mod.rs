@@ -39,16 +39,30 @@ pub type Result<T> = std::result::Result<T, GitError>;
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum GitCredentials {
     None,
-    UserPassToken { username: String, token: String },
-    SshKey { private_key_path: std::path::PathBuf, passphrase: Option<String> },
+    UserPassToken {
+        username: String,
+        token: String,
+    },
+    SshKey {
+        private_key_path: std::path::PathBuf,
+        passphrase: Option<String>,
+    },
 }
 
 impl GitCredentials {
-    fn callback(&self) -> impl Fn(&str, Option<&str>, git2::CredentialType) -> std::result::Result<Cred, git2::Error> + '_ {
+    fn callback(
+        &self,
+    ) -> impl Fn(&str, Option<&str>, git2::CredentialType) -> std::result::Result<Cred, git2::Error> + '_
+    {
         move |_url, username_from_url, _allowed_types| match self {
             GitCredentials::None => Cred::default(),
-            GitCredentials::UserPassToken { username, token } => Cred::userpass_plaintext(username, token),
-            GitCredentials::SshKey { private_key_path, passphrase } => Cred::ssh_key(
+            GitCredentials::UserPassToken { username, token } => {
+                Cred::userpass_plaintext(username, token)
+            }
+            GitCredentials::SshKey {
+                private_key_path,
+                passphrase,
+            } => Cred::ssh_key(
                 username_from_url.unwrap_or("git"),
                 None,
                 private_key_path,
@@ -145,7 +159,9 @@ impl GitSync {
         let statuses = self.repo.statuses(Some(&mut opts))?;
         let mut changes = Vec::new();
         for entry in statuses.iter() {
-            let Some(path) = entry.path().ok() else { continue };
+            let Some(path) = entry.path().ok() else {
+                continue;
+            };
             let status = entry.status();
             let kind = if status.intersects(Status::WT_NEW | Status::INDEX_NEW) {
                 FileChangeKind::Added
@@ -156,14 +172,22 @@ impl GitSync {
             } else {
                 FileChangeKind::Modified
             };
-            changes.push(FileChange { path: path.to_string(), kind });
+            changes.push(FileChange {
+                path: path.to_string(),
+                kind,
+            });
         }
         Ok(changes)
     }
 
     /// Stages every change and commits, unless there's nothing to commit
     /// (returns `Ok(None)` then, rather than an empty commit).
-    pub fn commit_all(&self, message: &str, author_name: &str, author_email: &str) -> Result<Option<git2::Oid>> {
+    pub fn commit_all(
+        &self,
+        message: &str,
+        author_name: &str,
+        author_email: &str,
+    ) -> Result<Option<git2::Oid>> {
         let mut index = self.repo.index()?;
         index.add_all(["*"], IndexAddOption::DEFAULT, None)?;
         index.update_all(["*"], None)?; // also stage deletions of tracked files
@@ -181,7 +205,14 @@ impl GitSync {
         let tree = self.repo.find_tree(tree_oid)?;
         let signature = Signature::now(author_name, author_email)?;
         let parents: Vec<&git2::Commit> = parent.iter().collect();
-        let oid = self.repo.commit(Some("HEAD"), &signature, &signature, message, &tree, &parents)?;
+        let oid = self.repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &parents,
+        )?;
         Ok(Some(oid))
     }
 
@@ -192,11 +223,16 @@ impl GitSync {
         callbacks
     }
 
-    pub fn fetch(&self, remote_name: &str, branch: &str, credentials: &GitCredentials) -> Result<()> {
-        let mut remote = self.repo.find_remote(remote_name).or_else(|_| {
+    pub fn fetch(
+        &self,
+        remote_name: &str,
+        branch: &str,
+        credentials: &GitCredentials,
+    ) -> Result<()> {
+        let mut remote = self.repo.find_remote(remote_name).map_err(|_| {
             // Only reachable if the caller passes a name with no configured
             // URL yet — real setup always configures the remote first.
-            Err(git2::Error::from_str("remote not configured"))
+            git2::Error::from_str("remote not configured")
         })?;
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(Self::remote_callbacks(credentials));
@@ -226,14 +262,17 @@ impl GitSync {
             // no local branch ref exists), or fast-forwards it in place if
             // it does — one call handles both, rather than requiring the
             // caller to already know which case they're in.
-            self.repo.reference(&refname, fetch_commit.id(), true, "fast-forward")?;
+            self.repo
+                .reference(&refname, fetch_commit.id(), true, "fast-forward")?;
             self.repo.set_head(&refname)?;
-            self.repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+            self.repo
+                .checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
             return Ok(MergeOutcome::FastForwarded);
         }
 
         let mut merge_opts = MergeOptions::new();
-        self.repo.merge(&[&fetch_commit], Some(&mut merge_opts), None)?;
+        self.repo
+            .merge(&[&fetch_commit], Some(&mut merge_opts), None)?;
 
         let index = self.repo.index()?;
         if index.has_conflicts() {
@@ -264,7 +303,10 @@ impl GitSync {
         let fetch_commit = self.repo.reference_to_annotated_commit(&fetch_head)?;
         let their_commit = self.repo.find_commit(fetch_commit.id())?;
 
-        let signature = self.repo.signature().unwrap_or(Signature::now("Nodus", "sync@nodus.local")?);
+        let signature = self
+            .repo
+            .signature()
+            .unwrap_or(Signature::now("Nodus", "sync@nodus.local")?);
         let refname = format!("refs/heads/{branch}");
         self.repo.commit(
             Some(&refname),
@@ -274,7 +316,8 @@ impl GitSync {
             &tree,
             &[&head_commit, &their_commit],
         )?;
-        self.repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+        self.repo
+            .checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
         self.repo.cleanup_state()?;
         Ok(())
     }
@@ -288,7 +331,11 @@ impl GitSync {
             let conflict = conflict?;
             let matches_path = [&conflict.ancestor, &conflict.our, &conflict.their]
                 .iter()
-                .any(|e| e.as_ref().map(|e| e.path == path.as_bytes()).unwrap_or(false));
+                .any(|e| {
+                    e.as_ref()
+                        .map(|e| e.path == path.as_bytes())
+                        .unwrap_or(false)
+                });
             if !matches_path {
                 continue;
             }
@@ -343,7 +390,12 @@ impl GitSync {
         self.finish_merge_commit(branch)
     }
 
-    pub fn push(&self, remote_name: &str, branch: &str, credentials: &GitCredentials) -> Result<()> {
+    pub fn push(
+        &self,
+        remote_name: &str,
+        branch: &str,
+        credentials: &GitCredentials,
+    ) -> Result<()> {
         let mut remote = self.repo.find_remote(remote_name)?;
         let mut push_options = PushOptions::new();
         push_options.remote_callbacks(Self::remote_callbacks(credentials));

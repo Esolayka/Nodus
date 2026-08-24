@@ -33,7 +33,8 @@ impl SyncIdentity {
 fn derive_subkey(identity: &SyncIdentity, label: &[u8]) -> [u8; content::KEY_LEN] {
     let hk = Hkdf::<Sha256>::new(None, &identity.0);
     let mut out = [0u8; content::KEY_LEN];
-    hk.expand(label, &mut out).expect("32 bytes is a valid HKDF-SHA256 output length");
+    hk.expand(label, &mut out)
+        .expect("32 bytes is a valid HKDF-SHA256 output length");
     out
 }
 
@@ -53,7 +54,10 @@ fn encryption_key(identity: &SyncIdentity) -> [u8; content::KEY_LEN] {
 /// [`discovery_id`] being a separate derivation) never anything linking
 /// it back to a particular vault or person.
 pub fn encrypt_address(identity: &SyncIdentity, address: &str) -> String {
-    hex::encode(content::encrypt(&encryption_key(identity), address.as_bytes()))
+    hex::encode(content::encrypt(
+        &encryption_key(identity),
+        address.as_bytes(),
+    ))
 }
 
 pub fn decrypt_address(identity: &SyncIdentity, encrypted: &str) -> Result<String> {
@@ -83,7 +87,10 @@ mod tests {
     fn address_roundtrips_for_the_same_identity() {
         let identity = SyncIdentity::generate();
         let encrypted = encrypt_address(&identity, "https://abc123.trycloudflare.com");
-        assert_eq!(decrypt_address(&identity, &encrypted).unwrap(), "https://abc123.trycloudflare.com");
+        assert_eq!(
+            decrypt_address(&identity, &encrypted).unwrap(),
+            "https://abc123.trycloudflare.com"
+        );
     }
 
     #[test]
@@ -98,7 +105,10 @@ mod tests {
         let identity = SyncIdentity::generate();
         let a = encrypt_address(&identity, "https://abc123.trycloudflare.com");
         let b = encrypt_address(&identity, "https://abc123.trycloudflare.com");
-        assert_ne!(a, b, "address encryption uses a fresh nonce, so repeated announces don't correlate");
+        assert_ne!(
+            a, b,
+            "address encryption uses a fresh nonce, so repeated announces don't correlate"
+        );
     }
 
     #[test]

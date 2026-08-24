@@ -61,7 +61,8 @@ impl VaultCryptoConfig {
 
     pub fn unlock_with_password(&self, password: &str) -> Result<Dek> {
         let salt = decode_salt(&self.password_salt)?;
-        let kek = kdf::derive_kek(password.as_bytes(), &salt).map_err(|e| Error::Kdf(e.to_string()))?;
+        let kek =
+            kdf::derive_kek(password.as_bytes(), &salt).map_err(|e| Error::Kdf(e.to_string()))?;
         keys::unwrap_dek(&self.wrapped_dek_by_password, &kek)
     }
 
@@ -98,29 +99,42 @@ mod tests {
     #[test]
     fn setup_then_unlock_with_password() {
         let (config, _phrase) = VaultCryptoConfig::setup("hunter2 correct horse");
-        let dek = config.unlock_with_password("hunter2 correct horse").unwrap();
+        let dek = config
+            .unlock_with_password("hunter2 correct horse")
+            .unwrap();
         assert_eq!(dek.0.len(), 32);
     }
 
     #[test]
     fn setup_then_unlock_with_recovery_phrase() {
         let (config, phrase) = VaultCryptoConfig::setup("hunter2 correct horse");
-        let by_password = config.unlock_with_password("hunter2 correct horse").unwrap();
-        let by_recovery = config.unlock_with_recovery_phrase(&phrase.words().join(" ")).unwrap();
-        assert_eq!(by_password.0, by_recovery.0, "both paths must unlock the same DEK");
+        let by_password = config
+            .unlock_with_password("hunter2 correct horse")
+            .unwrap();
+        let by_recovery = config
+            .unlock_with_recovery_phrase(&phrase.words().join(" "))
+            .unwrap();
+        assert_eq!(
+            by_password.0, by_recovery.0,
+            "both paths must unlock the same DEK"
+        );
     }
 
     #[test]
     fn wrong_password_is_rejected() {
         let (config, _phrase) = VaultCryptoConfig::setup("the real password");
-        assert!(config.unlock_with_password("not the real password").is_err());
+        assert!(config
+            .unlock_with_password("not the real password")
+            .is_err());
     }
 
     #[test]
     fn wrong_recovery_phrase_is_rejected() {
         let (config, _phrase) = VaultCryptoConfig::setup("password");
         let other = RecoveryPhrase::generate();
-        assert!(config.unlock_with_recovery_phrase(&other.words().join(" ")).is_err());
+        assert!(config
+            .unlock_with_recovery_phrase(&other.words().join(" "))
+            .is_err());
     }
 
     #[test]
@@ -130,7 +144,11 @@ mod tests {
         // unlocks anything.
         let (config, _phrase) = VaultCryptoConfig::setup("the one true password");
         assert!(config.unlock_with_password("guess 1").is_err());
-        assert!(config.unlock_with_recovery_phrase("twelve totally made up words that are not a real phrase at all yes").is_err());
+        assert!(config
+            .unlock_with_recovery_phrase(
+                "twelve totally made up words that are not a real phrase at all yes"
+            )
+            .is_err());
     }
 
     #[test]
@@ -141,12 +159,20 @@ mod tests {
         let new_config = config.change_password(&dek_before, "new password");
 
         let dek_after = new_config.unlock_with_password("new password").unwrap();
-        assert_eq!(dek_before.0, dek_after.0, "changing password must not rotate the DEK");
+        assert_eq!(
+            dek_before.0, dek_after.0,
+            "changing password must not rotate the DEK"
+        );
 
         assert!(new_config.unlock_with_password("old password").is_err());
 
-        let dek_via_recovery = new_config.unlock_with_recovery_phrase(&phrase.words().join(" ")).unwrap();
-        assert_eq!(dek_via_recovery.0, dek_before.0, "the original recovery phrase must still work after a password change");
+        let dek_via_recovery = new_config
+            .unlock_with_recovery_phrase(&phrase.words().join(" "))
+            .unwrap();
+        assert_eq!(
+            dek_via_recovery.0, dek_before.0,
+            "the original recovery phrase must still work after a password change"
+        );
     }
 
     #[test]

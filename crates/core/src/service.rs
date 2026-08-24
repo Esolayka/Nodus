@@ -45,7 +45,11 @@ impl VaultService {
     /// background thread) for every external filesystem change, already
     /// filtered for the app's own writes; the index is kept in sync with
     /// external changes automatically, before `on_change` runs.
-    pub fn open<F>(path: impl AsRef<std::path::Path>, history_settings: HistorySettings, mut on_change: F) -> Result<Self>
+    pub fn open<F>(
+        path: impl AsRef<std::path::Path>,
+        history_settings: HistorySettings,
+        mut on_change: F,
+    ) -> Result<Self>
     where
         F: FnMut(FsChange) + Send + 'static,
     {
@@ -119,12 +123,21 @@ impl VaultService {
     }
 
     fn record_history(&self, relative: &str, old_content: &str, new_content: &str) {
-        let settings = self.history_settings.lock().expect("history settings mutex poisoned").clone();
-        let _ = self.history.record_if_changed(relative, old_content, new_content, &settings);
+        let settings = self
+            .history_settings
+            .lock()
+            .expect("history settings mutex poisoned")
+            .clone();
+        let _ = self
+            .history
+            .record_if_changed(relative, old_content, new_content, &settings);
     }
 
     pub fn set_history_settings(&self, settings: HistorySettings) {
-        *self.history_settings.lock().expect("history settings mutex poisoned") = settings;
+        *self
+            .history_settings
+            .lock()
+            .expect("history settings mutex poisoned") = settings;
     }
 
     pub fn list_note_versions(&self, relative: &str) -> Vec<VersionInfo> {
@@ -135,7 +148,11 @@ impl VaultService {
         self.history.version_content(relative, id)
     }
 
-    pub fn compare_version_to_current(&self, relative: &str, id: u64) -> Result<Option<Vec<DisplayLine>>> {
+    pub fn compare_version_to_current(
+        &self,
+        relative: &str,
+        id: u64,
+    ) -> Result<Option<Vec<DisplayLine>>> {
         let current = self.read_note(relative)?;
         Ok(self.history.compare_to_current(relative, id, &current))
     }
@@ -154,8 +171,14 @@ impl VaultService {
         if is_markdown_path(relative) {
             self.index.update_note(&self.vault, relative)?;
         }
-        let settings = self.history_settings.lock().expect("history settings mutex poisoned").clone();
-        let _ = self.history.record_restore(relative, &old_content, &target_content, &settings);
+        let settings = self
+            .history_settings
+            .lock()
+            .expect("history settings mutex poisoned")
+            .clone();
+        let _ = self
+            .history
+            .record_restore(relative, &old_content, &target_content, &settings);
         Ok(())
     }
 
@@ -185,7 +208,8 @@ impl VaultService {
         desired_name: &str,
         source_absolute: &std::path::Path,
     ) -> Result<String> {
-        let relative = crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
+        let relative =
+            crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
         let absolute = self.vault.resolve(&relative)?;
         self.watcher.mark_self_write(&absolute);
         fs_ops::copy_attachment_from_path(&self.vault, &relative, source_absolute)?;
@@ -194,8 +218,14 @@ impl VaultService {
 
     /// Same as [`VaultService::import_attachment_from_path`] but for raw
     /// bytes already in memory (a clipboard-pasted image).
-    pub fn import_attachment_bytes(&self, folder: &str, desired_name: &str, bytes: &[u8]) -> Result<String> {
-        let relative = crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
+    pub fn import_attachment_bytes(
+        &self,
+        folder: &str,
+        desired_name: &str,
+        bytes: &[u8],
+    ) -> Result<String> {
+        let relative =
+            crate::attachments::unique_attachment_path(&self.vault, folder, desired_name)?;
         let absolute = self.vault.resolve(&relative)?;
         self.watcher.mark_self_write(&absolute);
         fs_ops::write_attachment_bytes(&self.vault, &relative, bytes)?;
@@ -393,7 +423,10 @@ impl VaultService {
             return Err(crate::error::Error::NotFound(absolute));
         }
 
-        let line_start = content[..marker_start].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_start = content[..marker_start]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
         let line_end = content[marker_start..]
             .find('\n')
             .map(|i| marker_start + i)
@@ -418,8 +451,11 @@ impl VaultService {
                     if let Some(next_due) =
                         crate::tasks::compute_next_due(task.due.as_deref(), repeat, today)
                     {
-                        let recurring_line =
-                            crate::tasks::build_recurring_line(old_line, task.due.as_deref(), &next_due);
+                        let recurring_line = crate::tasks::build_recurring_line(
+                            old_line,
+                            task.due.as_deref(),
+                            &next_due,
+                        );
                         replacement.push('\n');
                         replacement.push_str(&recurring_line);
                     }
@@ -520,7 +556,10 @@ impl VaultService {
         let mut by_path: std::collections::HashMap<String, std::collections::HashSet<usize>> =
             std::collections::HashMap::new();
         for sel in selected {
-            by_path.entry(sel.path.clone()).or_default().insert(sel.line);
+            by_path
+                .entry(sel.path.clone())
+                .or_default()
+                .insert(sel.line);
         }
 
         let mut undo_bundle = Vec::new();
@@ -732,7 +771,11 @@ mod tests {
             content,
         );
         let graph = service.graph().unwrap();
-        let board = graph.nodes.iter().find(|node| node.path == "Board.canvas").unwrap();
+        let board = graph
+            .nodes
+            .iter()
+            .find(|node| node.path == "Board.canvas")
+            .unwrap();
         assert_eq!(board.kind, crate::index::GraphNodeKind::Attachment);
         assert!(service.search("not a note", false).unwrap().is_empty());
     }
@@ -881,8 +924,12 @@ mod tests {
         );
         let tasks = service.all_tasks().unwrap();
         assert_eq!(tasks.len(), 2);
-        assert!(tasks.iter().any(|t| t.done && t.due.as_deref() == Some("2026-01-01")));
-        assert!(tasks.iter().any(|t| !t.done && t.due.as_deref() == Some("2026-01-08")));
+        assert!(tasks
+            .iter()
+            .any(|t| t.done && t.due.as_deref() == Some("2026-01-01")));
+        assert!(tasks
+            .iter()
+            .any(|t| !t.done && t.due.as_deref() == Some("2026-01-08")));
     }
 
     #[test]
@@ -956,8 +1003,14 @@ mod tests {
 
         let versions = service.list_note_versions("A.md");
         assert_eq!(versions.len(), 2);
-        assert_eq!(service.version_content("A.md", versions[0].id).as_deref(), Some("v1"));
-        assert_eq!(service.version_content("A.md", versions[1].id).as_deref(), Some("v2"));
+        assert_eq!(
+            service.version_content("A.md", versions[0].id).as_deref(),
+            Some("v1")
+        );
+        assert_eq!(
+            service.version_content("A.md", versions[1].id).as_deref(),
+            Some("v2")
+        );
     }
 
     #[test]
@@ -977,7 +1030,10 @@ mod tests {
         // The restore itself became a third history entry, so it can be undone too.
         let versions = service.list_note_versions("A.md");
         assert_eq!(versions.len(), 3);
-        assert_eq!(service.version_content("A.md", versions[2].id).as_deref(), Some("v1"));
+        assert_eq!(
+            service.version_content("A.md", versions[2].id).as_deref(),
+            Some("v1")
+        );
     }
 
     #[test]
@@ -987,9 +1043,14 @@ mod tests {
 
         service.write_note("A.md", "line1\nline2").unwrap();
         let v1_id = service.list_note_versions("A.md")[0].id;
-        service.write_note("A.md", "line1\nline2 changed\nline3").unwrap();
+        service
+            .write_note("A.md", "line1\nline2 changed\nline3")
+            .unwrap();
 
-        let lines = service.compare_version_to_current("A.md", v1_id).unwrap().unwrap();
+        let lines = service
+            .compare_version_to_current("A.md", v1_id)
+            .unwrap()
+            .unwrap();
         use crate::history::DisplayLineKind;
         assert!(lines.iter().any(|l| l.kind == DisplayLineKind::Added));
         assert!(lines.iter().any(|l| l.kind == DisplayLineKind::Removed));
@@ -1019,12 +1080,19 @@ mod tests {
         let source = source_dir.path().join("photo.png");
         std::fs::write(&source, b"pngdata").unwrap();
 
-        let path = service.import_attachment_from_path("assets", "photo.png", &source).unwrap();
+        let path = service
+            .import_attachment_from_path("assets", "photo.png", &source)
+            .unwrap();
         assert_eq!(path, "assets/photo.png");
-        assert_eq!(std::fs::read(dir.path().join("assets/photo.png")).unwrap(), b"pngdata");
+        assert_eq!(
+            std::fs::read(dir.path().join("assets/photo.png")).unwrap(),
+            b"pngdata"
+        );
 
         // Importing the same name again doesn't clobber the first file.
-        let path2 = service.import_attachment_from_path("assets", "photo.png", &source).unwrap();
+        let path2 = service
+            .import_attachment_from_path("assets", "photo.png", &source)
+            .unwrap();
         assert_eq!(path2, "assets/photo 1.png");
     }
 
@@ -1032,9 +1100,14 @@ mod tests {
     fn import_attachment_bytes_writes_pasted_data() {
         let dir = tempfile::tempdir().unwrap();
         let service = open(dir.path());
-        let path = service.import_attachment_bytes("assets", "pasted.png", b"raw bytes").unwrap();
+        let path = service
+            .import_attachment_bytes("assets", "pasted.png", b"raw bytes")
+            .unwrap();
         assert_eq!(path, "assets/pasted.png");
-        assert_eq!(std::fs::read(dir.path().join("assets/pasted.png")).unwrap(), b"raw bytes");
+        assert_eq!(
+            std::fs::read(dir.path().join("assets/pasted.png")).unwrap(),
+            b"raw bytes"
+        );
     }
 
     #[test]

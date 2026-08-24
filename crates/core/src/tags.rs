@@ -203,7 +203,10 @@ mod tests {
         let tags = find_tags("Some text #project here.");
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].tag, "project");
-        assert_eq!(&"Some text #project here."[tags[0].start..tags[0].end], "project");
+        assert_eq!(
+            &"Some text #project here."[tags[0].start..tags[0].end],
+            "project"
+        );
     }
 
     #[test]

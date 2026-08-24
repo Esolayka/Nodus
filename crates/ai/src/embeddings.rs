@@ -40,12 +40,15 @@ impl Embedder {
         let options = InitOptions::new(FastEmbedModel::AllMiniLML6V2Q)
             .with_cache_dir(cache_dir.to_path_buf())
             .with_show_download_progress(false);
-        let model = TextEmbedding::try_new(options).map_err(|e| EmbeddingError::Init(e.to_string()))?;
+        let model =
+            TextEmbedding::try_new(options).map_err(|e| EmbeddingError::Init(e.to_string()))?;
         Ok(Self { model })
     }
 
     pub fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
-        self.model.embed(texts, None).map_err(|e| EmbeddingError::Inference(e.to_string()))
+        self.model
+            .embed(texts, None)
+            .map_err(|e| EmbeddingError::Inference(e.to_string()))
     }
 
     pub fn embed_one(&self, text: &str) -> Result<Vec<f32>> {
@@ -62,20 +65,30 @@ mod tests {
     /// ~23MB model is downloaded once per workspace, not once per test
     /// run — this test genuinely exercises the real model, not a stub.
     fn shared_cache_dir() -> std::path::PathBuf {
-        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/ai-embedding-test-cache"))
+        std::path::PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/ai-embedding-test-cache"
+        ))
     }
 
     #[test]
     fn produces_a_384_dimensional_vector_for_real_text() {
-        let embedder = Embedder::load(&shared_cache_dir()).expect("model should load (downloading once if needed)");
-        let vector = embedder.embed_one("Nodus keeps your notes private and local.").unwrap();
+        let embedder = Embedder::load(&shared_cache_dir())
+            .expect("model should load (downloading once if needed)");
+        let vector = embedder
+            .embed_one("Nodus keeps your notes private and local.")
+            .unwrap();
         assert_eq!(vector.len(), EMBEDDING_DIMENSIONS);
-        assert!(vector.iter().any(|v| *v != 0.0), "the vector should not be all zeros");
+        assert!(
+            vector.iter().any(|v| *v != 0.0),
+            "the vector should not be all zeros"
+        );
     }
 
     #[test]
     fn similar_sentences_score_closer_than_unrelated_ones() {
-        let embedder = Embedder::load(&shared_cache_dir()).expect("model should load (downloading once if needed)");
+        let embedder = Embedder::load(&shared_cache_dir())
+            .expect("model should load (downloading once if needed)");
         let vectors = embedder
             .embed(vec![
                 "The cat sat on the warm windowsill in the sun.".to_string(),

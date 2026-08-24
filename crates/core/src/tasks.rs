@@ -38,7 +38,10 @@ const REPEAT_EMOJI: char = '🔁';
 fn parse_checkbox_line(line: &str, line_start: usize) -> Option<(bool, usize, usize, &str)> {
     let trimmed_start = line.len() - line.trim_start().len();
     let rest = &line[trimmed_start..];
-    let dash = rest.strip_prefix("- ").or_else(|| rest.strip_prefix("* ")).or_else(|| rest.strip_prefix("+ "))?;
+    let dash = rest
+        .strip_prefix("- ")
+        .or_else(|| rest.strip_prefix("* "))
+        .or_else(|| rest.strip_prefix("+ "))?;
     let dash_len = rest.len() - dash.len();
     let bracket_open = dash.strip_prefix('[')?;
     let mark = bracket_open.chars().next()?;
@@ -118,7 +121,10 @@ fn parse_metadata(raw_text: &str) -> ParsedMeta {
             .unwrap_or(after.len());
         let repeat_text = after[..end_rel].trim().to_string();
         let start = idx;
-        let end = idx + REPEAT_EMOJI.len_utf8() + (text[idx + REPEAT_EMOJI.len_utf8()..].len() - after.len()) + end_rel;
+        let end = idx
+            + REPEAT_EMOJI.len_utf8()
+            + (text[idx + REPEAT_EMOJI.len_utf8()..].len() - after.len())
+            + end_rel;
         if !repeat_text.is_empty() {
             repeat = Some(repeat_text);
         }
@@ -139,7 +145,11 @@ fn parse_metadata(raw_text: &str) -> ParsedMeta {
         }
     }
     if priority.is_none() {
-        for (token, p) in [("!!!", Priority::High), ("!!", Priority::Medium), ("!", Priority::Low)] {
+        for (token, p) in [
+            ("!!!", Priority::High),
+            ("!!", Priority::Medium),
+            ("!", Priority::Low),
+        ] {
             if let Some(idx) = text.find(token) {
                 // Only a standalone `!`-style marker, not punctuation inside a sentence:
                 // require it to be preceded by whitespace or start-of-text.
@@ -173,7 +183,9 @@ enum RepeatUnit {
 
 fn parse_repeat_unit(word: &str) -> Option<RepeatUnit> {
     match word {
-        "day" | "days" | "daily" | "день" | "дня" | "дней" | "ежедневно" => Some(RepeatUnit::Day),
+        "day" | "days" | "daily" | "день" | "дня" | "дней" | "ежедневно" => {
+            Some(RepeatUnit::Day)
+        }
         "week" | "weeks" | "weekly" | "неделю" | "недели" | "недель" | "еженедельно" => {
             Some(RepeatUnit::Week)
         }
@@ -195,7 +207,10 @@ fn last_day_of_month(year: i32, month: u32) -> u32 {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
     }
     .expect("valid calendar month");
-    next_month_first.pred_opt().expect("day before a valid date is valid").day()
+    next_month_first
+        .pred_opt()
+        .expect("day before a valid date is valid")
+        .day()
 }
 
 fn add_months(date: chrono::NaiveDate, months: i64) -> chrono::NaiveDate {
@@ -249,7 +264,11 @@ pub fn compute_next_due(
 /// `original_line` (still unchecked — this runs on the pre-toggle text) with
 /// its due date swapped for `next_due`, or a due date appended if it didn't
 /// have one yet.
-pub fn build_recurring_line(original_line: &str, current_due: Option<&str>, next_due: &str) -> String {
+pub fn build_recurring_line(
+    original_line: &str,
+    current_due: Option<&str>,
+    next_due: &str,
+) -> String {
     match current_due {
         Some(old_due) => original_line.replacen(old_due, next_due, 1),
         None => format!("{original_line} {DUE_EMOJI} {next_due}"),
@@ -309,7 +328,8 @@ mod tests {
 
     #[test]
     fn parses_priority_emoji() {
-        let tasks = find_tasks("- [ ] Urgent ⏫ thing\n- [ ] Medium 🔼 thing\n- [ ] Low 🔽 thing\n");
+        let tasks =
+            find_tasks("- [ ] Urgent ⏫ thing\n- [ ] Medium 🔼 thing\n- [ ] Low 🔽 thing\n");
         assert_eq!(tasks[0].priority, Some(Priority::High));
         assert_eq!(tasks[1].priority, Some(Priority::Medium));
         assert_eq!(tasks[2].priority, Some(Priority::Low));
@@ -318,7 +338,8 @@ mod tests {
 
     #[test]
     fn parses_priority_bang_style() {
-        let tasks = find_tasks("- [ ] !!! Urgent thing\n- [ ] !! Medium thing\n- [ ] ! Low thing\n");
+        let tasks =
+            find_tasks("- [ ] !!! Urgent thing\n- [ ] !! Medium thing\n- [ ] ! Low thing\n");
         assert_eq!(tasks[0].priority, Some(Priority::High));
         assert_eq!(tasks[1].priority, Some(Priority::Medium));
         assert_eq!(tasks[2].priority, Some(Priority::Low));
@@ -394,7 +415,10 @@ mod tests {
     #[test]
     fn unrecognized_repeat_phrase_yields_no_next_due() {
         let today = chrono::NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
-        assert_eq!(compute_next_due(Some("2026-09-01"), "someday maybe", today), None);
+        assert_eq!(
+            compute_next_due(Some("2026-09-01"), "someday maybe", today),
+            None
+        );
     }
 
     #[test]

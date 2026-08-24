@@ -30,8 +30,15 @@ pub struct ChangedFile {
 
 #[derive(Debug)]
 pub enum PutOutcome {
-    Committed { version: u64 },
-    Conflict { current_version: u64, chunk_ids: Vec<String>, deleted: bool, encrypted_path: Option<String> },
+    Committed {
+        version: u64,
+    },
+    Conflict {
+        current_version: u64,
+        chunk_ids: Vec<String>,
+        deleted: bool,
+        encrypted_path: Option<String>,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +85,11 @@ pub struct ServerSyncClient {
 
 impl ServerSyncClient {
     pub fn new(base_url: impl Into<String>, token: impl Into<String>) -> Self {
-        Self { http: reqwest::blocking::Client::new(), base_url: base_url.into(), token: token.into() }
+        Self {
+            http: reqwest::blocking::Client::new(),
+            base_url: base_url.into(),
+            token: token.into(),
+        }
     }
 
     fn url(&self, path: &str) -> String {
@@ -91,10 +102,17 @@ impl ServerSyncClient {
         ClientError::Server { status, message }
     }
 
-    pub fn pair_complete(base_url: &str, code: &str, device_name: &str) -> Result<PairCompleteResponse> {
+    pub fn pair_complete(
+        base_url: &str,
+        code: &str,
+        device_name: &str,
+    ) -> Result<PairCompleteResponse> {
         let http = reqwest::blocking::Client::new();
         let resp = http
-            .post(format!("{}/v1/devices/pair/complete", base_url.trim_end_matches('/')))
+            .post(format!(
+                "{}/v1/devices/pair/complete",
+                base_url.trim_end_matches('/')
+            ))
             .json(&serde_json::json!({ "code": code, "deviceName": device_name }))
             .send()?;
         if !resp.status().is_success() {
@@ -104,7 +122,11 @@ impl ServerSyncClient {
     }
 
     pub fn pair_start(&self) -> Result<PairStartResponse> {
-        let resp = self.http.post(self.url("/v1/devices/pair/start")).bearer_auth(&self.token).send()?;
+        let resp = self
+            .http
+            .post(self.url("/v1/devices/pair/start"))
+            .bearer_auth(&self.token)
+            .send()?;
         if !resp.status().is_success() {
             return Err(Self::server_error(resp));
         }
@@ -159,7 +181,11 @@ impl ServerSyncClient {
     }
 
     pub fn download_chunk(&self, id: &str) -> Result<Vec<u8>> {
-        let resp = self.http.get(self.url(&format!("/v1/chunks/{id}"))).bearer_auth(&self.token).send()?;
+        let resp = self
+            .http
+            .get(self.url(&format!("/v1/chunks/{id}")))
+            .bearer_auth(&self.token)
+            .send()?;
         if !resp.status().is_success() {
             return Err(Self::server_error(resp));
         }
@@ -209,11 +235,17 @@ impl ServerSyncClient {
         if !resp.status().is_success() {
             return Err(Self::server_error(resp));
         }
-        Ok(PutOutcome::Committed { version: resp.json::<VersionBody>()?.version })
+        Ok(PutOutcome::Committed {
+            version: resp.json::<VersionBody>()?.version,
+        })
     }
 
     pub fn storage_usage(&self) -> Result<StorageUsage> {
-        let resp = self.http.get(self.url("/v1/storage/usage")).bearer_auth(&self.token).send()?;
+        let resp = self
+            .http
+            .get(self.url("/v1/storage/usage"))
+            .bearer_auth(&self.token)
+            .send()?;
         if !resp.status().is_success() {
             return Err(Self::server_error(resp));
         }

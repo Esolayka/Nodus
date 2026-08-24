@@ -6,13 +6,22 @@ use crate::telegram::TelegramState;
 #[tauri::command]
 pub fn telegram_set_bot_token(state: State<TelegramState>, token: String) {
     let trimmed = token.trim();
-    let value = if trimmed.is_empty() { None } else { Some(trimmed.to_string()) };
+    let value = if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    };
     *state.server.bot_token.lock().expect("mutex poisoned") = value;
 }
 
 #[tauri::command]
 pub fn telegram_bot_configured(state: State<TelegramState>) -> bool {
-    state.server.bot_token.lock().expect("mutex poisoned").is_some()
+    state
+        .server
+        .bot_token
+        .lock()
+        .expect("mutex poisoned")
+        .is_some()
 }
 
 #[derive(Serialize)]
@@ -28,7 +37,10 @@ pub struct LinkCode {
 #[tauri::command]
 pub fn telegram_generate_link_code(state: State<TelegramState>) -> LinkCode {
     let pending = nodus_core::telegram_link::generate_linking_token();
-    let code = LinkCode { token: pending.token.clone(), expires_at: pending.expires_at };
+    let code = LinkCode {
+        token: pending.token.clone(),
+        expires_at: pending.expires_at,
+    };
     *state.server.pending_link.lock().expect("mutex poisoned") = Some(pending);
     code
 }
@@ -40,7 +52,11 @@ pub fn telegram_generate_link_code(state: State<TelegramState>) -> LinkCode {
 #[tauri::command]
 pub fn telegram_set_manual_address(state: State<TelegramState>, address: String) {
     let trimmed = address.trim();
-    let value = if trimmed.is_empty() { None } else { Some(trimmed.to_string()) };
+    let value = if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    };
     *state.public_address.lock().expect("mutex poisoned") = value;
 }
 
@@ -59,7 +75,11 @@ pub struct TelegramStatus {
 /// user can still fall back to `telegram_set_manual_address`.
 #[tauri::command]
 pub fn telegram_start_tunnel(app: AppHandle, state: State<TelegramState>) -> Result<(), String> {
-    let port = state.local_port.lock().expect("mutex poisoned").ok_or_else(|| "local server is not running".to_string())?;
+    let port = state
+        .local_port
+        .lock()
+        .expect("mutex poisoned")
+        .ok_or_else(|| "local server is not running".to_string())?;
     crate::telegram::spawn_cloudflared_tunnel(&app, port, state.public_address.clone())
 }
 
@@ -68,6 +88,11 @@ pub fn telegram_status(state: State<TelegramState>) -> TelegramStatus {
     TelegramStatus {
         local_port: *state.local_port.lock().expect("mutex poisoned"),
         public_address: state.public_address.lock().expect("mutex poisoned").clone(),
-        bot_configured: state.server.bot_token.lock().expect("mutex poisoned").is_some(),
+        bot_configured: state
+            .server
+            .bot_token
+            .lock()
+            .expect("mutex poisoned")
+            .is_some(),
     }
 }

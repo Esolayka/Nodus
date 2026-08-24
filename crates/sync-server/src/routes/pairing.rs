@@ -20,7 +20,9 @@ const PAIRING_CODE_TTL_SECS: i64 = 600;
 
 fn random_code(len: usize) -> String {
     let mut rng = rand::thread_rng();
-    (0..len).map(|_| CODE_ALPHABET[rng.gen_range(0..CODE_ALPHABET.len())] as char).collect()
+    (0..len)
+        .map(|_| CODE_ALPHABET[rng.gen_range(0..CODE_ALPHABET.len())] as char)
+        .collect()
 }
 
 fn random_token() -> String {
@@ -94,7 +96,11 @@ pub async fn pair_complete(
         db::clear_bootstrap_code(&conn)?;
     } else {
         let expires_at: Option<i64> = conn
-            .query_row("SELECT expires_at FROM pairing_codes WHERE code = ?1", [&code], |row| row.get(0))
+            .query_row(
+                "SELECT expires_at FROM pairing_codes WHERE code = ?1",
+                [&code],
+                |row| row.get(0),
+            )
             .optional()?;
         match expires_at {
             Some(expires_at) if expires_at >= now => {
@@ -137,16 +143,30 @@ pub async fn pair_telegram(
         return Err(ApiError::BadRequest("device_name must not be empty".into()));
     }
     let Some(bot_token) = &state.telegram_bot_token else {
-        return Err(ApiError::BadRequest("this server is not configured as a Telegram Mini App backend".into()));
+        return Err(ApiError::BadRequest(
+            "this server is not configured as a Telegram Mini App backend".into(),
+        ));
     };
 
     let now = db::now();
-    let verified = nodus_telegram::init_data::verify(&body.init_data, bot_token, now, TELEGRAM_INIT_DATA_MAX_AGE_SECS)
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let verified = nodus_telegram::init_data::verify(
+        &body.init_data,
+        bot_token,
+        now,
+        TELEGRAM_INIT_DATA_MAX_AGE_SECS,
+    )
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?;
 
     let conn = state.conn.lock().expect("db mutex poisoned");
     let device_id = random_device_id();
     let token = random_token();
-    db::insert_device(&conn, &device_id, &token, device_name, now, Some(verified.user.id))?;
+    db::insert_device(
+        &conn,
+        &device_id,
+        &token,
+        device_name,
+        now,
+        Some(verified.user.id),
+    )?;
     Ok(Json(PairCompleteResponse { token, device_id }))
 }

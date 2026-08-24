@@ -20,7 +20,10 @@ const GRACE_PERIOD_SECS: i64 = 3600;
 const ANNOUNCEMENT_RETENTION_SECS: i64 = 30 * 24 * 3600;
 
 pub fn run_gc_once(conn: &Connection, data_dir: &Path) -> rusqlite::Result<usize> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
     let cutoff = now - GRACE_PERIOD_SECS;
 
     let mut stmt = conn.prepare(
@@ -28,7 +31,9 @@ pub fn run_gc_once(conn: &Connection, data_dir: &Path) -> rusqlite::Result<usize
          WHERE created_at < ?1
            AND NOT EXISTS (SELECT 1 FROM chunk_refs WHERE chunk_refs.chunk_id = chunks.id)",
     )?;
-    let orphaned: Vec<String> = stmt.query_map([cutoff], |row| row.get(0))?.collect::<Result<_, _>>()?;
+    let orphaned: Vec<String> = stmt
+        .query_map([cutoff], |row| row.get(0))?
+        .collect::<Result<_, _>>()?;
 
     for id in &orphaned {
         let _ = storage::delete_chunk(data_dir, id);

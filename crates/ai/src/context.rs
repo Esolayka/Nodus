@@ -61,11 +61,19 @@ pub struct TruncationResult {
 /// `reserve_for_output` tokens left over for the model's reply. Always
 /// leaves at least a small floor of budget rather than truncating to
 /// nothing.
-pub fn truncate_to_budget(text: &str, max_tokens: usize, reserve_for_output: usize) -> TruncationResult {
+pub fn truncate_to_budget(
+    text: &str,
+    max_tokens: usize,
+    reserve_for_output: usize,
+) -> TruncationResult {
     let budget = max_tokens.saturating_sub(reserve_for_output).max(256);
     let estimated = estimate_tokens(text);
     if estimated <= budget {
-        return TruncationResult { text: text.to_string(), truncated: false, estimated_tokens: estimated };
+        return TruncationResult {
+            text: text.to_string(),
+            truncated: false,
+            estimated_tokens: estimated,
+        };
     }
 
     let max_chars = budget * 4;
@@ -75,7 +83,11 @@ pub fn truncate_to_budget(text: &str, max_tokens: usize, reserve_for_output: usi
     }
     let truncated_text = text[..cut].to_string();
     let estimated_tokens = estimate_tokens(&truncated_text);
-    TruncationResult { text: truncated_text, truncated: true, estimated_tokens }
+    TruncationResult {
+        text: truncated_text,
+        truncated: true,
+        estimated_tokens,
+    }
 }
 
 #[cfg(test)]
@@ -91,7 +103,10 @@ mod tests {
 
     #[test]
     fn falls_back_to_a_conservative_default_for_unknown_models() {
-        assert_eq!(context_window_for_model("some-brand-new-model-nobody-has-heard-of"), DEFAULT_CONTEXT_WINDOW);
+        assert_eq!(
+            context_window_for_model("some-brand-new-model-nobody-has-heard-of"),
+            DEFAULT_CONTEXT_WINDOW
+        );
     }
 
     #[test]

@@ -78,7 +78,10 @@ fn split_hash_suffix(stem: &str) -> (&str, Option<&str>) {
         return (stem, None);
     }
     let candidate = &stem[hash_start..];
-    if candidate.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) {
+    if candidate
+        .bytes()
+        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    {
         (&stem[..hash_start - 1], Some(candidate))
     } else {
         (stem, None)
@@ -99,7 +102,11 @@ fn humanize_component(name: &str) -> (String, Option<String>) {
 }
 
 fn humanize_path(relative: &str) -> String {
-    relative.split('/').map(|part| humanize_component(part).0).collect::<Vec<_>>().join("/")
+    relative
+        .split('/')
+        .map(|part| humanize_component(part).0)
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// Maps every hash Notion appended to the human title of the page it
@@ -205,7 +212,10 @@ fn rewrite_links(content: &str, hash_to_name: &HashMap<String, String>) -> (Stri
 }
 
 fn sanitize_filename(name: &str) -> String {
-    let cleaned: String = name.chars().map(|c| if "/\\:*?\"<>|".contains(c) { '_' } else { c }).collect();
+    let cleaned: String = name
+        .chars()
+        .map(|c| if "/\\:*?\"<>|".contains(c) { '_' } else { c })
+        .collect();
     let trimmed = cleaned.trim();
     if trimmed.is_empty() {
         "Untitled".to_string()
@@ -255,7 +265,11 @@ fn csv_as_markdown_table(text: &str) -> String {
 
 fn csv_row_titles(text: &str) -> Vec<String> {
     let mut reader = csv::ReaderBuilder::new().from_reader(text.as_bytes());
-    reader.records().filter_map(|r| r.ok()).map(|record| sanitize_filename(record.get(0).unwrap_or("Untitled"))).collect()
+    reader
+        .records()
+        .filter_map(|r| r.ok())
+        .map(|record| sanitize_filename(record.get(0).unwrap_or("Untitled")))
+        .collect()
 }
 
 fn csv_rows_as_frontmatter(text: &str) -> Vec<(String, serde_yaml::Mapping)> {
@@ -265,7 +279,10 @@ fn csv_rows_as_frontmatter(text: &str) -> Vec<(String, serde_yaml::Mapping)> {
     for record in reader.records().filter_map(|r| r.ok()) {
         let mut mapping = serde_yaml::Mapping::new();
         for (header, value) in headers.iter().zip(record.iter()) {
-            mapping.insert(serde_yaml::Value::String(header.to_string()), serde_yaml::Value::String(value.to_string()));
+            mapping.insert(
+                serde_yaml::Value::String(header.to_string()),
+                serde_yaml::Value::String(value.to_string()),
+            );
         }
         let title = sanitize_filename(record.get(0).unwrap_or("Untitled"));
         rows.push((title, mapping));
@@ -302,13 +319,24 @@ fn plan_entries(names: &[(String, bool)]) -> (Vec<PlanEntry>, HashMap<String, St
             "csv" => EntryKind::Csv,
             _ => EntryKind::Attachment,
         };
-        plan.push(PlanEntry { original_name: name.clone(), dest_relative, kind });
+        plan.push(PlanEntry {
+            original_name: name.clone(),
+            dest_relative,
+            kind,
+        });
     }
     (plan, hash_map)
 }
 
 fn list_names(archive: &mut Archive) -> Vec<(String, bool)> {
-    (0..archive.len()).filter_map(|i| archive.by_index(i).ok().map(|f| (f.name().to_string(), f.is_dir()))).collect()
+    (0..archive.len())
+        .filter_map(|i| {
+            archive
+                .by_index(i)
+                .ok()
+                .map(|f| (f.name().to_string(), f.is_dir()))
+        })
+        .collect()
 }
 
 /// A cheap, non-mutating pass: what would get created, and how it would
@@ -324,14 +352,23 @@ pub fn preview(archive_path: &Path, database_mode: DatabaseMode) -> Result<Impor
     for entry in &plan {
         match entry.kind {
             EntryKind::Markdown => {
-                planned_files.push(PlannedFile { relative_path: entry.dest_relative.clone(), kind: PlannedFileKind::Note });
+                planned_files.push(PlannedFile {
+                    relative_path: entry.dest_relative.clone(),
+                    kind: PlannedFileKind::Note,
+                });
             }
             EntryKind::Attachment => {
-                planned_files.push(PlannedFile { relative_path: entry.dest_relative.clone(), kind: PlannedFileKind::Attachment });
+                planned_files.push(PlannedFile {
+                    relative_path: entry.dest_relative.clone(),
+                    kind: PlannedFileKind::Attachment,
+                });
             }
             EntryKind::Csv => match database_mode {
                 DatabaseMode::Table => {
-                    planned_files.push(PlannedFile { relative_path: entry.dest_relative.clone(), kind: PlannedFileKind::Note });
+                    planned_files.push(PlannedFile {
+                        relative_path: entry.dest_relative.clone(),
+                        kind: PlannedFileKind::Note,
+                    });
                 }
                 DatabaseMode::SeparateNotes => {
                     let bytes = read_entry(&mut archive, &entry.original_name)?;
@@ -351,7 +388,11 @@ pub fn preview(archive_path: &Path, database_mode: DatabaseMode) -> Result<Impor
         }
     }
 
-    Ok(ImportPreview { planned_files, folder_count: folders.len(), warnings: Vec::new() })
+    Ok(ImportPreview {
+        planned_files,
+        folder_count: folders.len(),
+        warnings: Vec::new(),
+    })
 }
 
 fn write_text_file(dest_root: &Path, relative: &str, content: &str) -> Result<()> {
@@ -452,14 +493,32 @@ pub fn run(
         if should_cancel.load(Ordering::Relaxed) {
             return Err(ImportError::Cancelled);
         }
-        on_progress(ImportProgress { processed, total, current_path: entry.dest_relative.clone() });
+        on_progress(ImportProgress {
+            processed,
+            total,
+            current_path: entry.dest_relative.clone(),
+        });
 
-        if let Err(e) = import_one_entry(&mut archive, entry, dest_root, database_mode, &hash_map, &mut report) {
-            report.issues.push(ImportIssue { path: entry.dest_relative.clone(), message: e.to_string() });
+        if let Err(e) = import_one_entry(
+            &mut archive,
+            entry,
+            dest_root,
+            database_mode,
+            &hash_map,
+            &mut report,
+        ) {
+            report.issues.push(ImportIssue {
+                path: entry.dest_relative.clone(),
+                message: e.to_string(),
+            });
         }
     }
 
-    on_progress(ImportProgress { processed: total, total, current_path: String::new() });
+    on_progress(ImportProgress {
+        processed: total,
+        total,
+        current_path: String::new(),
+    });
     Ok(report)
 }
 
@@ -514,9 +573,14 @@ mod tests {
     #[test]
     fn rewrites_a_link_to_a_hash_named_md_file_as_a_wikilink() {
         let mut map = HashMap::new();
-        map.insert("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(), "Project Plan".to_string());
-        let (rewritten, resolved, unresolved) =
-            rewrite_links("See [Project Plan](Project%20Plan%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md) for details.", &map);
+        map.insert(
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(),
+            "Project Plan".to_string(),
+        );
+        let (rewritten, resolved, unresolved) = rewrite_links(
+            "See [Project Plan](Project%20Plan%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md) for details.",
+            &map,
+        );
         assert_eq!(rewritten, "See [[Project Plan]] for details.");
         assert_eq!(resolved, 1);
         assert_eq!(unresolved, 0);
@@ -525,9 +589,14 @@ mod tests {
     #[test]
     fn rewrites_a_notion_so_url_link_by_hash() {
         let mut map = HashMap::new();
-        map.insert("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(), "Project Plan".to_string());
-        let (rewritten, resolved, _) =
-            rewrite_links("[Project Plan](https://www.notion.so/Project-Plan-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6)", &map);
+        map.insert(
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(),
+            "Project Plan".to_string(),
+        );
+        let (rewritten, resolved, _) = rewrite_links(
+            "[Project Plan](https://www.notion.so/Project-Plan-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6)",
+            &map,
+        );
         assert_eq!(rewritten, "[[Project Plan]]");
         assert_eq!(resolved, 1);
     }
@@ -535,8 +604,14 @@ mod tests {
     #[test]
     fn keeps_the_alias_when_the_label_differs_from_the_title() {
         let mut map = HashMap::new();
-        map.insert("a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(), "Project Plan".to_string());
-        let (rewritten, ..) = rewrite_links("[see it here](Project%20Plan%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md)", &map);
+        map.insert(
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6".to_string(),
+            "Project Plan".to_string(),
+        );
+        let (rewritten, ..) = rewrite_links(
+            "[see it here](Project%20Plan%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md)",
+            &map,
+        );
         assert_eq!(rewritten, "[[Project Plan|see it here]]");
     }
 
@@ -552,8 +627,10 @@ mod tests {
     #[test]
     fn a_recognizable_hash_link_with_no_matching_page_counts_as_unresolved() {
         let map = HashMap::new();
-        let (_, resolved, unresolved) =
-            rewrite_links("[Missing](Missing%20Page%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md)", &map);
+        let (_, resolved, unresolved) = rewrite_links(
+            "[Missing](Missing%20Page%20a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md)",
+            &map,
+        );
         assert_eq!(resolved, 0);
         assert_eq!(unresolved, 1);
     }
@@ -571,21 +648,28 @@ mod tests {
         let rows = csv_rows_as_frontmatter("Name,Status\nBuy milk,Done\n");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].0, "Buy milk");
-        assert_eq!(rows[0].1.get("Status").and_then(|v| v.as_str()), Some("Done"));
+        assert_eq!(
+            rows[0].1.get("Status").and_then(|v| v.as_str()),
+            Some("Done")
+        );
     }
 
     #[test]
     fn preview_lists_notes_and_attachments_with_hashes_stripped() {
         let dir = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &dir.path(),
+            dir.path(),
             &[
                 ("Home a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md", b"# Home\n" as &[u8]),
                 ("Home a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/image f1e2d3c4b5a697887766554433221100.png", b"\x89PNG" as &[u8]),
             ],
         );
         let preview = preview(&zip_path, DatabaseMode::SeparateNotes).unwrap();
-        let paths: Vec<&str> = preview.planned_files.iter().map(|f| f.relative_path.as_str()).collect();
+        let paths: Vec<&str> = preview
+            .planned_files
+            .iter()
+            .map(|f| f.relative_path.as_str())
+            .collect();
         assert!(paths.contains(&"Home.md"));
         assert!(paths.contains(&"Home/image.png"));
     }
@@ -594,20 +678,29 @@ mod tests {
     fn preview_in_separate_notes_mode_counts_one_planned_file_per_csv_row() {
         let dir = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &dir.path(),
-            &[("Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv", b"Name,Status\nBuy milk,Done\nWrite report,Todo\n" as &[u8])],
+            dir.path(),
+            &[(
+                "Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv",
+                b"Name,Status\nBuy milk,Done\nWrite report,Todo\n" as &[u8],
+            )],
         );
         let preview = preview(&zip_path, DatabaseMode::SeparateNotes).unwrap();
         assert_eq!(preview.planned_files.len(), 2);
-        assert!(preview.planned_files.iter().all(|f| f.kind == PlannedFileKind::DatabaseNote));
+        assert!(preview
+            .planned_files
+            .iter()
+            .all(|f| f.kind == PlannedFileKind::DatabaseNote));
     }
 
     #[test]
     fn preview_in_table_mode_produces_a_single_note_for_the_whole_csv() {
         let dir = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &dir.path(),
-            &[("Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv", b"Name,Status\nBuy milk,Done\n" as &[u8])],
+            dir.path(),
+            &[(
+                "Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv",
+                b"Name,Status\nBuy milk,Done\n" as &[u8],
+            )],
         );
         let preview = preview(&zip_path, DatabaseMode::Table).unwrap();
         assert_eq!(preview.planned_files.len(), 1);
@@ -618,33 +711,53 @@ mod tests {
     fn run_writes_a_page_with_its_link_rewritten_and_an_attachment_alongside_it() {
         let src = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &src.path(),
+            src.path(),
             &[
                 (
                     "Home a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md",
-                    b"# Home\n\nSee [Notes](Notes%20f1e2d3c4b5a697887766554433221100.md).\n" as &[u8],
+                    b"# Home\n\nSee [Notes](Notes%20f1e2d3c4b5a697887766554433221100.md).\n"
+                        as &[u8],
                 ),
-                ("Notes f1e2d3c4b5a697887766554433221100.md", b"# Notes\n" as &[u8]),
+                (
+                    "Notes f1e2d3c4b5a697887766554433221100.md",
+                    b"# Notes\n" as &[u8],
+                ),
             ],
         );
         let dest = tempfile::tempdir().unwrap();
         let dest_root = dest.path().join("imported");
         let cancel = AtomicBool::new(false);
-        let report = run(&zip_path, &dest_root, DatabaseMode::SeparateNotes, |_| {}, &cancel).unwrap();
+        let report = run(
+            &zip_path,
+            &dest_root,
+            DatabaseMode::SeparateNotes,
+            |_| {},
+            &cancel,
+        )
+        .unwrap();
 
         assert_eq!(report.pages_imported, 2);
         assert_eq!(report.links_resolved, 1);
         assert!(report.issues.is_empty());
 
         let home = std::fs::read_to_string(dest_root.join("Home.md")).unwrap();
-        assert!(home.contains("[[Notes]]"), "link should have been rewritten to a wikilink: {home}");
+        assert!(
+            home.contains("[[Notes]]"),
+            "link should have been rewritten to a wikilink: {home}"
+        );
         assert!(dest_root.join("Notes.md").exists());
     }
 
     #[test]
     fn run_refuses_to_write_into_a_nonempty_destination() {
         let src = tempfile::tempdir().unwrap();
-        let zip_path = write_zip_fixture(&src.path(), &[("Home a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md", b"# Home" as &[u8])]);
+        let zip_path = write_zip_fixture(
+            src.path(),
+            &[(
+                "Home a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md",
+                b"# Home" as &[u8],
+            )],
+        );
         let dest = tempfile::tempdir().unwrap();
         std::fs::write(dest.path().join("existing.md"), "already here").unwrap();
         let cancel = AtomicBool::new(false);
@@ -655,7 +768,7 @@ mod tests {
     fn run_honors_cancellation_between_files() {
         let src = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &src.path(),
+            src.path(),
             &[
                 ("A a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.md", b"# A" as &[u8]),
                 ("B f1e2d3c4b5a697887766554433221100.md", b"# B" as &[u8]),
@@ -672,8 +785,11 @@ mod tests {
     fn run_in_table_mode_produces_a_readable_markdown_table_note() {
         let src = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &src.path(),
-            &[("Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv", b"Name,Status\nBuy milk,Done\n" as &[u8])],
+            src.path(),
+            &[(
+                "Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv",
+                b"Name,Status\nBuy milk,Done\n" as &[u8],
+            )],
         );
         let dest = tempfile::tempdir().unwrap();
         let dest_root = dest.path().join("imported");
@@ -688,13 +804,23 @@ mod tests {
     fn run_in_separate_notes_mode_writes_one_frontmatter_note_per_row() {
         let src = tempfile::tempdir().unwrap();
         let zip_path = write_zip_fixture(
-            &src.path(),
-            &[("Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv", b"Name,Status\nBuy milk,Done\n" as &[u8])],
+            src.path(),
+            &[(
+                "Tasks a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.csv",
+                b"Name,Status\nBuy milk,Done\n" as &[u8],
+            )],
         );
         let dest = tempfile::tempdir().unwrap();
         let dest_root = dest.path().join("imported");
         let cancel = AtomicBool::new(false);
-        run(&zip_path, &dest_root, DatabaseMode::SeparateNotes, |_| {}, &cancel).unwrap();
+        run(
+            &zip_path,
+            &dest_root,
+            DatabaseMode::SeparateNotes,
+            |_| {},
+            &cancel,
+        )
+        .unwrap();
         let content = std::fs::read_to_string(dest_root.join("Tasks/Buy milk.md")).unwrap();
         assert!(content.contains("Status: Done"));
     }

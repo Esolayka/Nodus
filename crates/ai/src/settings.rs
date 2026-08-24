@@ -29,9 +29,17 @@ pub enum LocalBackend {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum ConnectionMethod {
-    Local { backend: LocalBackend, address: String },
-    Commercial { protocol: ChatProtocol, base_url: String },
-    Custom { base_url: String },
+    Local {
+        backend: LocalBackend,
+        address: String,
+    },
+    Commercial {
+        protocol: ChatProtocol,
+        base_url: String,
+    },
+    Custom {
+        base_url: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,8 +69,14 @@ impl ConnectionMethod {
     /// asking the user to retype it.
     pub fn keyring_id(&self) -> &'static str {
         match self {
-            ConnectionMethod::Commercial { protocol: ChatProtocol::OpenAiCompatible, .. } => "commercial-openai-compatible",
-            ConnectionMethod::Commercial { protocol: ChatProtocol::Anthropic, .. } => "commercial-anthropic",
+            ConnectionMethod::Commercial {
+                protocol: ChatProtocol::OpenAiCompatible,
+                ..
+            } => "commercial-openai-compatible",
+            ConnectionMethod::Commercial {
+                protocol: ChatProtocol::Anthropic,
+                ..
+            } => "commercial-anthropic",
             ConnectionMethod::Local { .. } => "local",
             ConnectionMethod::Custom { .. } => "custom",
         }
@@ -77,10 +91,22 @@ impl ConnectionMethod {
 
     pub fn provider_label(&self, model: &str) -> String {
         match self {
-            ConnectionMethod::Commercial { protocol: ChatProtocol::OpenAiCompatible, .. } => "OpenAI-compatible".to_string(),
-            ConnectionMethod::Commercial { protocol: ChatProtocol::Anthropic, .. } => "Anthropic".to_string(),
-            ConnectionMethod::Local { backend: LocalBackend::Ollama, .. } => format!("Ollama ({model})"),
-            ConnectionMethod::Local { backend: LocalBackend::LmStudio, .. } => format!("LM Studio ({model})"),
+            ConnectionMethod::Commercial {
+                protocol: ChatProtocol::OpenAiCompatible,
+                ..
+            } => "OpenAI-compatible".to_string(),
+            ConnectionMethod::Commercial {
+                protocol: ChatProtocol::Anthropic,
+                ..
+            } => "Anthropic".to_string(),
+            ConnectionMethod::Local {
+                backend: LocalBackend::Ollama,
+                ..
+            } => format!("Ollama ({model})"),
+            ConnectionMethod::Local {
+                backend: LocalBackend::LmStudio,
+                ..
+            } => format!("LM Studio ({model})"),
             ConnectionMethod::Custom { base_url } => format!("Custom ({base_url})"),
         }
     }
@@ -98,19 +124,33 @@ impl ConnectionMethod {
 /// `Local` (never needed) and for LM Studio specifically (also never
 /// needed in the common case, though a user-supplied key is passed
 /// through if LM Studio was put behind its own auth).
-pub fn build_provider(settings: &ProviderSettings, api_key: Option<String>) -> Box<dyn ChatProvider> {
+pub fn build_provider(
+    settings: &ProviderSettings,
+    api_key: Option<String>,
+) -> Box<dyn ChatProvider> {
     match &settings.connection {
-        ConnectionMethod::Commercial { protocol: ChatProtocol::OpenAiCompatible, base_url } => {
+        ConnectionMethod::Commercial {
+            protocol: ChatProtocol::OpenAiCompatible,
+            base_url,
+        } => Box::new(OpenAiCompatibleClient::new(base_url.clone(), api_key)),
+        ConnectionMethod::Commercial {
+            protocol: ChatProtocol::Anthropic,
+            base_url,
+        } => Box::new(AnthropicClient::new(
+            base_url.clone(),
+            api_key.unwrap_or_default(),
+        )),
+        ConnectionMethod::Local {
+            backend: LocalBackend::Ollama,
+            address,
+        } => Box::new(OllamaClient::new(address.clone())),
+        ConnectionMethod::Local {
+            backend: LocalBackend::LmStudio,
+            address,
+        } => Box::new(OpenAiCompatibleClient::new(address.clone(), api_key)),
+        ConnectionMethod::Custom { base_url } => {
             Box::new(OpenAiCompatibleClient::new(base_url.clone(), api_key))
         }
-        ConnectionMethod::Commercial { protocol: ChatProtocol::Anthropic, base_url } => {
-            Box::new(AnthropicClient::new(base_url.clone(), api_key.unwrap_or_default()))
-        }
-        ConnectionMethod::Local { backend: LocalBackend::Ollama, address } => Box::new(OllamaClient::new(address.clone())),
-        ConnectionMethod::Local { backend: LocalBackend::LmStudio, address } => {
-            Box::new(OpenAiCompatibleClient::new(address.clone(), api_key))
-        }
-        ConnectionMethod::Custom { base_url } => Box::new(OpenAiCompatibleClient::new(base_url.clone(), api_key)),
     }
 }
 
@@ -127,30 +167,45 @@ mod tests {
 
     #[test]
     fn local_ollama_never_needs_a_key_and_previews_are_off_by_default() {
-        let connection = ConnectionMethod::Local { backend: LocalBackend::Ollama, address: "http://localhost:11434".to_string() };
+        let connection = ConnectionMethod::Local {
+            backend: LocalBackend::Ollama,
+            address: "http://localhost:11434".to_string(),
+        };
         assert!(!connection.needs_api_key());
         assert!(!connection.preview_before_sending_by_default());
     }
 
     #[test]
     fn commercial_and_custom_need_a_key_and_preview_by_default() {
-        let commercial = ConnectionMethod::Commercial { protocol: ChatProtocol::Anthropic, base_url: "https://api.anthropic.com".to_string() };
+        let commercial = ConnectionMethod::Commercial {
+            protocol: ChatProtocol::Anthropic,
+            base_url: "https://api.anthropic.com".to_string(),
+        };
         assert!(commercial.needs_api_key());
         assert!(commercial.preview_before_sending_by_default());
 
-        let custom = ConnectionMethod::Custom { base_url: "https://my-server.example".to_string() };
+        let custom = ConnectionMethod::Custom {
+            base_url: "https://my-server.example".to_string(),
+        };
         assert!(custom.needs_api_key());
         assert!(custom.preview_before_sending_by_default());
     }
 
     #[test]
     fn switching_connection_kind_and_back_keeps_the_keyring_id_stable() {
-        let a = ConnectionMethod::Commercial { protocol: ChatProtocol::OpenAiCompatible, base_url: "https://api.openai.com/v1".to_string() };
+        let a = ConnectionMethod::Commercial {
+            protocol: ChatProtocol::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+        };
         let b = ConnectionMethod::Commercial {
             protocol: ChatProtocol::OpenAiCompatible,
             base_url: "https://a-different-openai-compatible-host.example".to_string(),
         };
-        assert_eq!(a.keyring_id(), b.keyring_id(), "the key should follow the connection kind, not the exact address");
+        assert_eq!(
+            a.keyring_id(),
+            b.keyring_id(),
+            "the key should follow the connection kind, not the exact address"
+        );
     }
 
     #[test]
@@ -161,11 +216,18 @@ mod tests {
             let path = request.url().to_string();
             let mut body = Vec::new();
             request.as_reader().read_to_end(&mut body).unwrap();
-            request.respond(tiny_http::Response::from_string(r#"{"models": [{"name": "llama3:8b"}]}"#)).unwrap();
+            request
+                .respond(tiny_http::Response::from_string(
+                    r#"{"models": [{"name": "llama3:8b"}]}"#,
+                ))
+                .unwrap();
             path
         });
         let settings = ProviderSettings {
-            connection: ConnectionMethod::Local { backend: LocalBackend::Ollama, address: url },
+            connection: ConnectionMethod::Local {
+                backend: LocalBackend::Ollama,
+                address: url,
+            },
             model: "llama3:8b".to_string(),
         };
         let provider = build_provider(&settings, None);
@@ -183,13 +245,25 @@ mod tests {
             let auth = request
                 .headers()
                 .iter()
-                .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case("authorization"))
+                .find(|h| {
+                    h.field
+                        .as_str()
+                        .as_str()
+                        .eq_ignore_ascii_case("authorization")
+                })
                 .map(|h| h.value.as_str().to_string());
-            request.respond(tiny_http::Response::from_string(r#"{"data": [{"id": "gpt-4o"}]}"#)).unwrap();
+            request
+                .respond(tiny_http::Response::from_string(
+                    r#"{"data": [{"id": "gpt-4o"}]}"#,
+                ))
+                .unwrap();
             auth
         });
         let settings = ProviderSettings {
-            connection: ConnectionMethod::Commercial { protocol: ChatProtocol::OpenAiCompatible, base_url: url },
+            connection: ConnectionMethod::Commercial {
+                protocol: ChatProtocol::OpenAiCompatible,
+                base_url: url,
+            },
             model: "gpt-4o".to_string(),
         };
         let provider = build_provider(&settings, Some("sk-secret".to_string()));
@@ -203,15 +277,24 @@ mod tests {
         let (server, url) = spawn_server();
         let handle = std::thread::spawn(move || {
             let request = server.recv().unwrap();
-            let has_version_header = request
-                .headers()
-                .iter()
-                .any(|h| h.field.as_str().as_str().eq_ignore_ascii_case("anthropic-version"));
-            request.respond(tiny_http::Response::from_string(r#"{"data": [{"id": "claude-opus-5"}]}"#)).unwrap();
+            let has_version_header = request.headers().iter().any(|h| {
+                h.field
+                    .as_str()
+                    .as_str()
+                    .eq_ignore_ascii_case("anthropic-version")
+            });
+            request
+                .respond(tiny_http::Response::from_string(
+                    r#"{"data": [{"id": "claude-opus-5"}]}"#,
+                ))
+                .unwrap();
             has_version_header
         });
         let settings = ProviderSettings {
-            connection: ConnectionMethod::Commercial { protocol: ChatProtocol::Anthropic, base_url: url },
+            connection: ConnectionMethod::Commercial {
+                protocol: ChatProtocol::Anthropic,
+                base_url: url,
+            },
             model: "claude-opus-5".to_string(),
         };
         let provider = build_provider(&settings, Some("sk-ant-secret".to_string()));
@@ -222,7 +305,10 @@ mod tests {
 
     #[test]
     fn provider_label_names_the_local_model_for_the_log() {
-        let ollama = ConnectionMethod::Local { backend: LocalBackend::Ollama, address: "http://localhost:11434".to_string() };
+        let ollama = ConnectionMethod::Local {
+            backend: LocalBackend::Ollama,
+            address: "http://localhost:11434".to_string(),
+        };
         assert_eq!(ollama.provider_label("llama3:8b"), "Ollama (llama3:8b)");
     }
 
@@ -243,7 +329,11 @@ mod tests {
         };
         let provider = build_provider(&settings, None);
         let response = provider
-            .complete(&ChatRequest { model: "local-model".to_string(), messages: vec![ChatMessage::user("hi")], max_output_tokens: None })
+            .complete(&ChatRequest {
+                model: "local-model".to_string(),
+                messages: vec![ChatMessage::user("hi")],
+                max_output_tokens: None,
+            })
             .unwrap();
         handle.join().unwrap();
         assert_eq!(response.content, "hi back");

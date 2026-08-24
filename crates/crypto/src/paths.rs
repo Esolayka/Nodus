@@ -90,7 +90,10 @@ mod tests {
     fn encrypted_path_roundtrips() {
         let dek = Dek::generate();
         let encrypted = encrypt_path(&dek, "Journal/2026-01-01.md");
-        assert_eq!(decrypt_path(&dek, &encrypted).unwrap(), "Journal/2026-01-01.md");
+        assert_eq!(
+            decrypt_path(&dek, &encrypted).unwrap(),
+            "Journal/2026-01-01.md"
+        );
     }
 
     #[test]
@@ -106,7 +109,10 @@ mod tests {
         let dek = Dek::generate();
         let a = encrypt_path(&dek, "Notes/Same.md");
         let b = encrypt_path(&dek, "Notes/Same.md");
-        assert_ne!(a, b, "path encryption uses a fresh nonce, unlike the blob id");
+        assert_ne!(
+            a, b,
+            "path encryption uses a fresh nonce, unlike the blob id"
+        );
     }
 
     #[test]

@@ -125,7 +125,11 @@ fn term_needle(term: &Term, case_sensitive: bool) -> String {
         Term::Word(w) => w.as_str(),
         Term::Phrase(p) => p.as_str(),
     };
-    if case_sensitive { text.to_string() } else { text.to_lowercase() }
+    if case_sensitive {
+        text.to_string()
+    } else {
+        text.to_lowercase()
+    }
 }
 
 fn term_matches(term: &Term, haystack: &str, case_sensitive: bool) -> bool {
@@ -143,7 +147,11 @@ pub(crate) fn matches_file(
     content: &str,
     case_sensitive: bool,
 ) -> bool {
-    let content_cased = if case_sensitive { content.to_string() } else { content.to_lowercase() };
+    let content_cased = if case_sensitive {
+        content.to_string()
+    } else {
+        content.to_lowercase()
+    };
 
     for excluded in &query.excluded {
         if term_matches(excluded, &content_cased, case_sensitive) {
@@ -179,11 +187,21 @@ pub(crate) fn matches_file(
         }
         if query.same_line {
             content.lines().any(|line| {
-                let line_cased = if case_sensitive { line.to_string() } else { line.to_lowercase() };
-                group.terms.iter().all(|t| term_matches(t, &line_cased, case_sensitive))
+                let line_cased = if case_sensitive {
+                    line.to_string()
+                } else {
+                    line.to_lowercase()
+                };
+                group
+                    .terms
+                    .iter()
+                    .all(|t| term_matches(t, &line_cased, case_sensitive))
             })
         } else {
-            group.terms.iter().all(|t| term_matches(t, &content_cased, case_sensitive))
+            group
+                .terms
+                .iter()
+                .all(|t| term_matches(t, &content_cased, case_sensitive))
         }
     })
 }
@@ -213,14 +231,22 @@ pub(crate) fn highlight_lines(
     content: &str,
     case_sensitive: bool,
 ) -> Vec<SearchLineMatch> {
-    let all_terms: Vec<&Term> = query.or_groups.iter().flat_map(|g| g.terms.iter()).collect();
+    let all_terms: Vec<&Term> = query
+        .or_groups
+        .iter()
+        .flat_map(|g| g.terms.iter())
+        .collect();
     if all_terms.is_empty() {
         return Vec::new();
     }
 
     let mut results = Vec::new();
     for (i, line) in content.split('\n').enumerate() {
-        let line_cased = if case_sensitive { line.to_string() } else { line.to_lowercase() };
+        let line_cased = if case_sensitive {
+            line.to_string()
+        } else {
+            line.to_lowercase()
+        };
         let mut ranges: Vec<(usize, usize)> = Vec::new();
         for term in &all_terms {
             let needle = term_needle(term, case_sensitive);
@@ -281,22 +307,46 @@ mod tests {
     #[test]
     fn plain_words_are_and() {
         let q = parse_query("foo bar");
-        assert!(matches_file(&q, "a.md", &[], "has foo and bar in it", false));
+        assert!(matches_file(
+            &q,
+            "a.md",
+            &[],
+            "has foo and bar in it",
+            false
+        ));
         assert!(!matches_file(&q, "a.md", &[], "has only foo in it", false));
     }
 
     #[test]
     fn quoted_phrase_requires_adjacency() {
         let q = parse_query("\"foo bar\"");
-        assert!(matches_file(&q, "a.md", &[], "here is foo bar together", false));
-        assert!(!matches_file(&q, "a.md", &[], "here foo comes before bar separately", false));
+        assert!(matches_file(
+            &q,
+            "a.md",
+            &[],
+            "here is foo bar together",
+            false
+        ));
+        assert!(!matches_file(
+            &q,
+            "a.md",
+            &[],
+            "here foo comes before bar separately",
+            false
+        ));
     }
 
     #[test]
     fn minus_excludes() {
         let q = parse_query("foo -bar");
         assert!(matches_file(&q, "a.md", &[], "just foo here", false));
-        assert!(!matches_file(&q, "a.md", &[], "foo and bar both here", false));
+        assert!(!matches_file(
+            &q,
+            "a.md",
+            &[],
+            "foo and bar both here",
+            false
+        ));
     }
 
     #[test]
@@ -324,22 +374,52 @@ mod tests {
     #[test]
     fn tag_filter_checks_tags_list() {
         let q = parse_query("tag:project");
-        assert!(matches_file(&q, "a.md", &["project".to_string()], "anything", false));
-        assert!(!matches_file(&q, "a.md", &["other".to_string()], "anything", false));
+        assert!(matches_file(
+            &q,
+            "a.md",
+            &["project".to_string()],
+            "anything",
+            false
+        ));
+        assert!(!matches_file(
+            &q,
+            "a.md",
+            &["other".to_string()],
+            "anything",
+            false
+        ));
     }
 
     #[test]
     fn line_flag_requires_same_line_cooccurrence() {
         let q = parse_query("foo bar line:");
-        assert!(matches_file(&q, "a.md", &[], "foo and bar on one line\nsomething else", false));
-        assert!(!matches_file(&q, "a.md", &[], "foo on this line\nbar on this other line", false));
+        assert!(matches_file(
+            &q,
+            "a.md",
+            &[],
+            "foo and bar on one line\nsomething else",
+            false
+        ));
+        assert!(!matches_file(
+            &q,
+            "a.md",
+            &[],
+            "foo on this line\nbar on this other line",
+            false
+        ));
     }
 
     #[test]
     fn malformed_unterminated_quote_does_not_crash() {
         let q = parse_query("foo \"unterminated");
         // Falls back to treating the dangling quoted content as plain text.
-        assert!(matches_file(&q, "a.md", &[], "foo unterminated appears here", false));
+        assert!(matches_file(
+            &q,
+            "a.md",
+            &[],
+            "foo unterminated appears here",
+            false
+        ));
     }
 
     #[test]
@@ -371,7 +451,13 @@ mod tests {
     #[test]
     fn case_sensitive_does_not_affect_path_or_tag_filters() {
         let q = parse_query("tag:Project path:Notes");
-        assert!(matches_file(&q, "notes/a.md", &["PROJECT".to_string()], "x", true));
+        assert!(matches_file(
+            &q,
+            "notes/a.md",
+            &["PROJECT".to_string()],
+            "x",
+            true
+        ));
     }
 
     #[test]

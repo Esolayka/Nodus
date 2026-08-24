@@ -69,8 +69,12 @@ pub fn find_unused_attachments(vault: &Vault) -> Result<Vec<String>> {
 
     let mut referenced: HashSet<String> = HashSet::new();
     for note in &notes {
-        let Ok(absolute) = vault.resolve(note) else { continue };
-        let Ok(content) = std::fs::read_to_string(&absolute) else { continue };
+        let Ok(absolute) = vault.resolve(note) else {
+            continue;
+        };
+        let Ok(content) = std::fs::read_to_string(&absolute) else {
+            continue;
+        };
         for link in find_wikilinks(&content) {
             if link.kind != LinkKind::Embed {
                 continue;

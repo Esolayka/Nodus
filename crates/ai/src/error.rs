@@ -12,7 +12,9 @@ pub enum ProviderError {
     QuotaExceeded,
     #[error("couldn't reach {address}: {reason}")]
     Unreachable { address: String, reason: String },
-    #[error("this request is too large for {model}. Shorten the selection or include less context")]
+    #[error(
+        "this request is too large for {model}. Shorten the selection or include less context"
+    )]
     RequestTooLarge { model: String },
     #[error("the provider returned something Nodus didn't expect: {0}")]
     UnexpectedResponse(String),
@@ -28,7 +30,10 @@ pub type Result<T> = std::result::Result<T, ProviderError>;
 /// case, so it's classified here rather than left as an opaque transport
 /// error.
 pub fn classify_transport_error(err: reqwest::Error, address: &str) -> ProviderError {
-    ProviderError::Unreachable { address: address.to_string(), reason: err.without_url().to_string() }
+    ProviderError::Unreachable {
+        address: address.to_string(),
+        reason: err.without_url().to_string(),
+    }
 }
 
 /// Classifies a non-2xx HTTP response body. Real providers don't share
@@ -59,7 +64,9 @@ pub fn classify_error_response(status: u16, body: &str, model: &str) -> Provider
         || lower.contains("too many tokens")
         || lower.contains("prompt is too long")
     {
-        return ProviderError::RequestTooLarge { model: model.to_string() };
+        return ProviderError::RequestTooLarge {
+            model: model.to_string(),
+        };
     }
     ProviderError::UnexpectedResponse(format!("HTTP {status}: {body}"))
 }
@@ -71,19 +78,28 @@ mod tests {
     #[test]
     fn classifies_openai_style_invalid_key() {
         let body = r#"{"error": {"message": "Incorrect API key provided", "type": "invalid_request_error"}}"#;
-        assert!(matches!(classify_error_response(401, body, "gpt-4o"), ProviderError::InvalidApiKey));
+        assert!(matches!(
+            classify_error_response(401, body, "gpt-4o"),
+            ProviderError::InvalidApiKey
+        ));
     }
 
     #[test]
     fn classifies_anthropic_style_invalid_key() {
         let body = r#"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}"#;
-        assert!(matches!(classify_error_response(401, body, "claude-opus-5"), ProviderError::InvalidApiKey));
+        assert!(matches!(
+            classify_error_response(401, body, "claude-opus-5"),
+            ProviderError::InvalidApiKey
+        ));
     }
 
     #[test]
     fn classifies_quota_exceeded() {
         let body = r#"{"error": {"message": "You exceeded your current quota", "code": "insufficient_quota"}}"#;
-        assert!(matches!(classify_error_response(429, body, "gpt-4o"), ProviderError::QuotaExceeded));
+        assert!(matches!(
+            classify_error_response(429, body, "gpt-4o"),
+            ProviderError::QuotaExceeded
+        ));
     }
 
     #[test]

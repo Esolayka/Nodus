@@ -83,7 +83,11 @@ mod tests {
     fn verify_rejects_a_wrong_word() {
         let phrase = RecoveryPhrase::generate();
         let mut words = phrase.words();
-        words[0] = if words[0] == "abandon" { "ability" } else { "abandon" };
+        words[0] = if words[0] == "abandon" {
+            "ability"
+        } else {
+            "abandon"
+        };
         assert!(!phrase.verify(&words.join(" ")));
     }
 

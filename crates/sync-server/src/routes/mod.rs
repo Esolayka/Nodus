@@ -50,11 +50,20 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/devices/pair/complete", post(pairing::pair_complete))
         .route("/v1/devices/pair/telegram", post(pairing::pair_telegram))
         .route("/v1/sync/diff", post(sync::diff))
-        .route("/v1/sync/blob/{id}", put(sync::put_blob).delete(sync::delete_blob))
+        .route(
+            "/v1/sync/blob/{id}",
+            put(sync::put_blob).delete(sync::delete_blob),
+        )
         .route("/v1/chunks/missing", post(chunks::missing_chunks))
-        .route("/v1/chunks/{id}", put(chunks::put_chunk).get(chunks::get_chunk))
+        .route(
+            "/v1/chunks/{id}",
+            put(chunks::put_chunk).get(chunks::get_chunk),
+        )
         .route("/v1/storage/usage", get(storage_usage))
         .route("/v1/discovery/announce", post(discovery::announce))
-        .route("/v1/discovery/resolve/{discovery_id}", get(discovery::resolve))
+        .route(
+            "/v1/discovery/resolve/{discovery_id}",
+            get(discovery::resolve),
+        )
         .with_state(state)
 }

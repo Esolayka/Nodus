@@ -33,17 +33,36 @@ pub async fn link(
     Json(body): Json<LinkRequest>,
 ) -> Result<Json<LinkResponse>, ApiError> {
     let pending = state.pending_link.lock().expect("mutex poisoned").clone();
-    let pending = pending.ok_or((StatusCode::BAD_REQUEST, "no linking code has been generated yet".to_string()))?;
+    let pending = pending.ok_or((
+        StatusCode::BAD_REQUEST,
+        "no linking code has been generated yet".to_string(),
+    ))?;
     let bot_token = state.bot_token.lock().expect("mutex poisoned").clone();
-    let bot_token = bot_token.ok_or((StatusCode::BAD_REQUEST, "no Telegram bot is configured".to_string()))?;
+    let bot_token = bot_token.ok_or((
+        StatusCode::BAD_REQUEST,
+        "no Telegram bot is configured".to_string(),
+    ))?;
     let identity = state.identity.lock().expect("mutex poisoned").clone();
-    let identity = identity.ok_or((StatusCode::BAD_REQUEST, "no vault is open to link".to_string()))?;
+    let identity = identity.ok_or((
+        StatusCode::BAD_REQUEST,
+        "no vault is open to link".to_string(),
+    ))?;
 
-    let result = telegram_link::complete_link(&pending, &body.token, &body.init_data, &bot_token, &identity)
-        .map_err(|e| (StatusCode::UNAUTHORIZED, e.to_string()))?;
+    let result = telegram_link::complete_link(
+        &pending,
+        &body.token,
+        &body.init_data,
+        &bot_token,
+        &identity,
+    )
+    .map_err(|e| (StatusCode::UNAUTHORIZED, e.to_string()))?;
 
     let session_token = generate_session_token();
-    state.session_tokens.lock().expect("mutex poisoned").insert(session_token.clone());
+    state
+        .session_tokens
+        .lock()
+        .expect("mutex poisoned")
+        .insert(session_token.clone());
     // Single-use: once redeemed, the same code can't mint a second session.
     *state.pending_link.lock().expect("mutex poisoned") = None;
 

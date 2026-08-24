@@ -14,9 +14,19 @@ pub enum ApiError {
     /// saw it — an optimistic-concurrency conflict, not a server error.
     /// The current state is included so the client can fetch it and
     /// attempt a merge instead of just retrying blindly.
-    Conflict { current_version: u64, chunk_ids: Vec<String>, deleted: bool, encrypted_path: Option<String> },
-    PayloadTooLarge { max_file_size_bytes: u64 },
-    StorageQuotaExceeded { used_bytes: u64, max_bytes: u64 },
+    Conflict {
+        current_version: u64,
+        chunk_ids: Vec<String>,
+        deleted: bool,
+        encrypted_path: Option<String>,
+    },
+    PayloadTooLarge {
+        max_file_size_bytes: u64,
+    },
+    StorageQuotaExceeded {
+        used_bytes: u64,
+        max_bytes: u64,
+    },
     BadRequest(String),
     Internal(String),
 }
@@ -70,7 +80,12 @@ impl IntoResponse for ApiError {
                     max_bytes: None,
                 },
             ),
-            ApiError::Conflict { current_version, chunk_ids, deleted, encrypted_path } => (
+            ApiError::Conflict {
+                current_version,
+                chunk_ids,
+                deleted,
+                encrypted_path,
+            } => (
                 StatusCode::CONFLICT,
                 ErrorBody {
                     error: "conflict".into(),
@@ -83,7 +98,9 @@ impl IntoResponse for ApiError {
                     max_bytes: None,
                 },
             ),
-            ApiError::PayloadTooLarge { max_file_size_bytes } => (
+            ApiError::PayloadTooLarge {
+                max_file_size_bytes,
+            } => (
                 StatusCode::PAYLOAD_TOO_LARGE,
                 ErrorBody {
                     error: "payload_too_large".into(),
@@ -96,7 +113,10 @@ impl IntoResponse for ApiError {
                     max_bytes: None,
                 },
             ),
-            ApiError::StorageQuotaExceeded { used_bytes, max_bytes } => (
+            ApiError::StorageQuotaExceeded {
+                used_bytes,
+                max_bytes,
+            } => (
                 StatusCode::INSUFFICIENT_STORAGE,
                 ErrorBody {
                     error: "storage_quota_exceeded".into(),

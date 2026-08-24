@@ -24,10 +24,15 @@ fn stringify_value(value: &serde_yaml::Value) -> String {
         serde_yaml::Value::Number(n) => n.to_string(),
         serde_yaml::Value::Bool(b) => b.to_string(),
         serde_yaml::Value::Null => String::new(),
-        serde_yaml::Value::Sequence(seq) => {
-            seq.iter().map(stringify_value).collect::<Vec<_>>().join(", ")
-        }
-        other => serde_yaml::to_string(other).unwrap_or_default().trim().to_string(),
+        serde_yaml::Value::Sequence(seq) => seq
+            .iter()
+            .map(stringify_value)
+            .collect::<Vec<_>>()
+            .join(", "),
+        other => serde_yaml::to_string(other)
+            .unwrap_or_default()
+            .trim()
+            .to_string(),
     }
 }
 
@@ -55,6 +60,9 @@ mod tests {
 
     #[test]
     fn malformed_frontmatter_returns_empty_rather_than_erroring() {
-        assert_eq!(find_properties("---\n[unterminated\n---\nBody.\n"), Vec::new());
+        assert_eq!(
+            find_properties("---\n[unterminated\n---\nBody.\n"),
+            Vec::new()
+        );
     }
 }

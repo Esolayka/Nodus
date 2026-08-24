@@ -17,7 +17,10 @@ use crate::telegram::TelegramState;
 /// wider than nothing at all (the `tauri.conf.json` default is empty).
 fn regrant_asset_scope(app: &AppHandle, state: &State<AppState>, new_root: &std::path::Path) {
     let scope = app.asset_protocol_scope();
-    let mut scoped = state.scoped_vault_root.lock().expect("app state mutex poisoned");
+    let mut scoped = state
+        .scoped_vault_root
+        .lock()
+        .expect("app state mutex poisoned");
     if let Some(previous) = scoped.take() {
         let _ = scope.forbid_directory(&previous, true);
     }
@@ -61,8 +64,13 @@ fn with_service<T>(
 /// genuinely open, since that route only ever reads this field and
 /// nothing used to write to it at all.
 fn update_telegram_identity(telegram_state: &TelegramState, vault_path: &str) {
-    let identity = nodus_core::telegram_link::load_or_create_identity(std::path::Path::new(vault_path)).ok();
-    *telegram_state.server.identity.lock().expect("mutex poisoned") = identity;
+    let identity =
+        nodus_core::telegram_link::load_or_create_identity(std::path::Path::new(vault_path)).ok();
+    *telegram_state
+        .server
+        .identity
+        .lock()
+        .expect("mutex poisoned") = identity;
 }
 
 #[tauri::command]
@@ -207,7 +215,10 @@ pub fn get_backlinks(state: State<AppState>, path: String) -> Result<Vec<Backlin
 }
 
 #[tauri::command]
-pub fn get_outgoing_links(state: State<AppState>, path: String) -> Result<Vec<OutgoingLink>, String> {
+pub fn get_outgoing_links(
+    state: State<AppState>,
+    path: String,
+) -> Result<Vec<OutgoingLink>, String> {
     with_service(&state, |s| s.outgoing_links(&path))
 }
 
@@ -248,7 +259,10 @@ pub fn restore_version(state: State<AppState>, path: String, id: u64) -> Result<
 }
 
 #[tauri::command]
-pub fn set_history_settings(state: State<AppState>, settings: HistorySettings) -> Result<(), String> {
+pub fn set_history_settings(
+    state: State<AppState>,
+    settings: HistorySettings,
+) -> Result<(), String> {
     let guard = state.service.lock().expect("app state mutex poisoned");
     let service = guard
         .as_ref()
@@ -362,7 +376,9 @@ pub fn preview_replace(
     replace_with: String,
     skip_code_blocks: bool,
 ) -> Result<Vec<ReplaceFilePreview>, String> {
-    with_service(&state, |s| s.preview_replace(&find, &replace_with, skip_code_blocks))
+    with_service(&state, |s| {
+        s.preview_replace(&find, &replace_with, skip_code_blocks)
+    })
 }
 
 #[tauri::command]
@@ -402,7 +418,13 @@ pub fn toggle_task(
     add_completion_date: bool,
 ) -> Result<(), String> {
     with_service(&state, |s| {
-        s.toggle_task(&path, marker_start, marker_end, &expected_marker, add_completion_date)
+        s.toggle_task(
+            &path,
+            marker_start,
+            marker_end,
+            &expected_marker,
+            add_completion_date,
+        )
     })?;
     let _ = app.emit(
         "vault:changed",
@@ -423,11 +445,18 @@ pub fn import_attachment_from_path(
     source_absolute: String,
 ) -> Result<String, String> {
     let path = with_service(&state, |s| {
-        s.import_attachment_from_path(&folder, &desired_name, std::path::Path::new(&source_absolute))
+        s.import_attachment_from_path(
+            &folder,
+            &desired_name,
+            std::path::Path::new(&source_absolute),
+        )
     })?;
     let _ = app.emit(
         "vault:changed",
-        FsChange { kind: nodus_core::ChangeKind::Created, path: path.clone() },
+        FsChange {
+            kind: nodus_core::ChangeKind::Created,
+            path: path.clone(),
+        },
     );
     Ok(path)
 }
@@ -440,10 +469,15 @@ pub fn import_attachment_bytes(
     desired_name: String,
     bytes: Vec<u8>,
 ) -> Result<String, String> {
-    let path = with_service(&state, |s| s.import_attachment_bytes(&folder, &desired_name, &bytes))?;
+    let path = with_service(&state, |s| {
+        s.import_attachment_bytes(&folder, &desired_name, &bytes)
+    })?;
     let _ = app.emit(
         "vault:changed",
-        FsChange { kind: nodus_core::ChangeKind::Created, path: path.clone() },
+        FsChange {
+            kind: nodus_core::ChangeKind::Created,
+            path: path.clone(),
+        },
     );
     Ok(path)
 }

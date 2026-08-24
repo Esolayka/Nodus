@@ -42,7 +42,12 @@ fn encode_embedding(vector: &[f32]) -> Vec<u8> {
 }
 
 fn decode_embedding(bytes: &[u8]) -> Vec<f32> {
-    bytes.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()
+    bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|bytes| f32::from_le_bytes(*bytes))
+        .collect()
 }
 
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
@@ -82,7 +87,11 @@ impl VectorStore {
     pub fn needs_reindex(&self, note_path: &str, content_hash: &str) -> Result<bool> {
         let stored: Option<String> = self
             .conn
-            .query_row("SELECT content_hash FROM notes WHERE path = ?1", params![note_path], |row| row.get(0))
+            .query_row(
+                "SELECT content_hash FROM notes WHERE path = ?1",
+                params![note_path],
+                |row| row.get(0),
+            )
             .ok();
         Ok(stored.as_deref() != Some(content_hash))
     }
@@ -90,7 +99,12 @@ impl VectorStore {
     /// Replaces every chunk stored for `note_path` with `chunks` in one
     /// transaction — a crash partway through never leaves a note with a
     /// mix of stale and fresh chunks.
-    pub fn reindex_note(&mut self, note_path: &str, content_hash: &str, chunks: &[(TextChunk, Vec<f32>)]) -> Result<()> {
+    pub fn reindex_note(
+        &mut self,
+        note_path: &str,
+        content_hash: &str,
+        chunks: &[(TextChunk, Vec<f32>)],
+    ) -> Result<()> {
         let tx = self.conn.transaction()?;
         tx.execute("DELETE FROM notes WHERE path = ?1", params![note_path])?;
         tx.execute(
@@ -110,29 +124,44 @@ impl VectorStore {
     /// Drops every chunk for a note that no longer exists (deleted or
     /// moved out from under the index).
     pub fn remove_note(&mut self, note_path: &str) -> Result<()> {
-        self.conn.execute("DELETE FROM notes WHERE path = ?1", params![note_path])?;
+        self.conn
+            .execute("DELETE FROM notes WHERE path = ?1", params![note_path])?;
         Ok(())
     }
 
     pub fn indexed_note_count(&self) -> Result<usize> {
-        Ok(self.conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get::<_, i64>(0))? as usize)
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM notes", [], |row| row.get::<_, i64>(0))?
+            as usize)
     }
 
     pub fn indexed_chunk_count(&self) -> Result<usize> {
-        Ok(self.conn.query_row("SELECT COUNT(*) FROM chunks", [], |row| row.get::<_, i64>(0))? as usize)
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM chunks", [], |row| {
+                row.get::<_, i64>(0)
+            })? as usize)
     }
 
     /// Brute-force cosine similarity over every stored chunk — plenty
     /// fast at the scale of one vault's worth of notes, and much simpler
     /// than standing up an approximate-nearest-neighbor index for it.
     pub fn search(&self, query_embedding: &[f32], limit: usize) -> Result<Vec<ChunkMatch>> {
-        let mut stmt = self.conn.prepare("SELECT note_path, start_offset, end_offset, embedding FROM chunks")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT note_path, start_offset, end_offset, embedding FROM chunks")?;
         let rows = stmt.query_map([], |row| {
             let note_path: String = row.get(0)?;
             let start: i64 = row.get(1)?;
             let end: i64 = row.get(2)?;
             let embedding: Vec<u8> = row.get(3)?;
-            Ok((note_path, start as usize, end as usize, decode_embedding(&embedding)))
+            Ok((
+                note_path,
+                start as usize,
+                end as usize,
+                decode_embedding(&embedding),
+            ))
         })?;
 
         let mut scored: Vec<ChunkMatch> = rows
@@ -144,7 +173,11 @@ impl VectorStore {
                 score: cosine_similarity(query_embedding, &embedding),
             })
             .collect();
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         scored.truncate(limit);
         Ok(scored)
     }
@@ -161,7 +194,11 @@ mod tests {
     }
 
     fn chunk(start: usize, end: usize, text: &str) -> TextChunk {
-        TextChunk { text: text.to_string(), start, end }
+        TextChunk {
+            text: text.to_string(),
+            start,
+            end,
+        }
     }
 
     #[test]
@@ -179,14 +216,26 @@ mod tests {
     #[test]
     fn an_unchanged_content_hash_does_not_need_reindexing() {
         let (_dir, mut store) = open_temp();
-        store.reindex_note("Note.md", "hash-1", &[(chunk(0, 5, "hello"), vec![0.1, 0.2, 0.3])]).unwrap();
+        store
+            .reindex_note(
+                "Note.md",
+                "hash-1",
+                &[(chunk(0, 5, "hello"), vec![0.1, 0.2, 0.3])],
+            )
+            .unwrap();
         assert!(!store.needs_reindex("Note.md", "hash-1").unwrap());
     }
 
     #[test]
     fn a_changed_content_hash_needs_reindexing() {
         let (_dir, mut store) = open_temp();
-        store.reindex_note("Note.md", "hash-1", &[(chunk(0, 5, "hello"), vec![0.1, 0.2, 0.3])]).unwrap();
+        store
+            .reindex_note(
+                "Note.md",
+                "hash-1",
+                &[(chunk(0, 5, "hello"), vec![0.1, 0.2, 0.3])],
+            )
+            .unwrap();
         assert!(store.needs_reindex("Note.md", "hash-2").unwrap());
     }
 
@@ -194,22 +243,45 @@ mod tests {
     fn reindexing_replaces_old_chunks_rather_than_accumulating_them() {
         let (_dir, mut store) = open_temp();
         store
-            .reindex_note("Note.md", "hash-1", &[(chunk(0, 5, "hello"), vec![1.0, 0.0]), (chunk(5, 10, "world"), vec![0.0, 1.0])])
+            .reindex_note(
+                "Note.md",
+                "hash-1",
+                &[
+                    (chunk(0, 5, "hello"), vec![1.0, 0.0]),
+                    (chunk(5, 10, "world"), vec![0.0, 1.0]),
+                ],
+            )
             .unwrap();
         assert_eq!(store.indexed_chunk_count().unwrap(), 2);
 
-        store.reindex_note("Note.md", "hash-2", &[(chunk(0, 3, "hi!"), vec![1.0, 1.0])]).unwrap();
-        assert_eq!(store.indexed_chunk_count().unwrap(), 1, "the old chunks must be gone, not appended to");
+        store
+            .reindex_note("Note.md", "hash-2", &[(chunk(0, 3, "hi!"), vec![1.0, 1.0])])
+            .unwrap();
+        assert_eq!(
+            store.indexed_chunk_count().unwrap(),
+            1,
+            "the old chunks must be gone, not appended to"
+        );
         assert_eq!(store.indexed_note_count().unwrap(), 1);
     }
 
     #[test]
     fn removing_a_note_drops_its_chunks_via_cascade() {
         let (_dir, mut store) = open_temp();
-        store.reindex_note("Note.md", "hash-1", &[(chunk(0, 5, "hello"), vec![1.0, 0.0])]).unwrap();
+        store
+            .reindex_note(
+                "Note.md",
+                "hash-1",
+                &[(chunk(0, 5, "hello"), vec![1.0, 0.0])],
+            )
+            .unwrap();
         store.remove_note("Note.md").unwrap();
         assert_eq!(store.indexed_note_count().unwrap(), 0);
-        assert_eq!(store.indexed_chunk_count().unwrap(), 0, "cascade delete should remove orphaned chunks too");
+        assert_eq!(
+            store.indexed_chunk_count().unwrap(),
+            0,
+            "cascade delete should remove orphaned chunks too"
+        );
     }
 
     #[test]
@@ -219,10 +291,19 @@ mod tests {
             .reindex_note(
                 "A.md",
                 "hash-a",
-                &[(chunk(0, 5, "close"), vec![1.0, 0.0, 0.0]), (chunk(5, 10, "far"), vec![0.0, 1.0, 0.0])],
+                &[
+                    (chunk(0, 5, "close"), vec![1.0, 0.0, 0.0]),
+                    (chunk(5, 10, "far"), vec![0.0, 1.0, 0.0]),
+                ],
             )
             .unwrap();
-        store.reindex_note("B.md", "hash-b", &[(chunk(0, 5, "opposite"), vec![-1.0, 0.0, 0.0])]).unwrap();
+        store
+            .reindex_note(
+                "B.md",
+                "hash-b",
+                &[(chunk(0, 5, "opposite"), vec![-1.0, 0.0, 0.0])],
+            )
+            .unwrap();
 
         let results = store.search(&[1.0, 0.0, 0.0], 2).unwrap();
         assert_eq!(results.len(), 2);
@@ -233,8 +314,9 @@ mod tests {
     #[test]
     fn search_respects_the_limit() {
         let (_dir, mut store) = open_temp();
-        let chunks: Vec<(TextChunk, Vec<f32>)> =
-            (0..10).map(|i| (chunk(i, i + 1, "x"), vec![i as f32, 1.0, 0.0])).collect();
+        let chunks: Vec<(TextChunk, Vec<f32>)> = (0..10)
+            .map(|i| (chunk(i, i + 1, "x"), vec![i as f32, 1.0, 0.0]))
+            .collect();
         store.reindex_note("Note.md", "hash-1", &chunks).unwrap();
         assert_eq!(store.search(&[5.0, 1.0, 0.0], 3).unwrap().len(), 3);
     }

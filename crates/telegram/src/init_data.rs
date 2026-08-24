@@ -63,7 +63,9 @@ pub fn verify(
         let mut parts = pair.splitn(2, '=');
         let key = parts.next().unwrap_or_default();
         let raw_value = parts.next().unwrap_or_default();
-        let value = percent_decode_str(raw_value).decode_utf8_lossy().into_owned();
+        let value = percent_decode_str(raw_value)
+            .decode_utf8_lossy()
+            .into_owned();
         if key == "hash" {
             hash = Some(value);
         } else {
@@ -73,13 +75,19 @@ pub fn verify(
 
     let hash = hash.ok_or(VerifyError::MissingHash)?;
     pairs.sort_by(|a, b| a.0.cmp(&b.0));
-    let data_check_string = pairs.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("\n");
+    let data_check_string = pairs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
-    let mut secret_mac = HmacSha256::new_from_slice(b"WebAppData").expect("HMAC accepts any key length");
+    let mut secret_mac =
+        HmacSha256::new_from_slice(b"WebAppData").expect("HMAC accepts any key length");
     secret_mac.update(bot_token.as_bytes());
     let secret_key = secret_mac.finalize().into_bytes();
 
-    let mut data_mac = HmacSha256::new_from_slice(&secret_key).expect("HMAC accepts any key length");
+    let mut data_mac =
+        HmacSha256::new_from_slice(&secret_key).expect("HMAC accepts any key length");
     data_mac.update(data_check_string.as_bytes());
     let computed = hex::encode(data_mac.finalize().into_bytes());
 
@@ -87,14 +95,22 @@ pub fn verify(
         return Err(VerifyError::BadSignature);
     }
 
-    let auth_date: i64 =
-        pairs.iter().find(|(k, _)| k == "auth_date").and_then(|(_, v)| v.parse().ok()).ok_or(VerifyError::MissingAuthDate)?;
+    let auth_date: i64 = pairs
+        .iter()
+        .find(|(k, _)| k == "auth_date")
+        .and_then(|(_, v)| v.parse().ok())
+        .ok_or(VerifyError::MissingAuthDate)?;
     if now - auth_date > max_age_secs {
         return Err(VerifyError::Expired);
     }
 
-    let user_json = pairs.iter().find(|(k, _)| k == "user").map(|(_, v)| v.clone()).ok_or(VerifyError::MissingUser)?;
-    let user: TelegramUser = serde_json::from_str(&user_json).map_err(|_| VerifyError::InvalidUser)?;
+    let user_json = pairs
+        .iter()
+        .find(|(k, _)| k == "user")
+        .map(|(_, v)| v.clone())
+        .ok_or(VerifyError::MissingUser)?;
+    let user: TelegramUser =
+        serde_json::from_str(&user_json).map_err(|_| VerifyError::InvalidUser)?;
 
     Ok(VerifiedInitData { user, auth_date })
 }
@@ -118,9 +134,16 @@ mod tests {
     /// client SDK does, so tests exercise the real algorithm rather than a
     /// simplified stand-in.
     fn build_init_data(bot_token: &str, user_json: &str, auth_date: i64) -> String {
-        let mut pairs = vec![("auth_date".to_string(), auth_date.to_string()), ("user".to_string(), user_json.to_string())];
+        let mut pairs = [
+            ("auth_date".to_string(), auth_date.to_string()),
+            ("user".to_string(), user_json.to_string()),
+        ];
         pairs.sort_by(|a, b| a.0.cmp(&b.0));
-        let data_check_string = pairs.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("\n");
+        let data_check_string = pairs
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let mut secret_mac = HmacSha256::new_from_slice(b"WebAppData").unwrap();
         secret_mac.update(bot_token.as_bytes());
@@ -137,7 +160,11 @@ mod tests {
 
     #[test]
     fn a_genuinely_signed_init_data_verifies() {
-        let init_data = build_init_data("123:ABC-token", r#"{"id":42,"first_name":"Ann"}"#, 1_000_000);
+        let init_data = build_init_data(
+            "123:ABC-token",
+            r#"{"id":42,"first_name":"Ann"}"#,
+            1_000_000,
+        );
         let result = verify(&init_data, "123:ABC-token", 1_000_050, 300).unwrap();
         assert_eq!(result.user.id, 42);
         assert_eq!(result.user.first_name, "Ann");
@@ -145,25 +172,49 @@ mod tests {
 
     #[test]
     fn a_tampered_user_id_fails_verification() {
-        let init_data = build_init_data("123:ABC-token", r#"{"id":42,"first_name":"Ann"}"#, 1_000_000);
+        let init_data = build_init_data(
+            "123:ABC-token",
+            r#"{"id":42,"first_name":"Ann"}"#,
+            1_000_000,
+        );
         let tampered = init_data.replace("42", "99999");
-        assert_eq!(verify(&tampered, "123:ABC-token", 1_000_050, 300).unwrap_err(), VerifyError::BadSignature);
+        assert_eq!(
+            verify(&tampered, "123:ABC-token", 1_000_050, 300).unwrap_err(),
+            VerifyError::BadSignature
+        );
     }
 
     #[test]
     fn the_wrong_bot_token_fails_verification() {
-        let init_data = build_init_data("123:ABC-token", r#"{"id":42,"first_name":"Ann"}"#, 1_000_000);
-        assert_eq!(verify(&init_data, "999:WRONG-token", 1_000_050, 300).unwrap_err(), VerifyError::BadSignature);
+        let init_data = build_init_data(
+            "123:ABC-token",
+            r#"{"id":42,"first_name":"Ann"}"#,
+            1_000_000,
+        );
+        assert_eq!(
+            verify(&init_data, "999:WRONG-token", 1_000_050, 300).unwrap_err(),
+            VerifyError::BadSignature
+        );
     }
 
     #[test]
     fn init_data_older_than_max_age_is_rejected() {
-        let init_data = build_init_data("123:ABC-token", r#"{"id":42,"first_name":"Ann"}"#, 1_000_000);
-        assert_eq!(verify(&init_data, "123:ABC-token", 1_000_000 + 301, 300).unwrap_err(), VerifyError::Expired);
+        let init_data = build_init_data(
+            "123:ABC-token",
+            r#"{"id":42,"first_name":"Ann"}"#,
+            1_000_000,
+        );
+        assert_eq!(
+            verify(&init_data, "123:ABC-token", 1_000_000 + 301, 300).unwrap_err(),
+            VerifyError::Expired
+        );
     }
 
     #[test]
     fn missing_hash_is_rejected() {
-        assert_eq!(verify("auth_date=1000000&user=%7B%7D", "any-token", 1_000_000, 300).unwrap_err(), VerifyError::MissingHash);
+        assert_eq!(
+            verify("auth_date=1000000&user=%7B%7D", "any-token", 1_000_000, 300).unwrap_err(),
+            VerifyError::MissingHash
+        );
     }
 }

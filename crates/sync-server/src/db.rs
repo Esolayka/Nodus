@@ -6,7 +6,10 @@ use rusqlite::{Connection, OptionalExtension};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
 }
 
 pub fn open(path: &std::path::Path) -> rusqlite::Result<Connection> {
@@ -71,8 +74,10 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 pub fn used_bytes(conn: &Connection) -> rusqlite::Result<u64> {
-    conn.query_row("SELECT COALESCE(SUM(size), 0) FROM chunks", [], |row| row.get::<_, i64>(0))
-        .map(|v| v as u64)
+    conn.query_row("SELECT COALESCE(SUM(size), 0) FROM chunks", [], |row| {
+        row.get::<_, i64>(0)
+    })
+    .map(|v| v as u64)
 }
 
 pub fn device_count(conn: &Connection) -> rusqlite::Result<i64> {
@@ -80,7 +85,10 @@ pub fn device_count(conn: &Connection) -> rusqlite::Result<i64> {
 }
 
 pub fn device_id_for_token(conn: &Connection, token: &str) -> rusqlite::Result<Option<String>> {
-    conn.query_row("SELECT id FROM devices WHERE token = ?1", [token], |row| row.get(0)).optional()
+    conn.query_row("SELECT id FROM devices WHERE token = ?1", [token], |row| {
+        row.get(0)
+    })
+    .optional()
 }
 
 pub fn insert_device(
@@ -114,7 +122,12 @@ pub fn set_bootstrap_code(conn: &Connection, code: &str) -> rusqlite::Result<()>
 }
 
 pub fn bootstrap_code(conn: &Connection) -> rusqlite::Result<Option<String>> {
-    conn.query_row("SELECT value FROM meta WHERE key = 'bootstrap_code'", [], |row| row.get(0)).optional()
+    conn.query_row(
+        "SELECT value FROM meta WHERE key = 'bootstrap_code'",
+        [],
+        |row| row.get(0),
+    )
+    .optional()
 }
 
 pub fn clear_bootstrap_code(conn: &Connection) -> rusqlite::Result<()> {
@@ -145,7 +158,10 @@ pub fn upsert_announcement(
     Ok(())
 }
 
-pub fn get_announcement(conn: &Connection, discovery_id: &str) -> rusqlite::Result<Option<Announcement>> {
+pub fn get_announcement(
+    conn: &Connection,
+    discovery_id: &str,
+) -> rusqlite::Result<Option<Announcement>> {
     conn.query_row(
         "SELECT encrypted_address, updated_at, expires_at FROM announcements WHERE discovery_id = ?1",
         [discovery_id],
@@ -161,6 +177,12 @@ pub fn get_announcement(conn: &Connection, discovery_id: &str) -> rusqlite::Resu
 /// unavailable, last seen at ...", which is deliberate), just bounding
 /// storage for a public instance serving devices that stopped using local
 /// mode entirely.
-pub fn delete_long_stale_announcements(conn: &Connection, older_than: i64) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM announcements WHERE updated_at < ?1", [older_than])
+pub fn delete_long_stale_announcements(
+    conn: &Connection,
+    older_than: i64,
+) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM announcements WHERE updated_at < ?1",
+        [older_than],
+    )
 }

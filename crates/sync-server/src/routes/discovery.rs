@@ -29,7 +29,10 @@ pub struct AnnounceRequest {
     encrypted_address: String,
 }
 
-pub async fn announce(State(state): State<AppState>, Json(body): Json<AnnounceRequest>) -> Result<(), ApiError> {
+pub async fn announce(
+    State(state): State<AppState>,
+    Json(body): Json<AnnounceRequest>,
+) -> Result<(), ApiError> {
     if body.discovery_id.is_empty() || body.discovery_id.len() > 128 {
         return Err(ApiError::BadRequest("invalid discovery id".into()));
     }
@@ -37,7 +40,13 @@ pub async fn announce(State(state): State<AppState>, Json(body): Json<AnnounceRe
         return Err(ApiError::BadRequest("invalid encrypted address".into()));
     }
     let conn = state.conn.lock().expect("db mutex poisoned");
-    db::upsert_announcement(&conn, &body.discovery_id, &body.encrypted_address, db::now(), ANNOUNCEMENT_TTL_SECS)?;
+    db::upsert_announcement(
+        &conn,
+        &body.discovery_id,
+        &body.encrypted_address,
+        db::now(),
+        ANNOUNCEMENT_TTL_SECS,
+    )?;
     Ok(())
 }
 
@@ -58,5 +67,9 @@ pub async fn resolve(
         return Err(ApiError::NotFound);
     };
     let stale = db::now() > announcement.expires_at;
-    Ok(Json(ResolveResponse { encrypted_address: announcement.encrypted_address, updated_at: announcement.updated_at, stale }))
+    Ok(Json(ResolveResponse {
+        encrypted_address: announcement.encrypted_address,
+        updated_at: announcement.updated_at,
+        stale,
+    }))
 }

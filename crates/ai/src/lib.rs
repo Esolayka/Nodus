@@ -25,6 +25,10 @@ pub use error::{ProviderError, Result};
 pub use log::{LogEntry, NewLogEntry, RequestLog};
 pub use ollama::OllamaClient;
 pub use openai_compatible::OpenAiCompatibleClient;
-pub use provider::{ChatMessage, ChatProvider, ChatRequest, ChatResponse, ChatUsage, ModelInfo, Role};
-pub use settings::{build_provider, ChatProtocol, ConnectionMethod, LocalBackend, ProviderSettings};
+pub use provider::{
+    ChatMessage, ChatProvider, ChatRequest, ChatResponse, ChatUsage, ModelInfo, Role,
+};
+pub use settings::{
+    build_provider, ChatProtocol, ConnectionMethod, LocalBackend, ProviderSettings,
+};
 pub use vector_store::{hash_content, ChunkMatch, VectorStore, VectorStoreError};

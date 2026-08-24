@@ -42,7 +42,8 @@ pub async fn diff(
     Json(body): Json<DiffRequest>,
 ) -> Result<Json<DiffResponse>, ApiError> {
     let conn = state.conn.lock().expect("db mutex poisoned");
-    let mut stmt = conn.prepare("SELECT id, version, deleted, chunk_ids, encrypted_path FROM files")?;
+    let mut stmt =
+        conn.prepare("SELECT id, version, deleted, chunk_ids, encrypted_path FROM files")?;
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -59,7 +60,13 @@ pub async fn diff(
         let known = body.versions.get(&id).copied().unwrap_or(0);
         if known != version {
             let chunk_ids: Vec<String> = serde_json::from_str(&chunk_ids_json).unwrap_or_default();
-            changed.push(ChangedFile { id, version, deleted, chunk_ids, encrypted_path });
+            changed.push(ChangedFile {
+                id,
+                version,
+                deleted,
+                chunk_ids,
+                encrypted_path,
+            });
         }
     }
     Ok(Json(DiffResponse { changed }))
@@ -86,12 +93,14 @@ fn load_current(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Optio
     )
     .optional()
     .map(|opt| {
-        opt.map(|(version, deleted, chunk_ids_json, encrypted_path)| CurrentFile {
-            version,
-            deleted,
-            chunk_ids: serde_json::from_str(&chunk_ids_json).unwrap_or_default(),
-            encrypted_path,
-        })
+        opt.map(
+            |(version, deleted, chunk_ids_json, encrypted_path)| CurrentFile {
+                version,
+                deleted,
+                chunk_ids: serde_json::from_str(&chunk_ids_json).unwrap_or_default(),
+                encrypted_path,
+            },
+        )
     })
 }
 
@@ -103,7 +112,12 @@ fn conflict_from(current_version: u64, current: &Option<CurrentFile>) -> ApiErro
             deleted: c.deleted,
             encrypted_path: c.encrypted_path.clone(),
         },
-        None => ApiError::Conflict { current_version, chunk_ids: Vec::new(), deleted: false, encrypted_path: None },
+        None => ApiError::Conflict {
+            current_version,
+            chunk_ids: Vec::new(),
+            deleted: false,
+            encrypted_path: None,
+        },
     }
 }
 
@@ -138,16 +152,22 @@ pub async fn put_blob(
     // committing a manifest that references content the server doesn't
     // have would silently corrupt the next download.
     for chunk_id in &body.chunk_ids {
-        let exists: bool =
-            conn.query_row("SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)", [chunk_id], |row| row.get(0))?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM chunks WHERE id = ?1)",
+            [chunk_id],
+            |row| row.get(0),
+        )?;
         if !exists {
-            return Err(ApiError::BadRequest(format!("chunk {chunk_id} was not uploaded")));
+            return Err(ApiError::BadRequest(format!(
+                "chunk {chunk_id} was not uploaded"
+            )));
         }
     }
 
     let new_version = current_version + 1;
     let now = db::now();
-    let chunk_ids_json = serde_json::to_string(&body.chunk_ids).expect("Vec<String> always serializes");
+    let chunk_ids_json =
+        serde_json::to_string(&body.chunk_ids).expect("Vec<String> always serializes");
     conn.execute(
         "INSERT INTO files (id, version, deleted, chunk_ids, encrypted_path, updated_at)
          VALUES (?1, ?2, 0, ?3, ?4, ?5)
@@ -159,10 +179,15 @@ pub async fn put_blob(
 
     conn.execute("DELETE FROM chunk_refs WHERE file_id = ?1", [&id])?;
     for chunk_id in &body.chunk_ids {
-        conn.execute("INSERT OR IGNORE INTO chunk_refs (chunk_id, file_id) VALUES (?1, ?2)", rusqlite::params![chunk_id, id])?;
+        conn.execute(
+            "INSERT OR IGNORE INTO chunk_refs (chunk_id, file_id) VALUES (?1, ?2)",
+            rusqlite::params![chunk_id, id],
+        )?;
     }
 
-    Ok(Json(VersionResponse { version: new_version }))
+    Ok(Json(VersionResponse {
+        version: new_version,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -200,5 +225,7 @@ pub async fn delete_blob(
     )?;
     conn.execute("DELETE FROM chunk_refs WHERE file_id = ?1", [&id])?;
 
-    Ok(Json(VersionResponse { version: new_version }))
+    Ok(Json(VersionResponse {
+        version: new_version,
+    }))
 }

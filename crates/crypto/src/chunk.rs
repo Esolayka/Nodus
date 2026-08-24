@@ -115,7 +115,10 @@ mod tests {
         let dek = Dek::generate();
         let plaintext = [vec![1u8; CHUNK_SIZE], vec![1u8; CHUNK_SIZE]].concat();
         let chunks = split_and_encrypt(&dek, &plaintext);
-        assert_eq!(chunks[0].id, chunks[1].id, "two identical chunks must share an id to dedupe");
+        assert_eq!(
+            chunks[0].id, chunks[1].id,
+            "two identical chunks must share an id to dedupe"
+        );
         assert_ne!(
             chunks[0].ciphertext, chunks[1].ciphertext,
             "but their ciphertexts must still differ (independent random nonces)"
@@ -136,9 +139,18 @@ mod tests {
         plaintext[CHUNK_SIZE + 10] ^= 0xff; // flip a byte inside the middle chunk
         let after = split_and_encrypt(&dek, &plaintext);
 
-        assert_eq!(before[0].id, after[0].id, "untouched first chunk keeps its id");
-        assert_ne!(before[1].id, after[1].id, "edited middle chunk gets a new id");
-        assert_eq!(before[2].id, after[2].id, "untouched last chunk keeps its id");
+        assert_eq!(
+            before[0].id, after[0].id,
+            "untouched first chunk keeps its id"
+        );
+        assert_ne!(
+            before[1].id, after[1].id,
+            "edited middle chunk gets a new id"
+        );
+        assert_eq!(
+            before[2].id, after[2].id,
+            "untouched last chunk keeps its id"
+        );
     }
 
     #[test]

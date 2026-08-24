@@ -68,14 +68,18 @@ fn plain_chunks(plaintext: &[u8]) -> Vec<(String, Vec<u8>)> {
     if plaintext.is_empty() {
         return vec![(hash_piece(&[]), Vec::new())];
     }
-    plaintext.chunks(nodus_crypto::chunk::CHUNK_SIZE).map(|p| (hash_piece(p), p.to_vec())).collect()
+    plaintext
+        .chunks(nodus_crypto::chunk::CHUNK_SIZE)
+        .map(|p| (hash_piece(p), p.to_vec()))
+        .collect()
 }
 
 fn chunk_content(dek: Option<&Dek>, plaintext: &[u8]) -> Vec<(String, Vec<u8>)> {
     match dek {
-        Some(dek) => {
-            nodus_crypto::chunk::split_and_encrypt(dek, plaintext).into_iter().map(|c| (c.id, c.ciphertext)).collect()
-        }
+        Some(dek) => nodus_crypto::chunk::split_and_encrypt(dek, plaintext)
+            .into_iter()
+            .map(|c| (c.id, c.ciphertext))
+            .collect(),
         None => plain_chunks(plaintext),
     }
 }
@@ -164,8 +168,16 @@ fn today_string() -> String {
 }
 
 fn sanitize_device_name(name: &str) -> String {
-    let cleaned: String =
-        name.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == ' ' { c } else { '_' }).collect();
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == ' ' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
     let trimmed = cleaned.trim();
     if trimmed.is_empty() {
         "device".to_string()
@@ -213,7 +225,9 @@ fn conflict_copy_path(vault: &Vault, path: &str, device_name: &str) -> Result<Pa
 }
 
 fn is_locally_dirty(vault: &Vault, path: &str, existing: Option<&db::FileState>) -> Result<bool> {
-    let Ok(full) = vault.resolve(path) else { return Ok(false) };
+    let Ok(full) = vault.resolve(path) else {
+        return Ok(false);
+    };
     let Ok(bytes) = std::fs::read(&full) else {
         return Ok(false); // doesn't exist locally — nothing to conflict with
     };
@@ -241,7 +255,13 @@ impl ServerSync {
             std::fs::create_dir_all(parent)?;
         }
         let db = db::open(&db_path)?;
-        Ok(Self { client: ServerSyncClient::new(base_url, token), vault, db, dek, device_name: device_name.into() })
+        Ok(Self {
+            client: ServerSyncClient::new(base_url, token),
+            vault,
+            db,
+            dek,
+            device_name: device_name.into(),
+        })
     }
 
     pub fn client(&self) -> &ServerSyncClient {
@@ -348,8 +368,14 @@ impl ServerSync {
         // automatic merge first, and only keep both copies if real
         // conflicting hunks remain.
         let local_bytes = std::fs::read(&full).unwrap_or_default();
-        let merged =
-            existing.and_then(|state| try_merge_text(path, &state.content_snapshot, &local_bytes, &remote_plaintext));
+        let merged = existing.and_then(|state| {
+            try_merge_text(
+                path,
+                &state.content_snapshot,
+                &local_bytes,
+                &remote_plaintext,
+            )
+        });
 
         match merged {
             Some(merged_bytes) => {
@@ -418,7 +444,9 @@ impl ServerSync {
     }
 
     fn push_deletion(&mut self, path: &str, report: &mut SyncReport) -> Result<()> {
-        let Some(state) = db::find_by_path(&self.db, path)? else { return Ok(()) };
+        let Some(state) = db::find_by_path(&self.db, path)? else {
+            return Ok(());
+        };
         match self.client.delete_blob(&state.blob_id, state.version)? {
             PutOutcome::Committed { .. } => {
                 db::delete(&self.db, path)?;
@@ -435,17 +463,27 @@ impl ServerSync {
     }
 
     fn push_one(&mut self, path: &str, dek: Option<&Dek>, report: &mut SyncReport) -> Result<()> {
-        let Ok(full) = self.vault.resolve(path) else { return Ok(()) };
-        let Ok(bytes) = std::fs::read(&full) else { return Ok(()) };
+        let Ok(full) = self.vault.resolve(path) else {
+            return Ok(());
+        };
+        let Ok(bytes) = std::fs::read(&full) else {
+            return Ok(());
+        };
         let hash = content_hash(&bytes);
 
         let state = db::find_by_path(&self.db, path)?;
-        let changed = state.as_ref().map(|s| s.content_hash != hash).unwrap_or(true);
+        let changed = state
+            .as_ref()
+            .map(|s| s.content_hash != hash)
+            .unwrap_or(true);
         if !changed {
             return Ok(());
         }
 
-        let blob_id = state.as_ref().map(|s| s.blob_id.clone()).unwrap_or_else(|| blob_id_for_path(dek, path));
+        let blob_id = state
+            .as_ref()
+            .map(|s| s.blob_id.clone())
+            .unwrap_or_else(|| blob_id_for_path(dek, path));
         let base_version = state.as_ref().map(|s| s.version).unwrap_or(0);
         let chunks = chunk_content(dek, &bytes);
         let chunk_ids: Vec<String> = chunks.iter().map(|(id, _)| id.clone()).collect();
@@ -458,7 +496,10 @@ impl ServerSync {
         }
 
         let encoded_path = encode_path_metadata(dek, path);
-        match self.client.put_blob(&blob_id, base_version, &chunk_ids, encoded_path)? {
+        match self
+            .client
+            .put_blob(&blob_id, base_version, &chunk_ids, encoded_path)?
+        {
             PutOutcome::Committed { version } => {
                 db::upsert(&self.db, path, &blob_id, version, &chunk_ids, &hash, &bytes)?;
                 report.uploaded.push(path.to_string());

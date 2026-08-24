@@ -70,9 +70,11 @@ pub fn find_by_path(conn: &Connection, path: &str) -> Result<Option<FileState>> 
             },
         )
         .optional()?;
-    Ok(row.map(|(path, blob_id, version, chunk_ids, hash, snapshot)| {
-        row_to_state(path, blob_id, version, chunk_ids, hash, snapshot)
-    }))
+    Ok(
+        row.map(|(path, blob_id, version, chunk_ids, hash, snapshot)| {
+            row_to_state(path, blob_id, version, chunk_ids, hash, snapshot)
+        }),
+    )
 }
 
 pub fn find_by_blob_id(conn: &Connection, blob_id: &str) -> Result<Option<FileState>> {
@@ -92,16 +94,20 @@ pub fn find_by_blob_id(conn: &Connection, blob_id: &str) -> Result<Option<FileSt
             },
         )
         .optional()?;
-    Ok(row.map(|(path, blob_id, version, chunk_ids, hash, snapshot)| {
-        row_to_state(path, blob_id, version, chunk_ids, hash, snapshot)
-    }))
+    Ok(
+        row.map(|(path, blob_id, version, chunk_ids, hash, snapshot)| {
+            row_to_state(path, blob_id, version, chunk_ids, hash, snapshot)
+        }),
+    )
 }
 
 /// All paths this vault has ever synced, keyed by blob id — what the client
 /// tells the server it already knows about when asking what changed.
 pub fn all_known_versions(conn: &Connection) -> Result<std::collections::HashMap<String, u64>> {
     let mut stmt = conn.prepare("SELECT blob_id, version FROM files")?;
-    let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64)))?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
+    })?;
     let mut map = std::collections::HashMap::new();
     for row in rows {
         let (blob_id, version) = row?;
@@ -126,7 +132,14 @@ pub fn upsert(
          ON CONFLICT(path) DO UPDATE SET blob_id = excluded.blob_id, version = excluded.version,
              chunk_ids = excluded.chunk_ids, content_hash = excluded.content_hash,
              content_snapshot = excluded.content_snapshot",
-        rusqlite::params![path, blob_id, version as i64, chunk_ids_json, content_hash, content_snapshot],
+        rusqlite::params![
+            path,
+            blob_id,
+            version as i64,
+            chunk_ids_json,
+            content_hash,
+            content_snapshot
+        ],
     )?;
     Ok(())
 }

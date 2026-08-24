@@ -285,12 +285,7 @@ impl Index {
             .map_err(|e| Error::Watch(format!("failed to init index schema: {e}")))?;
 
         ensure_column(&conn, "links", "line", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(
-            &conn,
-            "links",
-            "byte_offset",
-            "INTEGER NOT NULL DEFAULT 0",
-        )?;
+        ensure_column(&conn, "links", "byte_offset", "INTEGER NOT NULL DEFAULT 0")?;
 
         let stored_version: i64 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
@@ -379,16 +374,10 @@ impl Index {
         .map_err(index_err)?;
         conn.execute("DELETE FROM links WHERE from_path = ?1", params![relative])
             .map_err(index_err)?;
-        conn.execute(
-            "DELETE FROM headings WHERE path = ?1",
-            params![relative],
-        )
-        .map_err(index_err)?;
-        conn.execute(
-            "DELETE FROM notes_fts WHERE path = ?1",
-            params![relative],
-        )
-        .map_err(index_err)?;
+        conn.execute("DELETE FROM headings WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
+        conn.execute("DELETE FROM notes_fts WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
         conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
             .map_err(index_err)?;
         conn.execute("DELETE FROM tasks WHERE path = ?1", params![relative])
@@ -476,16 +465,10 @@ impl Index {
             .map_err(index_err)?;
         conn.execute("DELETE FROM links WHERE from_path = ?1", params![relative])
             .map_err(index_err)?;
-        conn.execute(
-            "DELETE FROM headings WHERE path = ?1",
-            params![relative],
-        )
-        .map_err(index_err)?;
-        conn.execute(
-            "DELETE FROM notes_fts WHERE path = ?1",
-            params![relative],
-        )
-        .map_err(index_err)?;
+        conn.execute("DELETE FROM headings WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
+        conn.execute("DELETE FROM notes_fts WHERE path = ?1", params![relative])
+            .map_err(index_err)?;
         conn.execute("DELETE FROM tags WHERE path = ?1", params![relative])
             .map_err(index_err)?;
         conn.execute("DELETE FROM tasks WHERE path = ?1", params![relative])
@@ -687,12 +670,14 @@ impl Index {
             } else {
                 let normalized = target_text.trim().to_lowercase();
                 let path = format!("unresolved:{normalized}");
-                nodes_by_path.entry(path.clone()).or_insert_with(|| GraphNode {
-                    path: path.clone(),
-                    title: target_text.trim().to_string(),
-                    kind: GraphNodeKind::Unresolved,
-                    created_at: note_created_at.get(&from_path).copied().unwrap_or(0),
-                });
+                nodes_by_path
+                    .entry(path.clone())
+                    .or_insert_with(|| GraphNode {
+                        path: path.clone(),
+                        title: target_text.trim().to_string(),
+                        kind: GraphNodeKind::Unresolved,
+                        created_at: note_created_at.get(&from_path).copied().unwrap_or(0),
+                    });
                 path
             };
             link_pairs.insert((from_path, target_path));
@@ -700,12 +685,14 @@ impl Index {
 
         for (note_path, tag) in tag_rows {
             let tag_path = format!("tag:#{tag}");
-            nodes_by_path.entry(tag_path.clone()).or_insert_with(|| GraphNode {
-                path: tag_path.clone(),
-                title: format!("#{tag}"),
-                kind: GraphNodeKind::Tag,
-                created_at: note_created_at.get(&note_path).copied().unwrap_or(0),
-            });
+            nodes_by_path
+                .entry(tag_path.clone())
+                .or_insert_with(|| GraphNode {
+                    path: tag_path.clone(),
+                    title: format!("#{tag}"),
+                    kind: GraphNodeKind::Tag,
+                    created_at: note_created_at.get(&note_path).copied().unwrap_or(0),
+                });
             link_pairs.insert((note_path, tag_path));
         }
 
@@ -867,7 +854,9 @@ impl Index {
     pub fn headings(&self, path: &str) -> Result<Vec<HeadingEntry>> {
         let conn = self.conn.lock().expect("index mutex poisoned");
         let mut stmt = conn
-            .prepare("SELECT level, text, position FROM headings WHERE path = ?1 ORDER BY position ASC")
+            .prepare(
+                "SELECT level, text, position FROM headings WHERE path = ?1 ORDER BY position ASC",
+            )
             .map_err(index_err)?;
         let rows = stmt
             .query_map(params![path], |row| {
@@ -896,8 +885,9 @@ impl Index {
         // superset heuristic (never excludes a real match), so the exact
         // case-sensitive check below is still the ground truth either way.
         let candidates: Vec<(String, String)> = match search::narrowing_fts_query(&query) {
-            Some(fts_q) => narrowed_notes_content(&conn, &fts_q)
-                .or_else(|_| all_notes_content(&conn))?,
+            Some(fts_q) => {
+                narrowed_notes_content(&conn, &fts_q).or_else(|_| all_notes_content(&conn))?
+            }
             None => all_notes_content(&conn)?,
         };
         let tag_map = tags_by_path(&conn)?;
@@ -1029,7 +1019,8 @@ fn all_notes_content(conn: &Connection) -> Result<Vec<(String, String)>> {
     let rows = stmt
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
         .map_err(index_err)?;
-    rows.collect::<std::result::Result<_, _>>().map_err(index_err)
+    rows.collect::<std::result::Result<_, _>>()
+        .map_err(index_err)
 }
 
 fn narrowed_notes_content(conn: &Connection, fts_query: &str) -> Result<Vec<(String, String)>> {
@@ -1039,11 +1030,14 @@ fn narrowed_notes_content(conn: &Connection, fts_query: &str) -> Result<Vec<(Str
     let rows = stmt
         .query_map(params![fts_query], |row| Ok((row.get(0)?, row.get(1)?)))
         .map_err(index_err)?;
-    rows.collect::<std::result::Result<_, _>>().map_err(index_err)
+    rows.collect::<std::result::Result<_, _>>()
+        .map_err(index_err)
 }
 
 fn tags_by_path(conn: &Connection) -> Result<std::collections::HashMap<String, Vec<String>>> {
-    let mut stmt = conn.prepare("SELECT path, tag FROM tags").map_err(index_err)?;
+    let mut stmt = conn
+        .prepare("SELECT path, tag FROM tags")
+        .map_err(index_err)?;
     let rows: Vec<(String, String)> = stmt
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
         .map_err(index_err)?
@@ -1266,7 +1260,11 @@ mod tests {
     fn backlinks_report_line_number() {
         let (dir, vault, index) = setup();
         std::fs::write(dir.path().join("B.md"), "").unwrap();
-        std::fs::write(dir.path().join("A.md"), "line one\nline two\nsee [[B]] here").unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "line one\nline two\nsee [[B]] here",
+        )
+        .unwrap();
         index.reconcile(&vault).unwrap();
 
         let backlinks = index.backlinks(&vault, "B.md").unwrap();
@@ -1365,9 +1363,10 @@ mod tests {
 
         let graph = index.graph(&vault).unwrap();
 
-        assert!(graph.nodes.iter().any(|node| {
-            node.path == "tag:#project" && node.kind == GraphNodeKind::Tag
-        }));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| { node.path == "tag:#project" && node.kind == GraphNodeKind::Tag }));
         assert!(graph.nodes.iter().any(|node| {
             node.path == "assets/photo.png" && node.kind == GraphNodeKind::Attachment
         }));
@@ -1464,14 +1463,22 @@ mod tests {
     #[test]
     fn all_tasks_reads_from_the_index_not_disk() {
         let (dir, vault, index) = setup();
-        std::fs::write(dir.path().join("A.md"), "- [ ] First 📅 2026-09-01\n- [x] Second\n").unwrap();
+        std::fs::write(
+            dir.path().join("A.md"),
+            "- [ ] First 📅 2026-09-01\n- [x] Second\n",
+        )
+        .unwrap();
         std::fs::write(dir.path().join("B.md"), "- [ ] Third ⏫\n").unwrap();
         index.reconcile(&vault).unwrap();
 
         let tasks = index.all_tasks().unwrap();
         assert_eq!(tasks.len(), 3);
-        assert!(tasks.iter().any(|t| t.path == "A.md" && t.text == "First" && t.due.as_deref() == Some("2026-09-01")));
-        assert!(tasks.iter().any(|t| t.path == "B.md" && t.priority == Some(3)));
+        assert!(tasks.iter().any(|t| t.path == "A.md"
+            && t.text == "First"
+            && t.due.as_deref() == Some("2026-09-01")));
+        assert!(tasks
+            .iter()
+            .any(|t| t.path == "B.md" && t.priority == Some(3)));
     }
 
     /// The spec's own bar: on a 500-note vault, a search must resolve in
@@ -1485,7 +1492,15 @@ mod tests {
     fn search_meets_100ms_budget_on_500_notes() {
         let (dir, vault, index) = setup();
         let topics = [
-            "проект", "заметка", "идея", "план", "задача", "встреча", "работа", "код", "тест",
+            "проект",
+            "заметка",
+            "идея",
+            "план",
+            "задача",
+            "встреча",
+            "работа",
+            "код",
+            "тест",
             "дизайн",
         ];
         for i in 0..500 {
@@ -1508,7 +1523,10 @@ mod tests {
         let results = index.search("проект", false).unwrap();
         let elapsed = start.elapsed();
 
-        assert!(!results.is_empty(), "expected the common topic word to match something");
+        assert!(
+            !results.is_empty(),
+            "expected the common topic word to match something"
+        );
         assert!(
             elapsed.as_millis() < 100,
             "search took {elapsed:?} on 500 notes, expected under 100ms"

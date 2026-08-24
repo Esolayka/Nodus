@@ -33,7 +33,10 @@ fn spawn_server() -> TestServer {
 
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(async move {
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let addr = listener.local_addr().unwrap();
@@ -42,7 +45,10 @@ fn spawn_server() -> TestServer {
         });
     });
     let addr = rx.recv().unwrap();
-    TestServer { base_url: format!("http://{addr}"), _data_dir: data_dir }
+    TestServer {
+        base_url: format!("http://{addr}"),
+        _data_dir: data_dir,
+    }
 }
 
 fn bootstrap_token(server: &TestServer, name: &str) -> String {
@@ -53,10 +59,22 @@ fn bootstrap_token(server: &TestServer, name: &str) -> String {
     resp.token
 }
 
-fn open_device(server: &TestServer, token: &str, dek: Option<Dek>, device_name: &str) -> (tempfile::TempDir, ServerSync) {
+fn open_device(
+    server: &TestServer,
+    token: &str,
+    dek: Option<Dek>,
+    device_name: &str,
+) -> (tempfile::TempDir, ServerSync) {
     let dir = tempfile::tempdir().unwrap();
     let vault = Vault::open(dir.path()).unwrap();
-    let sync = ServerSync::open(vault, server.base_url.clone(), token.to_string(), dek, device_name).unwrap();
+    let sync = ServerSync::open(
+        vault,
+        server.base_url.clone(),
+        token.to_string(),
+        dek,
+        device_name,
+    )
+    .unwrap();
     (dir, sync)
 }
 
@@ -145,17 +163,31 @@ fn non_overlapping_edits_on_both_devices_merge_automatically() {
     b.sync_once().unwrap();
 
     // Both start from the same synced content and edit different lines.
-    write(dir_a.path(), "Log.md", "line one EDITED\nline two\nline three\n");
-    write(dir_b.path(), "Log.md", "line one\nline two\nline three EDITED\n");
+    write(
+        dir_a.path(),
+        "Log.md",
+        "line one EDITED\nline two\nline three\n",
+    );
+    write(
+        dir_b.path(),
+        "Log.md",
+        "line one\nline two\nline three EDITED\n",
+    );
 
     a.sync_once().unwrap();
     let report = b.sync_once().unwrap();
 
-    assert!(report.conflicts.contains(&"Log.md".to_string()), "should be flagged as a resolved conflict");
+    assert!(
+        report.conflicts.contains(&"Log.md".to_string()),
+        "should be flagged as a resolved conflict"
+    );
     let merged = read(dir_b.path(), "Log.md");
     assert!(merged.contains("line one EDITED"));
     assert!(merged.contains("line three EDITED"));
-    assert!(!merged.contains("<<<<<<<"), "raw conflict markers must never reach the note");
+    assert!(
+        !merged.contains("<<<<<<<"),
+        "raw conflict markers must never reach the note"
+    );
 
     // b's merge result must itself propagate back to a.
     b.sync_once().unwrap();
@@ -186,11 +218,22 @@ fn conflicting_edits_to_the_same_line_keep_both_versions_instead_of_discarding_e
     assert_eq!(read(dir_b.path(), "Same.md"), "device A's version\n");
     // ...and b's own edit is preserved as a sibling copy, never silently
     // discarded, labeled with b's own device name.
-    let entries: Vec<_> =
-        std::fs::read_dir(dir_b.path()).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
-    let sibling = entries.iter().find(|n| n.starts_with("Same (") && n.contains("phone") && n.ends_with(".md")).cloned();
-    assert!(sibling.is_some(), "expected a (device, date)-suffixed sibling copy, got: {entries:?}");
-    assert_eq!(read(dir_b.path(), sibling.as_ref().unwrap()), "device B's version\n");
+    let entries: Vec<_> = std::fs::read_dir(dir_b.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    let sibling = entries
+        .iter()
+        .find(|n| n.starts_with("Same (") && n.contains("phone") && n.ends_with(".md"))
+        .cloned();
+    assert!(
+        sibling.is_some(),
+        "expected a (device, date)-suffixed sibling copy, got: {entries:?}"
+    );
+    assert_eq!(
+        read(dir_b.path(), sibling.as_ref().unwrap()),
+        "device B's version\n"
+    );
 
     // That sibling is a brand new file to b's push phase, so it should
     // already have synced to the server in this same sync_once() call —
@@ -198,7 +241,10 @@ fn conflicting_edits_to_the_same_line_keep_both_versions_instead_of_discarding_e
     let (dir_c, mut c) = open_device(&server, &token, None, "tablet");
     c.sync_once().unwrap();
     assert_eq!(read(dir_c.path(), "Same.md"), "device A's version\n");
-    assert_eq!(read(dir_c.path(), sibling.as_ref().unwrap()), "device B's version\n");
+    assert_eq!(
+        read(dir_c.path(), sibling.as_ref().unwrap()),
+        "device B's version\n"
+    );
 }
 
 #[test]
@@ -223,11 +269,20 @@ fn an_encrypted_vault_stores_only_ciphertext_and_a_hidden_filename_on_the_server
             raw_chunks.push(std::fs::read(file.unwrap().path()).unwrap());
         }
     }
-    assert!(!raw_chunks.is_empty(), "at least one chunk file must exist on disk");
+    assert!(
+        !raw_chunks.is_empty(),
+        "at least one chunk file must exist on disk"
+    );
     for raw_chunk in &raw_chunks {
         let raw_text = String::from_utf8_lossy(raw_chunk);
-        assert!(!raw_text.contains("secret"), "raw server storage must not contain the plaintext");
-        assert!(!raw_text.to_lowercase().contains("diary"), "raw server storage must not reveal the filename");
+        assert!(
+            !raw_text.contains("secret"),
+            "raw server storage must not contain the plaintext"
+        );
+        assert!(
+            !raw_text.to_lowercase().contains("diary"),
+            "raw server storage must not reveal the filename"
+        );
     }
     // The blob id itself (the server's key for this file's metadata row)
     // must not reveal the filename either.
@@ -237,7 +292,10 @@ fn an_encrypted_vault_stores_only_ciphertext_and_a_hidden_filename_on_the_server
     // A second device with the *same* key can still decrypt everything.
     let (dir_b, mut b) = open_device(&server, &token, Some(dek), "phone");
     b.sync_once().unwrap();
-    assert_eq!(read(dir_b.path(), "Secret Diary.md"), "the actual secret content");
+    assert_eq!(
+        read(dir_b.path(), "Secret Diary.md"),
+        "the actual secret content"
+    );
 }
 
 #[test]
@@ -251,7 +309,11 @@ fn a_ten_thousand_note_vaults_incremental_sync_only_uploads_what_changed() {
     // second sync uploads only the one changed file), not the literal
     // count, which would make the test suite slow for no added coverage.
     for i in 0..50 {
-        write(dir_a.path(), &format!("Note{i}.md"), &format!("content {i}"));
+        write(
+            dir_a.path(),
+            &format!("Note{i}.md"),
+            &format!("content {i}"),
+        );
     }
     let first = a.sync_once().unwrap();
     assert_eq!(first.uploaded.len(), 50);

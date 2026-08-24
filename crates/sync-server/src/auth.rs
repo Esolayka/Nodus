@@ -18,13 +18,18 @@ pub struct AuthedDevice {
 impl FromRequestParts<AppState> for AuthedDevice {
     type Rejection = ApiError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let header = parts
             .headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
             .ok_or(ApiError::Unauthorized)?;
-        let token = header.strip_prefix("Bearer ").ok_or(ApiError::Unauthorized)?;
+        let token = header
+            .strip_prefix("Bearer ")
+            .ok_or(ApiError::Unauthorized)?;
         let conn = state.conn.lock().expect("db mutex poisoned");
         let id = db::device_id_for_token(&conn, token)?.ok_or(ApiError::Unauthorized)?;
         Ok(AuthedDevice { id })

@@ -129,19 +129,28 @@ pub fn diff_to_display_lines(old: &str, ops: &[DiffOp]) -> Vec<DisplayLine> {
         match op {
             DiffOp::Equal(n) => {
                 for line in &old_lines[i..i + n] {
-                    out.push(DisplayLine { kind: DisplayLineKind::Equal, text: line.to_string() });
+                    out.push(DisplayLine {
+                        kind: DisplayLineKind::Equal,
+                        text: line.to_string(),
+                    });
                 }
                 i += n;
             }
             DiffOp::Delete(n) => {
                 for line in &old_lines[i..i + n] {
-                    out.push(DisplayLine { kind: DisplayLineKind::Removed, text: line.to_string() });
+                    out.push(DisplayLine {
+                        kind: DisplayLineKind::Removed,
+                        text: line.to_string(),
+                    });
                 }
                 i += n;
             }
             DiffOp::Insert(lines) => {
                 for line in lines {
-                    out.push(DisplayLine { kind: DisplayLineKind::Added, text: line.clone() });
+                    out.push(DisplayLine {
+                        kind: DisplayLineKind::Added,
+                        text: line.clone(),
+                    });
                 }
             }
         }
@@ -324,8 +333,11 @@ impl HistoryStore {
     /// isn't in the manifest or a snapshot file went missing.
     fn reconstruct(&self, relative: &str, manifest: &[VersionMeta], id: u64) -> Option<String> {
         let target_idx = manifest.iter().position(|v| v.id == id)?;
-        let full_idx = (0..=target_idx).rev().find(|&i| manifest[i].kind == SnapshotKind::Full)?;
-        let mut content = std::fs::read_to_string(self.snapshot_path(relative, manifest[full_idx].id)).ok()?;
+        let full_idx = (0..=target_idx)
+            .rev()
+            .find(|&i| manifest[i].kind == SnapshotKind::Full)?;
+        let mut content =
+            std::fs::read_to_string(self.snapshot_path(relative, manifest[full_idx].id)).ok()?;
         for meta in &manifest[full_idx + 1..=target_idx] {
             let raw = std::fs::read_to_string(self.snapshot_path(relative, meta.id)).ok()?;
             content = apply_forward(&content, &deserialize_diff(&raw));
@@ -352,7 +364,12 @@ impl HistoryStore {
 
     /// A line diff between version `id` and whatever's live on disk right
     /// now (`current_content`), with real line text for the compare view.
-    pub fn compare_to_current(&self, relative: &str, id: u64, current_content: &str) -> Option<Vec<DisplayLine>> {
+    pub fn compare_to_current(
+        &self,
+        relative: &str,
+        id: u64,
+        current_content: &str,
+    ) -> Option<Vec<DisplayLine>> {
         let old = self.version_content(relative, id)?;
         let ops = diff_lines(&old, current_content);
         Some(diff_to_display_lines(&old, &ops))
@@ -389,7 +406,11 @@ impl HistoryStore {
         manifest.push(VersionMeta {
             id: next_id,
             timestamp: now_unix(),
-            kind: if is_full { SnapshotKind::Full } else { SnapshotKind::Diff },
+            kind: if is_full {
+                SnapshotKind::Full
+            } else {
+                SnapshotKind::Diff
+            },
             added,
             removed,
             size: stored.len() as u64,
@@ -435,7 +456,9 @@ impl HistoryStore {
         }
         if manifest[cutoff].kind != SnapshotKind::Full {
             if let Some(content) = self.reconstruct(relative, manifest, manifest[cutoff].id) {
-                if std::fs::write(self.snapshot_path(relative, manifest[cutoff].id), &content).is_ok() {
+                if std::fs::write(self.snapshot_path(relative, manifest[cutoff].id), &content)
+                    .is_ok()
+                {
                     manifest[cutoff].kind = SnapshotKind::Full;
                     manifest[cutoff].size = content.len() as u64;
                 }
@@ -446,11 +469,19 @@ impl HistoryStore {
 
     /// Applies the count/age retention rules to one note's manifest,
     /// always keeping at least the most recent version.
-    fn apply_retention(&self, relative: &str, manifest: &mut Vec<VersionMeta>, settings: &HistorySettings, now: i64) {
+    fn apply_retention(
+        &self,
+        relative: &str,
+        manifest: &mut Vec<VersionMeta>,
+        settings: &HistorySettings,
+        now: i64,
+    ) {
         if manifest.len() <= 1 {
             return;
         }
-        let mut cutoff = manifest.len().saturating_sub(settings.max_versions_per_note.max(1));
+        let mut cutoff = manifest
+            .len()
+            .saturating_sub(settings.max_versions_per_note.max(1));
         let max_age_secs = settings.max_age_days as i64 * 86_400;
         let age_cutoff = manifest
             .iter()
@@ -583,15 +614,30 @@ mod tests {
         let store = HistoryStore::new(dir.path());
         let settings = HistorySettings::default();
 
-        store.record_if_changed("A.md", "", "v1", &settings).unwrap();
-        store.record_if_changed("A.md", "v1", "v1 v2", &settings).unwrap();
-        store.record_if_changed("A.md", "v1 v2", "v1 v2 v3", &settings).unwrap();
+        store
+            .record_if_changed("A.md", "", "v1", &settings)
+            .unwrap();
+        store
+            .record_if_changed("A.md", "v1", "v1 v2", &settings)
+            .unwrap();
+        store
+            .record_if_changed("A.md", "v1 v2", "v1 v2 v3", &settings)
+            .unwrap();
 
         let versions = store.list_versions("A.md");
         assert_eq!(versions.len(), 3);
-        assert_eq!(store.version_content("A.md", versions[0].id).as_deref(), Some("v1"));
-        assert_eq!(store.version_content("A.md", versions[1].id).as_deref(), Some("v1 v2"));
-        assert_eq!(store.version_content("A.md", versions[2].id).as_deref(), Some("v1 v2 v3"));
+        assert_eq!(
+            store.version_content("A.md", versions[0].id).as_deref(),
+            Some("v1")
+        );
+        assert_eq!(
+            store.version_content("A.md", versions[1].id).as_deref(),
+            Some("v1 v2")
+        );
+        assert_eq!(
+            store.version_content("A.md", versions[2].id).as_deref(),
+            Some("v1 v2 v3")
+        );
     }
 
     #[test]
@@ -599,7 +645,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(dir.path());
         let settings = HistorySettings::default();
-        store.record_if_changed("A.md", "same", "same", &settings).unwrap();
+        store
+            .record_if_changed("A.md", "same", "same", &settings)
+            .unwrap();
         assert!(store.list_versions("A.md").is_empty());
     }
 
@@ -607,9 +655,13 @@ mod tests {
     fn disabled_history_records_nothing() {
         let dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(dir.path());
-        let mut settings = HistorySettings::default();
-        settings.enabled = false;
-        store.record_if_changed("A.md", "a", "b", &settings).unwrap();
+        let settings = HistorySettings {
+            enabled: false,
+            ..HistorySettings::default()
+        };
+        store
+            .record_if_changed("A.md", "a", "b", &settings)
+            .unwrap();
         assert!(store.list_versions("A.md").is_empty());
     }
 
@@ -618,12 +670,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(dir.path());
         let settings = HistorySettings::default();
-        store.record_if_changed("A.md", "", "v1", &settings).unwrap();
+        store
+            .record_if_changed("A.md", "", "v1", &settings)
+            .unwrap();
         let v1_id = store.list_versions("A.md")[0].id;
 
         // "current" here is intentionally never recorded — simulating an
         // unsaved edit or content read straight off disk.
-        let lines = store.compare_to_current("A.md", v1_id, "v1 plus more").unwrap();
+        let lines = store
+            .compare_to_current("A.md", v1_id, "v1 plus more")
+            .unwrap();
         assert!(lines.iter().any(|l| l.kind == DisplayLineKind::Added));
     }
 
@@ -631,13 +687,17 @@ mod tests {
     fn version_cap_prunes_oldest_but_keeps_reconstructible_from_a_full_boundary() {
         let dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(dir.path());
-        let mut settings = HistorySettings::default();
-        settings.max_versions_per_note = 3;
+        let settings = HistorySettings {
+            max_versions_per_note: 3,
+            ..HistorySettings::default()
+        };
 
         let mut content = String::new();
         for i in 0..12 {
             let next = format!("{content}line{i}\n");
-            store.record_if_changed("A.md", &content, &next, &settings).unwrap();
+            store
+                .record_if_changed("A.md", &content, &next, &settings)
+                .unwrap();
             content = next;
         }
 
@@ -648,7 +708,10 @@ mod tests {
         assert!(store.version_content("A.md", first.id).is_some());
         // And the newest one matches the final content exactly.
         let last = versions.last().unwrap();
-        assert_eq!(store.version_content("A.md", last.id).as_deref(), Some(content.as_str()));
+        assert_eq!(
+            store.version_content("A.md", last.id).as_deref(),
+            Some(content.as_str())
+        );
     }
 
     #[test]
@@ -659,7 +722,9 @@ mod tests {
         let mut content = String::new();
         for i in 0..25 {
             let next = format!("{content}x{i}\n");
-            store.record_if_changed("A.md", &content, &next, &settings).unwrap();
+            store
+                .record_if_changed("A.md", &content, &next, &settings)
+                .unwrap();
             content = next;
         }
         // id 11 and 21 should exist and be reconstructible (proves interval
@@ -674,8 +739,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = HistoryStore::new(dir.path());
         let settings = HistorySettings::default();
-        store.record_if_changed("A.md", "", "v1", &settings).unwrap();
-        store.record_if_changed("A.md", "v1", "v2", &settings).unwrap();
+        store
+            .record_if_changed("A.md", "", "v1", &settings)
+            .unwrap();
+        store
+            .record_if_changed("A.md", "v1", "v2", &settings)
+            .unwrap();
 
         // Force the first entry to look ancient.
         let manifest_path = dir.path().join(".nodus/history/A.md.d/manifest.json");
@@ -690,6 +759,9 @@ mod tests {
 
         let versions = store.list_versions("A.md");
         assert_eq!(versions.len(), 1);
-        assert_eq!(store.version_content("A.md", versions[0].id).as_deref(), Some("v2"));
+        assert_eq!(
+            store.version_content("A.md", versions[0].id).as_deref(),
+            Some("v2")
+        );
     }
 }

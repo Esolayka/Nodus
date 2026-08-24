@@ -9,7 +9,10 @@ use nodus_sync_server::{build_router, db, gc, state::AppState};
 /// One-command startup: `nodus-sync-server --port 8420 --data-dir ./data`.
 /// Everything else (auth, chunking, quotas) is client-driven or automatic.
 #[derive(Parser)]
-#[command(name = "nodus-sync-server", about = "Self-hosted sync server for Nodus")]
+#[command(
+    name = "nodus-sync-server",
+    about = "Self-hosted sync server for Nodus"
+)]
 struct Args {
     #[arg(long, default_value_t = 8420)]
     port: u16,
@@ -57,7 +60,9 @@ async fn main() {
 
     let router = build_router(state);
     let addr = format!("{}:{}", args.bind, args.port);
-    let listener = tokio::net::TcpListener::bind(&addr).await.expect("failed to bind");
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("failed to bind");
     tracing::info!("nodus-sync-server listening on {addr}");
     axum::serve(listener, router).await.expect("server error");
 }
@@ -66,7 +71,9 @@ fn generate_bootstrap_code() -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     let mut raw = [0u8; 8];
     rand::rngs::OsRng.fill_bytes(&mut raw);
-    raw.iter().map(|b| ALPHABET[(*b as usize) % ALPHABET.len()] as char).collect()
+    raw.iter()
+        .map(|b| ALPHABET[(*b as usize) % ALPHABET.len()] as char)
+        .collect()
 }
 
 fn print_bootstrap_banner(code: &str) {

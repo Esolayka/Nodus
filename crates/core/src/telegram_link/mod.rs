@@ -25,7 +25,10 @@ fn identity_path(vault_root: &Path) -> PathBuf {
 }
 
 pub fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock is before 1970").as_secs() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is before 1970")
+        .as_secs() as i64
 }
 
 /// Loads this vault's sync identity, generating and persisting one on the
@@ -71,8 +74,13 @@ pub struct PendingLink {
 /// exact desktop session, not someone else's.
 pub fn generate_linking_token() -> PendingLink {
     let mut rng = rand::thread_rng();
-    let token: String = (0..8).map(|_| TOKEN_ALPHABET[rng.gen_range(0..TOKEN_ALPHABET.len())] as char).collect();
-    PendingLink { token, expires_at: now() + LINKING_TOKEN_TTL_SECS }
+    let token: String = (0..8)
+        .map(|_| TOKEN_ALPHABET[rng.gen_range(0..TOKEN_ALPHABET.len())] as char)
+        .collect();
+    PendingLink {
+        token,
+        expires_at: now() + LINKING_TOKEN_TTL_SECS,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -103,7 +111,8 @@ pub fn complete_link(
     if provided_token != pending.token {
         return Err(TelegramLinkError::TokenMismatch);
     }
-    let verified = nodus_telegram::init_data::verify(init_data, bot_token, current, INIT_DATA_MAX_AGE_SECS)?;
+    let verified =
+        nodus_telegram::init_data::verify(init_data, bot_token, current, INIT_DATA_MAX_AGE_SECS)?;
     Ok(LinkResult {
         telegram_user_id: verified.user.id,
         telegram_username: verified.user.username,

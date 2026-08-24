@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use nodus_core::server_sync::client::{PairCompleteResponse, PairStartResponse, ServerSyncClient, StorageUsage};
+use nodus_core::server_sync::client::{
+    PairCompleteResponse, PairStartResponse, ServerSyncClient, StorageUsage,
+};
 use nodus_core::{ServerSync, SyncReport};
 use tauri::State;
 
@@ -11,7 +13,9 @@ fn with_server_sync<T>(
     f: impl FnOnce(&mut ServerSync) -> nodus_core::server_sync::error::Result<T>,
 ) -> Result<T, String> {
     let mut guard = state.server_sync.lock().expect("app state mutex poisoned");
-    let sync = guard.as_mut().ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
+    let sync = guard
+        .as_mut()
+        .ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
     f(sync).map_err(|e| e.to_string())
 }
 
@@ -28,7 +32,8 @@ pub fn server_sync_enable(
     device_name: String,
 ) -> Result<(), String> {
     let vault = nodus_core::Vault::open(Path::new(&vault_path)).map_err(|e| e.to_string())?;
-    let sync = ServerSync::open(vault, base_url, token, None, device_name).map_err(|e| e.to_string())?;
+    let sync =
+        ServerSync::open(vault, base_url, token, None, device_name).map_err(|e| e.to_string())?;
     *state.server_sync.lock().expect("app state mutex poisoned") = Some(sync);
     Ok(())
 }
@@ -44,7 +49,9 @@ pub fn server_sync_once(state: State<AppState>) -> Result<SyncReport, String> {
 #[tauri::command]
 pub fn server_sync_pair_start(state: State<AppState>) -> Result<PairStartResponse, String> {
     let guard = state.server_sync.lock().expect("app state mutex poisoned");
-    let sync = guard.as_ref().ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
+    let sync = guard
+        .as_ref()
+        .ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
     sync.client().pair_start().map_err(|e| e.to_string())
 }
 
@@ -63,6 +70,8 @@ pub fn server_sync_pair_complete(
 #[tauri::command]
 pub fn server_sync_storage_usage(state: State<AppState>) -> Result<StorageUsage, String> {
     let guard = state.server_sync.lock().expect("app state mutex poisoned");
-    let sync = guard.as_ref().ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
+    let sync = guard
+        .as_ref()
+        .ok_or_else(|| "Server sync is not enabled for this vault".to_string())?;
     sync.client().storage_usage().map_err(|e| e.to_string())
 }

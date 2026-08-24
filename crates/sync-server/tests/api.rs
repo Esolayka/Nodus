@@ -17,9 +17,16 @@ type HmacSha256 = Hmac<Sha256>;
 /// scheme Telegram's own client SDK produces — so these tests exercise the
 /// real verification path rather than a stand-in.
 fn build_init_data(bot_token: &str, user_json: &str, auth_date: i64) -> String {
-    let mut pairs = vec![("auth_date".to_string(), auth_date.to_string()), ("user".to_string(), user_json.to_string())];
+    let mut pairs = [
+        ("auth_date".to_string(), auth_date.to_string()),
+        ("user".to_string(), user_json.to_string()),
+    ];
     pairs.sort_by(|a, b| a.0.cmp(&b.0));
-    let data_check_string = pairs.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join("\n");
+    let data_check_string = pairs
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let mut secret_mac = HmacSha256::new_from_slice(b"WebAppData").unwrap();
     secret_mac.update(bot_token.as_bytes());
@@ -28,8 +35,16 @@ fn build_init_data(bot_token: &str, user_json: &str, auth_date: i64) -> String {
     data_mac.update(data_check_string.as_bytes());
     let hash = hex::encode(data_mac.finalize().into_bytes());
 
-    let encoded_user: String =
-        user_json.chars().map(|c| if c.is_alphanumeric() { c.to_string() } else { format!("%{:02X}", c as u32) }).collect();
+    let encoded_user: String = user_json
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_string()
+            } else {
+                format!("%{:02X}", c as u32)
+            }
+        })
+        .collect();
     format!("auth_date={auth_date}&user={encoded_user}&hash={hash}")
 }
 
@@ -66,7 +81,10 @@ async fn spawn_server_full(
     tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap();
     });
-    TestServer { base_url: format!("http://{addr}"), data_dir }
+    TestServer {
+        base_url: format!("http://{addr}"),
+        data_dir,
+    }
 }
 
 /// Registers the first device using a bootstrap code the test controls
@@ -92,7 +110,9 @@ async fn bootstrap_device(server: &TestServer, code: &str, name: &str) -> String
 #[tokio::test]
 async fn health_check_works_without_auth() {
     let server = spawn_server(None, None).await;
-    let resp = reqwest::get(format!("{}/v1/health", server.base_url)).await.unwrap();
+    let resp = reqwest::get(format!("{}/v1/health", server.base_url))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 200);
 }
 
@@ -150,7 +170,10 @@ async fn an_existing_device_can_pair_a_second_device_via_a_short_lived_code() {
         .unwrap();
     assert_eq!(complete.status(), 200);
     let complete_body: Value = complete.json().await.unwrap();
-    assert!(complete_body["token"].as_str().unwrap() != token_a, "the second device gets its own token");
+    assert!(
+        complete_body["token"].as_str().unwrap() != token_a,
+        "the second device gets its own token"
+    );
 
     // The code is single-use.
     let reuse = client
@@ -177,7 +200,13 @@ async fn unknown_pairing_code_is_rejected_once_a_device_already_exists() {
     assert_eq!(resp.status(), 401);
 }
 
-async fn upload_chunk(client: &reqwest::Client, base_url: &str, token: &str, id: &str, bytes: &[u8]) -> reqwest::Response {
+async fn upload_chunk(
+    client: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    id: &str,
+    bytes: &[u8],
+) -> reqwest::Response {
     client
         .put(format!("{base_url}/v1/chunks/{id}"))
         .bearer_auth(token)
@@ -272,7 +301,8 @@ async fn identical_chunk_content_is_deduplicated_across_files() {
     // A second, different file references the exact same chunk id (as it
     // would if both files' plaintext produced the same chunk) — uploading
     // it again must succeed without double-counting storage.
-    let second_upload = upload_chunk(&client, &server.base_url, &token, shared_id, shared_content).await;
+    let second_upload =
+        upload_chunk(&client, &server.base_url, &token, shared_id, shared_content).await;
     assert_eq!(second_upload.status(), 200);
     put_blob(&client, &server.base_url, &token, "file-b", 0, &[shared_id]).await;
 
@@ -292,7 +322,15 @@ async fn committing_a_manifest_that_references_an_unuploaded_chunk_is_rejected()
     let token = bootstrap_device(&server, "CODE1", "laptop").await;
     let client = reqwest::Client::new();
 
-    let resp = put_blob(&client, &server.base_url, &token, "file-1", 0, &["never-uploaded"]).await;
+    let resp = put_blob(
+        &client,
+        &server.base_url,
+        &token,
+        "file-1",
+        0,
+        &["never-uploaded"],
+    )
+    .await;
     assert_eq!(resp.status(), 400);
 }
 
@@ -306,7 +344,14 @@ async fn updating_with_a_stale_base_version_returns_a_conflict_with_current_stat
     put_blob(&client, &server.base_url, &token, "file-1", 0, &["c1"]).await;
 
     // A second device also starts from version 0 (stale) and tries to write.
-    upload_chunk(&client, &server.base_url, &token, "c2", b"version two, from someone else").await;
+    upload_chunk(
+        &client,
+        &server.base_url,
+        &token,
+        "c2",
+        b"version two, from someone else",
+    )
+    .await;
     let resp = put_blob(&client, &server.base_url, &token, "file-1", 0, &["c2"]).await;
     assert_eq!(resp.status(), 409);
     let body: Value = resp.json().await.unwrap();
@@ -356,7 +401,14 @@ async fn deleting_with_a_stale_base_version_is_a_conflict_not_a_silent_delete() 
 
     upload_chunk(&client, &server.base_url, &token, "c1", b"v1").await;
     put_blob(&client, &server.base_url, &token, "file-1", 0, &["c1"]).await;
-    upload_chunk(&client, &server.base_url, &token, "c2", b"v2, edited by someone else").await;
+    upload_chunk(
+        &client,
+        &server.base_url,
+        &token,
+        "c2",
+        b"v2, edited by someone else",
+    )
+    .await;
     put_blob(&client, &server.base_url, &token, "file-1", 1, &["c2"]).await; // now version 2
 
     let delete = client
@@ -375,7 +427,14 @@ async fn oversized_chunk_upload_is_rejected_with_a_clear_error() {
     let token = bootstrap_device(&server, "CODE1", "laptop").await;
     let client = reqwest::Client::new();
 
-    let resp = upload_chunk(&client, &server.base_url, &token, "big", b"even one byte is too many").await;
+    let resp = upload_chunk(
+        &client,
+        &server.base_url,
+        &token,
+        "big",
+        b"even one byte is too many",
+    )
+    .await;
     assert_eq!(resp.status(), 413);
 }
 
@@ -395,26 +454,70 @@ async fn garbage_collection_removes_chunks_no_manifest_references_after_the_grac
     let token = bootstrap_device(&server, "CODE1", "laptop").await;
     let client = reqwest::Client::new();
 
-    upload_chunk(&client, &server.base_url, &token, "old-chunk", b"replaced content").await;
-    put_blob(&client, &server.base_url, &token, "file-1", 0, &["old-chunk"]).await;
+    upload_chunk(
+        &client,
+        &server.base_url,
+        &token,
+        "old-chunk",
+        b"replaced content",
+    )
+    .await;
+    put_blob(
+        &client,
+        &server.base_url,
+        &token,
+        "file-1",
+        0,
+        &["old-chunk"],
+    )
+    .await;
 
-    upload_chunk(&client, &server.base_url, &token, "new-chunk", b"edited content").await;
-    put_blob(&client, &server.base_url, &token, "file-1", 1, &["new-chunk"]).await; // "old-chunk" is now orphaned
+    upload_chunk(
+        &client,
+        &server.base_url,
+        &token,
+        "new-chunk",
+        b"edited content",
+    )
+    .await;
+    put_blob(
+        &client,
+        &server.base_url,
+        &token,
+        "file-1",
+        1,
+        &["new-chunk"],
+    )
+    .await; // "old-chunk" is now orphaned
 
     let conn = db::open(&server.data_dir.path().join("db.sqlite")).unwrap();
     // Backdate the orphaned chunk past the grace period instead of sleeping
     // for real in a test.
-    conn.execute("UPDATE chunks SET created_at = created_at - 100000 WHERE id = 'old-chunk'", []).unwrap();
-    let removed = nodus_sync_server::gc::run_gc_once(&conn, &server.data_dir.path().to_path_buf()).unwrap();
+    conn.execute(
+        "UPDATE chunks SET created_at = created_at - 100000 WHERE id = 'old-chunk'",
+        [],
+    )
+    .unwrap();
+    let removed = nodus_sync_server::gc::run_gc_once(&conn, server.data_dir.path()).unwrap();
     assert_eq!(removed, 1);
 
-    let still_there: bool =
-        conn.query_row("SELECT EXISTS(SELECT 1 FROM chunks WHERE id = 'old-chunk')", [], |row| row.get(0)).unwrap();
+    let still_there: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM chunks WHERE id = 'old-chunk')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
     assert!(!still_there);
 
     // The chunk still in use must survive the same GC pass untouched.
-    let survivor: bool =
-        conn.query_row("SELECT EXISTS(SELECT 1 FROM chunks WHERE id = 'new-chunk')", [], |row| row.get(0)).unwrap();
+    let survivor: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM chunks WHERE id = 'new-chunk')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
     assert!(survivor);
 }
 
@@ -434,7 +537,10 @@ async fn discovery_announce_and_resolve_roundtrip_without_auth() {
     assert_eq!(announce.status(), 200);
 
     let resolve = client
-        .get(format!("{}/v1/discovery/resolve/opaque-id-1", server.base_url))
+        .get(format!(
+            "{}/v1/discovery/resolve/opaque-id-1",
+            server.base_url
+        ))
         .send()
         .await
         .unwrap();
@@ -447,7 +553,12 @@ async fn discovery_announce_and_resolve_roundtrip_without_auth() {
 #[tokio::test]
 async fn discovery_resolve_for_an_unknown_id_is_not_found() {
     let server = spawn_server(None, None).await;
-    let resp = reqwest::get(format!("{}/v1/discovery/resolve/never-announced", server.base_url)).await.unwrap();
+    let resp = reqwest::get(format!(
+        "{}/v1/discovery/resolve/never-announced",
+        server.base_url
+    ))
+    .await
+    .unwrap();
     assert_eq!(resp.status(), 404);
 }
 
@@ -466,7 +577,12 @@ async fn a_stale_announcement_still_resolves_but_is_marked_stale() {
     conn.execute("UPDATE announcements SET expires_at = expires_at - 100000 WHERE discovery_id = 'opaque-id-2'", [])
         .unwrap();
 
-    let resolve = reqwest::get(format!("{}/v1/discovery/resolve/opaque-id-2", server.base_url)).await.unwrap();
+    let resolve = reqwest::get(format!(
+        "{}/v1/discovery/resolve/opaque-id-2",
+        server.base_url
+    ))
+    .await
+    .unwrap();
     assert_eq!(resolve.status(), 200);
     let body: Value = resolve.json().await.unwrap();
     // Still returns the last known (encrypted) address and when it was last
@@ -480,7 +596,11 @@ async fn a_stale_announcement_still_resolves_but_is_marked_stale() {
 async fn a_genuinely_signed_telegram_init_data_registers_a_device() {
     let server = spawn_server_with_telegram("123:BOT-token").await;
     let client = reqwest::Client::new();
-    let init_data = build_init_data("123:BOT-token", r#"{"id":777,"first_name":"Ann"}"#, db::now());
+    let init_data = build_init_data(
+        "123:BOT-token",
+        r#"{"id":777,"first_name":"Ann"}"#,
+        db::now(),
+    );
 
     let resp = client
         .post(format!("{}/v1/devices/pair/telegram", server.base_url))
@@ -507,7 +627,11 @@ async fn a_genuinely_signed_telegram_init_data_registers_a_device() {
 async fn telegram_registration_is_rejected_when_the_server_has_no_bot_token_configured() {
     let server = spawn_server(None, None).await; // no telegram_bot_token
     let client = reqwest::Client::new();
-    let init_data = build_init_data("123:BOT-token", r#"{"id":777,"first_name":"Ann"}"#, db::now());
+    let init_data = build_init_data(
+        "123:BOT-token",
+        r#"{"id":777,"first_name":"Ann"}"#,
+        db::now(),
+    );
 
     let resp = client
         .post(format!("{}/v1/devices/pair/telegram", server.base_url))
@@ -522,7 +646,11 @@ async fn telegram_registration_is_rejected_when_the_server_has_no_bot_token_conf
 async fn telegram_registration_rejects_init_data_signed_with_the_wrong_bot_token() {
     let server = spawn_server_with_telegram("123:BOT-token").await;
     let client = reqwest::Client::new();
-    let forged = build_init_data("999:NOT-the-real-token", r#"{"id":777,"first_name":"Ann"}"#, db::now());
+    let forged = build_init_data(
+        "999:NOT-the-real-token",
+        r#"{"id":777,"first_name":"Ann"}"#,
+        db::now(),
+    );
 
     let resp = client
         .post(format!("{}/v1/devices/pair/telegram", server.base_url))

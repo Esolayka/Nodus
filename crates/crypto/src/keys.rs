@@ -35,11 +35,14 @@ pub struct WrappedDek {
 
 pub fn wrap_dek(dek: &Dek, kek: &[u8; content::KEY_LEN]) -> WrappedDek {
     let wrapped = content::encrypt(kek, &dek.0);
-    WrappedDek { wrapped: hex::encode(wrapped) }
+    WrappedDek {
+        wrapped: hex::encode(wrapped),
+    }
 }
 
 pub fn unwrap_dek(wrapped: &WrappedDek, kek: &[u8; content::KEY_LEN]) -> Result<Dek> {
-    let bytes = hex::decode(&wrapped.wrapped).map_err(|_| crate::error::Error::MalformedCiphertext)?;
+    let bytes =
+        hex::decode(&wrapped.wrapped).map_err(|_| crate::error::Error::MalformedCiphertext)?;
     let plain = content::decrypt(kek, &bytes)?;
     let array: [u8; content::KEY_LEN] = plain
         .try_into()
@@ -116,10 +119,22 @@ mod tests {
         let content_b = content_key(&dek);
         let path_key = path_hmac_key(&dek);
         let chunk_key = chunk_hmac_key(&dek);
-        assert_eq!(content_a, content_b, "deriving twice from the same DEK must agree");
-        assert_ne!(content_a, path_key, "content and path sub-keys must not collide");
-        assert_ne!(content_a, chunk_key, "content and chunk sub-keys must not collide");
-        assert_ne!(path_key, chunk_key, "path and chunk sub-keys must not collide");
+        assert_eq!(
+            content_a, content_b,
+            "deriving twice from the same DEK must agree"
+        );
+        assert_ne!(
+            content_a, path_key,
+            "content and path sub-keys must not collide"
+        );
+        assert_ne!(
+            content_a, chunk_key,
+            "content and chunk sub-keys must not collide"
+        );
+        assert_ne!(
+            path_key, chunk_key,
+            "path and chunk sub-keys must not collide"
+        );
     }
 
     #[test]
@@ -132,7 +147,13 @@ mod tests {
         let wrapped_by_password = wrap_dek(&dek, &password_kek);
         let wrapped_by_recovery = wrap_dek(&dek, &recovery_kek);
 
-        assert_eq!(unwrap_dek(&wrapped_by_password, &password_kek).unwrap().0, dek.0);
-        assert_eq!(unwrap_dek(&wrapped_by_recovery, &recovery_kek).unwrap().0, dek.0);
+        assert_eq!(
+            unwrap_dek(&wrapped_by_password, &password_kek).unwrap().0,
+            dek.0
+        );
+        assert_eq!(
+            unwrap_dek(&wrapped_by_recovery, &recovery_kek).unwrap().0,
+            dek.0
+        );
     }
 }

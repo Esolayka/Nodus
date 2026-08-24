@@ -72,7 +72,10 @@ pub fn build_router(state: LocalServerState, static_dir: Option<PathBuf>) -> Rou
         .route("/health", get(health))
         .route("/telegram/link", post(link::link))
         .route("/vault/tree", get(vault_routes::tree))
-        .route("/vault/note", get(vault_routes::read_note).put(vault_routes::write_note))
+        .route(
+            "/vault/note",
+            get(vault_routes::read_note).put(vault_routes::write_note),
+        )
         .route("/vault/attachment", get(vault_routes::read_attachment))
         .route("/vault/search", get(vault_routes::search))
         .route("/vault/tags", get(vault_routes::tags))

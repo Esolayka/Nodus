@@ -29,7 +29,8 @@ impl OllamaClient {
     }
 
     fn request(&self, method: Method, path: &str) -> reqwest::blocking::RequestBuilder {
-        self.client.request(method, format!("{}{path}", self.address))
+        self.client
+            .request(method, format!("{}{path}", self.address))
     }
 }
 
@@ -79,13 +80,19 @@ impl ChatProvider for OllamaClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.address))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.address))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.address))?;
         if !status.is_success() {
             return Err(classify_error_response(status.as_u16(), &body, ""));
         }
-        let parsed: TagsResponse =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
-        Ok(parsed.models.into_iter().map(|m| ModelInfo { id: m.name }).collect())
+        let parsed: TagsResponse = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        Ok(parsed
+            .models
+            .into_iter()
+            .map(|m| ModelInfo { id: m.name })
+            .collect())
     }
 
     fn complete(&self, request: &ChatRequest) -> Result<ChatResponse> {
@@ -94,7 +101,10 @@ impl ChatProvider for OllamaClient {
             messages: request
                 .messages
                 .iter()
-                .map(|m| WireMessage { role: role_str(m.role), content: &m.content })
+                .map(|m| WireMessage {
+                    role: role_str(m.role),
+                    content: &m.content,
+                })
                 .collect(),
             stream: false,
         };
@@ -104,15 +114,24 @@ impl ChatProvider for OllamaClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.address))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.address))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.address))?;
         if !status.is_success() {
-            return Err(classify_error_response(status.as_u16(), &body, &request.model));
+            return Err(classify_error_response(
+                status.as_u16(),
+                &body,
+                &request.model,
+            ));
         }
-        let parsed: ChatResponseWire =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        let parsed: ChatResponseWire = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
         Ok(ChatResponse {
             content: parsed.message.content,
-            usage: ChatUsage { prompt_tokens: parsed.prompt_eval_count, completion_tokens: parsed.eval_count },
+            usage: ChatUsage {
+                prompt_tokens: parsed.prompt_eval_count,
+                completion_tokens: parsed.eval_count,
+            },
         })
     }
 }
@@ -128,14 +147,21 @@ mod tests {
         (server, format!("http://{addr}"))
     }
 
-    fn respond_once(server: tiny_http::Server, status: u16, body: &'static str) -> std::thread::JoinHandle<Vec<u8>> {
+    fn respond_once(
+        server: tiny_http::Server,
+        status: u16,
+        body: &'static str,
+    ) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut request = server.recv().unwrap();
             let mut received = Vec::new();
             request.as_reader().read_to_end(&mut received).unwrap();
             let response = tiny_http::Response::from_string(body)
                 .with_status_code(status)
-                .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap());
+                .with_header(
+                    tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])
+                        .unwrap(),
+                );
             request.respond(response).unwrap();
             received
         })
@@ -152,7 +178,10 @@ mod tests {
         let client = OllamaClient::new(url);
         let models = client.list_models().unwrap();
         handle.join().unwrap();
-        assert_eq!(models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), vec!["llama3:8b", "mistral:latest"]);
+        assert_eq!(
+            models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            vec!["llama3:8b", "mistral:latest"]
+        );
     }
 
     #[test]
@@ -160,7 +189,12 @@ mod tests {
         let (server, url) = spawn_server();
         let handle = std::thread::spawn(move || {
             let mut request = server.recv().unwrap();
-            let has_auth_header = request.headers().iter().any(|h| h.field.as_str().as_str().eq_ignore_ascii_case("authorization"));
+            let has_auth_header = request.headers().iter().any(|h| {
+                h.field
+                    .as_str()
+                    .as_str()
+                    .eq_ignore_ascii_case("authorization")
+            });
             let mut received = Vec::new();
             request.as_reader().read_to_end(&mut received).unwrap();
             let response = tiny_http::Response::from_string(
@@ -171,7 +205,11 @@ mod tests {
         });
         let client = OllamaClient::new(url);
         let response = client
-            .complete(&ChatRequest { model: "llama3:8b".to_string(), messages: vec![ChatMessage::user("hi")], max_output_tokens: None })
+            .complete(&ChatRequest {
+                model: "llama3:8b".to_string(),
+                messages: vec![ChatMessage::user("hi")],
+                max_output_tokens: None,
+            })
             .unwrap();
         let (has_auth_header, received) = handle.join().unwrap();
         let received_text = String::from_utf8(received).unwrap();
@@ -179,7 +217,10 @@ mod tests {
         assert_eq!(response.content, "Hello from Ollama");
         assert_eq!(response.usage.prompt_tokens, 8);
         assert_eq!(response.usage.completion_tokens, 5);
-        assert!(!has_auth_header, "a local Ollama request must carry no credentials");
+        assert!(
+            !has_auth_header,
+            "a local Ollama request must carry no credentials"
+        );
         assert!(received_text.contains("\"stream\":false"));
     }
 

@@ -35,7 +35,9 @@ pub use index::{
 };
 pub use replace::{ReplaceFilePreview, ReplaceLineMatch, ReplaceSelection};
 pub use search::{SearchFileResult, SearchLineMatch};
-pub use server_sync::{ChangedFile, PutOutcome, ServerSync, ServerSyncClient, ServerSyncError, SyncReport};
+pub use server_sync::{
+    ChangedFile, PutOutcome, ServerSync, ServerSyncClient, ServerSyncError, SyncReport,
+};
 pub use service::VaultService;
 pub use tasks::Priority;
 pub use telegram_link::{LinkResult, PendingLink, TelegramLinkError};

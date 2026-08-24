@@ -74,9 +74,7 @@ fn find_closing(content: &str, from: usize) -> Option<usize> {
 }
 
 pub(crate) fn in_ranges(ranges: &[(usize, usize)], pos: usize) -> bool {
-    ranges
-        .iter()
-        .any(|&(from, to)| pos >= from && pos < to)
+    ranges.iter().any(|&(from, to)| pos >= from && pos < to)
 }
 
 /// Byte ranges of code: fenced blocks (``` or ~~~, 3+ markers, optionally
@@ -94,7 +92,11 @@ pub(crate) fn code_ranges(content: &str) -> Vec<(usize, usize)> {
         let leading_spaces = bare.len() - bare.trim_start().len();
         let trimmed = bare.trim_start();
 
-        let run_char = trimmed.as_bytes().first().copied().filter(|&b| b == b'`' || b == b'~');
+        let run_char = trimmed
+            .as_bytes()
+            .first()
+            .copied()
+            .filter(|&b| b == b'`' || b == b'~');
         let run_len = run_char
             .map(|ch| trimmed.bytes().take_while(|&b| b == ch).count())
             .unwrap_or(0);

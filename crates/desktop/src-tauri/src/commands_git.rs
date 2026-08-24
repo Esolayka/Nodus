@@ -11,7 +11,9 @@ fn with_git<T>(
     f: impl FnOnce(&nodus_core::GitSync) -> nodus_core::git_sync::Result<T>,
 ) -> Result<T, String> {
     let guard = state.git.lock().expect("app state mutex poisoned");
-    let git = guard.as_ref().ok_or_else(|| "Git sync is not enabled for this vault".to_string())?;
+    let git = guard
+        .as_ref()
+        .ok_or_else(|| "Git sync is not enabled for this vault".to_string())?;
     f(git).map_err(|e| e.to_string())
 }
 
@@ -21,7 +23,8 @@ fn with_git<T>(
 /// existing repo is a no-op, not a reset.
 #[tauri::command]
 pub fn git_enable(state: State<AppState>, vault_path: String) -> Result<(), String> {
-    let git = nodus_core::GitSync::init_or_open(Path::new(&vault_path)).map_err(|e| e.to_string())?;
+    let git =
+        nodus_core::GitSync::init_or_open(Path::new(&vault_path)).map_err(|e| e.to_string())?;
     git.ensure_gitignore().map_err(|e| e.to_string())?;
     *state.git.lock().expect("app state mutex poisoned") = Some(git);
     Ok(())
@@ -39,8 +42,10 @@ pub fn git_commit(
     author_name: String,
     author_email: String,
 ) -> Result<Option<String>, String> {
-    with_git(&state, |g| g.commit_all(&message, &author_name, &author_email))
-        .map(|oid| oid.map(|o| o.to_string()))
+    with_git(&state, |g| {
+        g.commit_all(&message, &author_name, &author_email)
+    })
+    .map(|oid| oid.map(|o| o.to_string()))
 }
 
 #[tauri::command]
@@ -69,12 +74,18 @@ pub fn git_push(
 }
 
 #[tauri::command]
-pub fn git_merge_after_fetch(state: State<AppState>, branch: String) -> Result<MergeOutcome, String> {
+pub fn git_merge_after_fetch(
+    state: State<AppState>,
+    branch: String,
+) -> Result<MergeOutcome, String> {
     with_git(&state, |g| g.merge_after_fetch(&branch))
 }
 
 #[tauri::command]
-pub fn git_conflict_segments(state: State<AppState>, path: String) -> Result<Vec<MergeSegment>, String> {
+pub fn git_conflict_segments(
+    state: State<AppState>,
+    path: String,
+) -> Result<Vec<MergeSegment>, String> {
     with_git(&state, |g| g.conflict_segments(&path))
 }
 

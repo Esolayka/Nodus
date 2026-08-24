@@ -110,7 +110,8 @@ impl RequestLog {
                 error_summary: row.get(8)?,
             })
         })?;
-        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(LogError::from)
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(LogError::from)
     }
 
     pub fn clear(&self) -> Result<()> {
@@ -155,7 +156,10 @@ mod tests {
 
         let entries = log.recent(10).unwrap();
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].feature, "ask-vault", "most recent entry comes first");
+        assert_eq!(
+            entries[0].feature, "ask-vault",
+            "most recent entry comes first"
+        );
         assert_eq!(entries[1].feature, "continue-text");
     }
 
@@ -176,7 +180,10 @@ mod tests {
         let entries = log.recent(10).unwrap();
         assert_eq!(entries.len(), 1);
         assert!(!entries[0].success);
-        assert_eq!(entries[0].error_summary.as_deref(), Some("this API key was rejected"));
+        assert_eq!(
+            entries[0].error_summary.as_deref(),
+            Some("this API key was rejected")
+        );
     }
 
     #[test]
@@ -186,7 +193,11 @@ mod tests {
             log.record(NewLogEntry {
                 provider_label: "OpenAI",
                 model: "gpt-4o",
-                feature: if i % 2 == 0 { "continue-text" } else { "rephrase" },
+                feature: if i % 2 == 0 {
+                    "continue-text"
+                } else {
+                    "rephrase"
+                },
                 prompt_tokens: 10,
                 completion_tokens: 5,
                 success: true,

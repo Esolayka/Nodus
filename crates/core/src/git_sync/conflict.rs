@@ -46,7 +46,9 @@ pub fn parse_conflict_markers(merged: &str) -> Vec<MergeSegment> {
     for line in merged.split('\n') {
         if line.starts_with("<<<<<<<") && state == State::Clean {
             if !clean_lines.is_empty() {
-                segments.push(MergeSegment::Clean { text: clean_lines.join("\n") });
+                segments.push(MergeSegment::Clean {
+                    text: clean_lines.join("\n"),
+                });
                 clean_lines.clear();
             }
             state = State::Mine;
@@ -79,11 +81,17 @@ pub fn parse_conflict_markers(merged: &str) -> Vec<MergeSegment> {
     match state {
         State::Clean => {
             if !clean_lines.is_empty() {
-                segments.push(MergeSegment::Clean { text: clean_lines.join("\n") });
+                segments.push(MergeSegment::Clean {
+                    text: clean_lines.join("\n"),
+                });
             }
         }
-        State::Mine => segments.push(MergeSegment::Clean { text: mine_lines.join("\n") }),
-        State::Theirs => segments.push(MergeSegment::Clean { text: theirs_lines.join("\n") }),
+        State::Mine => segments.push(MergeSegment::Clean {
+            text: mine_lines.join("\n"),
+        }),
+        State::Theirs => segments.push(MergeSegment::Clean {
+            text: theirs_lines.join("\n"),
+        }),
     }
 
     segments
@@ -117,7 +125,10 @@ pub fn resolve_segments(segments: &[MergeSegment], choices: &[ConflictChoice]) -
 }
 
 pub fn conflict_count(segments: &[MergeSegment]) -> usize {
-    segments.iter().filter(|s| matches!(s, MergeSegment::Conflict { .. })).count()
+    segments
+        .iter()
+        .filter(|s| matches!(s, MergeSegment::Conflict { .. }))
+        .count()
 }
 
 #[cfg(test)]
@@ -127,19 +138,32 @@ mod tests {
     #[test]
     fn no_markers_is_one_clean_segment() {
         let segments = parse_conflict_markers("line1\nline2\nline3");
-        assert_eq!(segments, vec![MergeSegment::Clean { text: "line1\nline2\nline3".to_string() }]);
+        assert_eq!(
+            segments,
+            vec![MergeSegment::Clean {
+                text: "line1\nline2\nline3".to_string()
+            }]
+        );
     }
 
     #[test]
     fn single_conflict_hunk_between_clean_text() {
-        let merged = "line1\n<<<<<<< HEAD\nmine A\nmine B\n=======\ntheirs A\n>>>>>>> branch\nline2";
+        let merged =
+            "line1\n<<<<<<< HEAD\nmine A\nmine B\n=======\ntheirs A\n>>>>>>> branch\nline2";
         let segments = parse_conflict_markers(merged);
         assert_eq!(
             segments,
             vec![
-                MergeSegment::Clean { text: "line1".to_string() },
-                MergeSegment::Conflict { mine: "mine A\nmine B".to_string(), theirs: "theirs A".to_string() },
-                MergeSegment::Clean { text: "line2".to_string() },
+                MergeSegment::Clean {
+                    text: "line1".to_string()
+                },
+                MergeSegment::Conflict {
+                    mine: "mine A\nmine B".to_string(),
+                    theirs: "theirs A".to_string()
+                },
+                MergeSegment::Clean {
+                    text: "line2".to_string()
+                },
             ]
         );
     }
@@ -151,8 +175,13 @@ mod tests {
         assert_eq!(
             segments,
             vec![
-                MergeSegment::Conflict { mine: "mine".to_string(), theirs: "theirs".to_string() },
-                MergeSegment::Clean { text: "after".to_string() },
+                MergeSegment::Conflict {
+                    mine: "mine".to_string(),
+                    theirs: "theirs".to_string()
+                },
+                MergeSegment::Clean {
+                    text: "after".to_string()
+                },
             ]
         );
     }
@@ -200,7 +229,11 @@ mod tests {
     fn resolved_text_never_contains_raw_markers() {
         let merged = "before\n<<<<<<< HEAD\nmine\n=======\ntheirs\n>>>>>>> b\nafter";
         let segments = parse_conflict_markers(merged);
-        for choice in [ConflictChoice::Mine, ConflictChoice::Theirs, ConflictChoice::Both] {
+        for choice in [
+            ConflictChoice::Mine,
+            ConflictChoice::Theirs,
+            ConflictChoice::Both,
+        ] {
             let resolved = resolve_segments(&segments, &[choice]).unwrap();
             assert!(!resolved.contains("<<<<<<<"));
             assert!(!resolved.contains("======="));

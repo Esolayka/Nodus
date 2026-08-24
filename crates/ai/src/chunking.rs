@@ -20,12 +20,19 @@ pub struct TextChunk {
 /// at `chunk_chars`, so a chunk doesn't end mid-word for a still-fairly-
 /// short note.
 pub fn chunk_text(text: &str, chunk_chars: usize, overlap_chars: usize) -> Vec<TextChunk> {
-    assert!(chunk_chars > overlap_chars, "a chunk must advance past its own overlap");
+    assert!(
+        chunk_chars > overlap_chars,
+        "a chunk must advance past its own overlap"
+    );
     if text.is_empty() {
         return Vec::new();
     }
     if text.chars().count() <= chunk_chars {
-        return vec![TextChunk { text: text.to_string(), start: 0, end: text.len() }];
+        return vec![TextChunk {
+            text: text.to_string(),
+            start: 0,
+            end: text.len(),
+        }];
     }
 
     let mut chunks = Vec::new();
@@ -36,9 +43,15 @@ pub fn chunk_text(text: &str, chunk_chars: usize, overlap_chars: usize) -> Vec<T
             end = nearest_break(text, end);
         }
         if end <= start {
-            end = advance_chars(text, start, chunk_chars).max(start + 1).min(text.len());
+            end = advance_chars(text, start, chunk_chars)
+                .max(start + 1)
+                .min(text.len());
         }
-        chunks.push(TextChunk { text: text[start..end].to_string(), start, end });
+        chunks.push(TextChunk {
+            text: text[start..end].to_string(),
+            start,
+            end,
+        });
         if end >= text.len() {
             break;
         }
@@ -51,19 +64,21 @@ pub fn chunk_text(text: &str, chunk_chars: usize, overlap_chars: usize) -> Vec<T
 /// Byte offset `chars` characters after `from`, clamped to the string's
 /// length and always landing on a char boundary.
 fn advance_chars(text: &str, from: usize, chars: usize) -> usize {
-    text[from..].char_indices().nth(chars).map(|(i, _)| from + i).unwrap_or(text.len())
+    text[from..]
+        .char_indices()
+        .nth(chars)
+        .map(|(i, _)| from + i)
+        .unwrap_or(text.len())
 }
 
 /// How many bytes back from `end` covers `overlap_chars` characters —
 /// used to step the next chunk's start back into the previous one.
 fn overlap_char_bytes(text: &str, end: usize, overlap_chars: usize) -> usize {
     let prefix = &text[..end];
-    let mut count = 0;
-    for (i, _) in prefix.char_indices().rev() {
+    for (count, (i, _)) in prefix.char_indices().rev().enumerate() {
         if count == overlap_chars {
             return end - i;
         }
-        count += 1;
     }
     end
 }
@@ -121,7 +136,10 @@ mod tests {
         let chunks = chunk_text(&paragraph, 300, 50);
         assert!(chunks.len() > 1);
         for pair in chunks.windows(2) {
-            assert!(pair[1].start < pair[0].end, "consecutive chunks should overlap");
+            assert!(
+                pair[1].start < pair[0].end,
+                "consecutive chunks should overlap"
+            );
         }
     }
 
@@ -130,9 +148,17 @@ mod tests {
         let text = "Paragraph one has some words.\n\nParagraph two has some other words.\n\nAnd a third paragraph rounds things out with more content still.".repeat(3);
         let chunks = chunk_text(&text, 100, 20);
         assert!(!chunks.is_empty());
-        assert_eq!(chunks.last().unwrap().end, text.len(), "the last chunk should reach the end of the text");
+        assert_eq!(
+            chunks.last().unwrap().end,
+            text.len(),
+            "the last chunk should reach the end of the text"
+        );
         for chunk in &chunks {
-            assert_eq!(&text[chunk.start..chunk.end], chunk.text, "offsets must slice back to the same text");
+            assert_eq!(
+                &text[chunk.start..chunk.end],
+                chunk.text,
+                "offsets must slice back to the same text"
+            );
         }
     }
 

@@ -63,7 +63,11 @@ pub fn write_attachment_bytes(vault: &Vault, relative: &str, bytes: &[u8]) -> Re
 /// Copies an external file (e.g. a drag-and-dropped path) into the vault at
 /// `relative`. Same "must not already exist" contract as
 /// [`write_attachment_bytes`].
-pub fn copy_attachment_from_path(vault: &Vault, relative: &str, source_absolute: &Path) -> Result<()> {
+pub fn copy_attachment_from_path(
+    vault: &Vault,
+    relative: &str,
+    source_absolute: &Path,
+) -> Result<()> {
     let path = vault.resolve(relative)?;
     if path.exists() {
         return Err(Error::AlreadyExists(path));
@@ -223,7 +227,10 @@ mod tests {
 
         write_note(&vault, "Daily Notes/2026-08-23.md", "hello").unwrap();
 
-        assert_eq!(read_note(&vault, "Daily Notes/2026-08-23.md").unwrap(), "hello");
+        assert_eq!(
+            read_note(&vault, "Daily Notes/2026-08-23.md").unwrap(),
+            "hello"
+        );
     }
 
     #[test]
@@ -239,7 +246,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let vault = Vault::open(dir.path()).unwrap();
         write_attachment_bytes(&vault, "assets/photo.png", b"\x89PNG").unwrap();
-        assert_eq!(std::fs::read(dir.path().join("assets/photo.png")).unwrap(), b"\x89PNG");
+        assert_eq!(
+            std::fs::read(dir.path().join("assets/photo.png")).unwrap(),
+            b"\x89PNG"
+        );
     }
 
     #[test]

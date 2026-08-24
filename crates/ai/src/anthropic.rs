@@ -27,7 +27,11 @@ impl AnthropicClient {
             .timeout(Duration::from_secs(120))
             .build()
             .expect("building the HTTP client cannot fail with no custom TLS config");
-        Self { base_url, api_key, client }
+        Self {
+            base_url,
+            api_key,
+            client,
+        }
     }
 
     pub fn commercial(api_key: String) -> Self {
@@ -97,13 +101,19 @@ impl ChatProvider for AnthropicClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.base_url))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.base_url))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.base_url))?;
         if !status.is_success() {
             return Err(classify_error_response(status.as_u16(), &body, ""));
         }
-        let parsed: ModelsResponse =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
-        Ok(parsed.data.into_iter().map(|m| ModelInfo { id: m.id }).collect())
+        let parsed: ModelsResponse = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        Ok(parsed
+            .data
+            .into_iter()
+            .map(|m| ModelInfo { id: m.id })
+            .collect())
     }
 
     fn complete(&self, request: &ChatRequest) -> Result<ChatResponse> {
@@ -116,18 +126,31 @@ impl ChatProvider for AnthropicClient {
             .filter(|m| m.role == Role::System)
             .map(|m| m.content.as_str())
             .collect();
-        let system = if system.is_empty() { None } else { Some(system.join("\n\n")) };
+        let system = if system.is_empty() {
+            None
+        } else {
+            Some(system.join("\n\n"))
+        };
 
         let messages: Vec<WireMessage> = request
             .messages
             .iter()
             .filter(|m| m.role != Role::System)
-            .map(|m| WireMessage { role: if m.role == Role::User { "user" } else { "assistant" }, content: &m.content })
+            .map(|m| WireMessage {
+                role: if m.role == Role::User {
+                    "user"
+                } else {
+                    "assistant"
+                },
+                content: &m.content,
+            })
             .collect();
 
         let wire = WireRequest {
             model: &request.model,
-            max_tokens: request.max_output_tokens.unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS),
+            max_tokens: request
+                .max_output_tokens
+                .unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS),
             system,
             messages,
         };
@@ -137,12 +160,18 @@ impl ChatProvider for AnthropicClient {
             .send()
             .map_err(|e| classify_transport_error(e, &self.base_url))?;
         let status = resp.status();
-        let body = resp.text().map_err(|e| classify_transport_error(e, &self.base_url))?;
+        let body = resp
+            .text()
+            .map_err(|e| classify_transport_error(e, &self.base_url))?;
         if !status.is_success() {
-            return Err(classify_error_response(status.as_u16(), &body, &request.model));
+            return Err(classify_error_response(
+                status.as_u16(),
+                &body,
+                &request.model,
+            ));
         }
-        let parsed: CompletionResponse =
-            serde_json::from_str(&body).map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
+        let parsed: CompletionResponse = serde_json::from_str(&body)
+            .map_err(|e| ProviderError::UnexpectedResponse(e.to_string()))?;
         let content = parsed
             .content
             .into_iter()
@@ -152,7 +181,10 @@ impl ChatProvider for AnthropicClient {
             .join("");
         let usage = parsed
             .usage
-            .map(|u| ChatUsage { prompt_tokens: u.input_tokens, completion_tokens: u.output_tokens })
+            .map(|u| ChatUsage {
+                prompt_tokens: u.input_tokens,
+                completion_tokens: u.output_tokens,
+            })
             .unwrap_or_default();
         Ok(ChatResponse { content, usage })
     }
@@ -169,14 +201,21 @@ mod tests {
         (server, format!("http://{addr}"))
     }
 
-    fn respond_once(server: tiny_http::Server, status: u16, body: &'static str) -> std::thread::JoinHandle<Vec<u8>> {
+    fn respond_once(
+        server: tiny_http::Server,
+        status: u16,
+        body: &'static str,
+    ) -> std::thread::JoinHandle<Vec<u8>> {
         std::thread::spawn(move || {
             let mut request = server.recv().unwrap();
             let mut received = Vec::new();
             request.as_reader().read_to_end(&mut received).unwrap();
             let response = tiny_http::Response::from_string(body)
                 .with_status_code(status)
-                .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap());
+                .with_header(
+                    tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])
+                        .unwrap(),
+                );
             request.respond(response).unwrap();
             received
         })
@@ -204,7 +243,10 @@ mod tests {
         assert_eq!(response.usage.completion_tokens, 4);
         assert!(received.contains("\"system\":\"Be concise.\""));
         assert!(received.contains("\"role\":\"user\""));
-        assert!(!received.contains("\"role\":\"system\""), "system must not appear inside messages: {received}");
+        assert!(
+            !received.contains("\"role\":\"system\""),
+            "system must not appear inside messages: {received}"
+        );
     }
 
     #[test]
@@ -212,7 +254,11 @@ mod tests {
         let (server, url) = spawn_server();
         let handle = std::thread::spawn(move || {
             let request = server.recv().unwrap();
-            let headers: Vec<String> = request.headers().iter().map(|h| format!("{}: {}", h.field, h.value)).collect();
+            let headers: Vec<String> = request
+                .headers()
+                .iter()
+                .map(|h| format!("{}: {}", h.field, h.value))
+                .collect();
             let response = tiny_http::Response::from_string(
                 r#"{"content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1}}"#,
             );
@@ -221,11 +267,19 @@ mod tests {
         });
         let client = AnthropicClient::new(url, "sk-ant-secret".to_string());
         client
-            .complete(&ChatRequest { model: "claude-opus-5".to_string(), messages: vec![ChatMessage::user("hi")], max_output_tokens: None })
+            .complete(&ChatRequest {
+                model: "claude-opus-5".to_string(),
+                messages: vec![ChatMessage::user("hi")],
+                max_output_tokens: None,
+            })
             .unwrap();
         let headers = handle.join().unwrap();
-        assert!(headers.iter().any(|h| h.to_lowercase().contains("x-api-key: sk-ant-secret")));
-        assert!(headers.iter().any(|h| h.to_lowercase().contains(&format!("anthropic-version: {ANTHROPIC_VERSION}"))));
+        assert!(headers
+            .iter()
+            .any(|h| h.to_lowercase().contains("x-api-key: sk-ant-secret")));
+        assert!(headers.iter().any(|h| h
+            .to_lowercase()
+            .contains(&format!("anthropic-version: {ANTHROPIC_VERSION}"))));
     }
 
     #[test]
