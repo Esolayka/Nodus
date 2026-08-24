@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { previewRename } from "../../api/vault";
 import { useVaultStore } from "../../store/vaultStore";
@@ -42,6 +42,19 @@ function findNode(node: TreeNode, path: string): TreeNode | null {
   return null;
 }
 
+function sortedTree(nodes: TreeNode[], reversed: boolean): TreeNode[] {
+  return sortChildren(nodes, reversed).map((node) =>
+    node.isDir ? { ...node, children: sortedTree(node.children, reversed) } : node,
+  );
+}
+
+function activeNotePath(): string | null {
+  const state = useWorkspaceStore.getState();
+  const activePaneId = state.activePaneId || state.panes[0]?.id;
+  const pane = state.panes.find((candidate) => candidate.id === activePaneId);
+  return pane?.view === null ? pane.activePath : null;
+}
+
 export function FileTree() {
   const { t } = useTranslation();
   const tree = useVaultStore((s) => s.tree);
@@ -52,9 +65,6 @@ export function FileTree() {
   const handleRenamed = useWorkspaceStore((s) => s.handleRenamed);
   const closePath = useWorkspaceStore((s) => s.closePath);
   const openNote = useWorkspaceStore((s) => s.openNote);
-  const activePane = useWorkspaceStore((s) =>
-    s.panes.find((p) => p.id === s.activePaneId),
-  );
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [sortReversed, setSortReversed] = useState(false);
@@ -65,6 +75,7 @@ export function FileTree() {
   // Guards against double-committing: pressing Enter unmounts the rename
   // input, and the resulting native blur fires onBlur's commit again.
   const renameCommittedRef = useRef(false);
+  const treeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -84,17 +95,36 @@ export function FileTree() {
     };
   }, []);
 
-  if (!tree) return null;
+  useEffect(() => {
+    let previousPath = activeNotePath();
+    return useWorkspaceStore.subscribe(() => {
+      const nextPath = activeNotePath();
+      if (nextPath === previousPath) return;
+      const root = treeRef.current;
+      root?.querySelector(".tree-item-active")?.classList.remove("tree-item-active");
+      if (root && nextPath) {
+        root
+          .querySelector(`[data-tree-path="${CSS.escape(nextPath)}"]`)
+          ?.classList.add("tree-item-active");
+      }
+      previousPath = nextPath;
+    });
+  }, []);
 
-  // If the vault root holds nothing but a single folder, that folder is a
-  // redundant wrapper — show its contents at level 0 instead. Peels every
-  // such layer, not just one, in case the vault root was opened one level
-  // (or more) above the folder that's actually meant to be the vault.
-  let rawTopLevel = tree.children;
-  while (rawTopLevel.length === 1 && rawTopLevel[0].isDir) {
-    rawTopLevel = rawTopLevel[0].children;
-  }
-  const topLevel = sortChildren(rawTopLevel, sortReversed);
+  const topLevel = useMemo(() => {
+    if (!tree) return [];
+    // If the vault root holds nothing but a single folder, that folder is a
+    // redundant wrapper. Peel every such layer, then sort the complete
+    // visible tree once instead of sorting every expanded folder on every
+    // active-note render.
+    let rawTopLevel = tree.children;
+    while (rawTopLevel.length === 1 && rawTopLevel[0].isDir) {
+      rawTopLevel = rawTopLevel[0].children;
+    }
+    return sortedTree(rawTopLevel, sortReversed);
+  }, [tree, sortReversed]);
+
+  if (!tree) return null;
 
   function toggleExpand(path: string) {
     setExpanded((prev) => {
@@ -185,6 +215,7 @@ export function FileTree() {
 
   return (
     <div
+      ref={treeRef}
       className="file-tree"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
@@ -202,10 +233,8 @@ export function FileTree() {
           key={child.path}
           node={child}
           expanded={expanded}
-          activePath={activePane?.activePath ?? null}
           renamingPath={renamingPath}
           renameValue={renameValue}
-          sortReversed={sortReversed}
           onToggleExpand={toggleExpand}
           onOpen={(path, split) => void openNote(path, { split })}
           onContextMenu={(e, node) => {

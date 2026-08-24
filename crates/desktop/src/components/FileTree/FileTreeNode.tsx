@@ -2,15 +2,13 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import type { TreeNode } from "../../types/vault";
 import { isCanvasPath } from "../../lib/canvasTypes";
 import { displayName } from "../../lib/displayName";
-import { sortChildren } from "../../lib/treeSort";
+import { useWorkspaceStore } from "../../store/workspaceStore";
 
 interface FileTreeNodeProps {
   node: TreeNode;
   expanded: Set<string>;
-  activePath: string | null;
   renamingPath: string | null;
   renameValue: string;
-  sortReversed: boolean;
   onToggleExpand: (path: string) => void;
   onOpen: (path: string, split: boolean) => void;
   onContextMenu: (e: MouseEvent, node: TreeNode) => void;
@@ -22,6 +20,12 @@ interface FileTreeNodeProps {
 
 export function FileTreeNode(props: FileTreeNodeProps) {
   const { node } = props;
+  const workspace = useWorkspaceStore.getState();
+  const activePaneId = workspace.activePaneId || workspace.panes[0]?.id;
+  const activePane = workspace.panes.find(
+    (candidate) => candidate.id === activePaneId,
+  );
+  const isActive = activePane?.view === null && activePane.activePath === node.path;
   const isExpanded = props.expanded.has(node.path);
   const isRenaming = props.renamingPath === node.path;
   const isCanvas = !node.isDir && isCanvasPath(node.path);
@@ -31,7 +35,8 @@ export function FileTreeNode(props: FileTreeNodeProps) {
   return (
     <div className="tree-node">
       <div
-        className={`tree-item${node.path === props.activePath ? " tree-item-active" : ""}`}
+        className={`tree-item${isActive ? " tree-item-active" : ""}`}
+        data-tree-path={node.path}
         draggable={!isRenaming}
         onDragStart={(e) => e.dataTransfer.setData("text/nodus-path", node.path)}
         onDragOver={(e) => {
@@ -91,7 +96,7 @@ export function FileTreeNode(props: FileTreeNodeProps) {
       </div>
       {node.isDir && isExpanded && (
         <div className="tree-children">
-          {sortChildren(node.children, props.sortReversed).map((child) => (
+          {node.children.map((child) => (
             <FileTreeNode key={child.path} {...props} node={child} />
           ))}
         </div>
