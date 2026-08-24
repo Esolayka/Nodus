@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Linux shells can match the running Nodus window to its desktop launcher and icon.
+
 ### Added
 
 - Desktop notes workspace with tabs, Markdown editing, graph and canvas.
