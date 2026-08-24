@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { FileText, Network, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { displayName } from "../../lib/displayName";
 import {
   GRAPH_TAB_ID,
+  TAB_ANIMATION_MS,
   isEmptyTab,
   orderedPaneTabIds,
+  tabAnimationKey,
   useWorkspaceStore,
   type Pane,
 } from "../../store/workspaceStore";
@@ -20,6 +22,7 @@ const TAB_DRAG_MIME = "application/x-nodus-tab";
 export function TabBar({ pane }: { pane: Pane }) {
   const { t } = useTranslation();
   const buffers = useWorkspaceStore((s) => s.buffers);
+  const closingTabs = useWorkspaceStore((s) => s.closingTabs);
   const setActiveTab = useWorkspaceStore((s) => s.setActiveTab);
   const setActiveView = useWorkspaceStore((s) => s.setActiveView);
   const closeTab = useWorkspaceStore((s) => s.closeTab);
@@ -29,10 +32,42 @@ export function TabBar({ pane }: { pane: Pane }) {
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [openingIds, setOpeningIds] = useState<Set<string>>(() => new Set());
 
   const tabIds = orderedPaneTabIds(pane);
   const orderKey = tabIds.join("\u0000");
   const activeId = pane.view === "graph" ? GRAPH_TAB_ID : pane.activePath;
+  const previousIdsRef = useRef(tabIds);
+  const openingTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useLayoutEffect(() => {
+    const previousIds = previousIdsRef.current;
+    previousIdsRef.current = tabIds;
+    if (tabIds.length <= previousIds.length) return;
+
+    const previous = new Set(previousIds);
+    const added = tabIds.filter((id) => !previous.has(id));
+    if (added.length === 0) return;
+
+    setOpeningIds((current) => new Set([...current, ...added]));
+    for (const id of added) {
+      const existing = openingTimersRef.current.get(id);
+      if (existing) clearTimeout(existing);
+      openingTimersRef.current.set(id, setTimeout(() => {
+        setOpeningIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+        openingTimersRef.current.delete(id);
+      }, TAB_ANIMATION_MS));
+    }
+  }, [orderKey]);
+
+  useEffect(() => () => {
+    for (const timer of openingTimersRef.current.values()) clearTimeout(timer);
+    openingTimersRef.current.clear();
+  }, []);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -113,16 +148,23 @@ export function TabBar({ pane }: { pane: Pane }) {
           const blank = !graph && isEmptyTab(id);
           const active = graph ? pane.view === "graph" : pane.view === null && id === pane.activePath;
           const dirty = !graph && buffers[id]?.dirty;
+          const opening = openingIds.has(id);
+          const closing = Boolean(closingTabs[tabAnimationKey(pane.id, id)]);
           const dropClass = dropTarget?.id === id ? ` tab-drop-${dropTarget.side}` : "";
           return (
             <div
               key={id}
               role="tab"
               aria-selected={active}
+              aria-disabled={closing}
               data-tab-id={id}
-              draggable
-              className={`tab${active ? " tab-active" : ""}${draggedId === id ? " tab-dragging" : ""}${dropClass}`}
-              onClick={() => graph ? setActiveView(pane.id, "graph") : setActiveTab(pane.id, id)}
+              draggable={!closing}
+              className={`tab${active ? " tab-active" : ""}${opening ? " tab-opening" : ""}${closing ? " tab-closing" : ""}${draggedId === id ? " tab-dragging" : ""}${dropClass}`}
+              onClick={() => {
+                if (closing) return;
+                if (graph) setActiveView(pane.id, "graph");
+                else setActiveTab(pane.id, id);
+              }}
               onDragStart={(event) => startDrag(event, id)}
               onDragOver={(event) => dragOver(event, id)}
               onDrop={(event) => drop(event, id)}

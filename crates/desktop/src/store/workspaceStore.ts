@@ -34,6 +34,18 @@ export const EMPTY_TAB_PREFIX = " empty:";
 /** Synthetic id used only in a pane's visual tab order. Like the empty-tab
  * prefix, the leading space prevents collision with a vault-relative path. */
 export const GRAPH_TAB_ID = " view:graph";
+export const TAB_ANIMATION_MS = 160;
+
+export function tabAnimationKey(paneId: string, tabId: string): string {
+  return `${paneId}\u0000${tabId}`;
+}
+
+function withoutClosingTab(closingTabs: Record<string, true>, key: string): Record<string, true> {
+  if (!closingTabs[key]) return closingTabs;
+  const next = { ...closingTabs };
+  delete next[key];
+  return next;
+}
 
 export function isEmptyTab(path: string | null): path is string {
   return path != null && path.startsWith(EMPTY_TAB_PREFIX);
@@ -71,6 +83,9 @@ interface WorkspaceState {
   panes: Pane[];
   activePaneId: string;
   buffers: Record<string, Buffer>;
+  /** Tabs stay mounted briefly after a close command so their chrome can
+   * contract before the pane removes them from its canonical tab lists. */
+  closingTabs: Record<string, true>;
   /** Per-note editing mode, remembered for as long as the note stays open
    * anywhere (mirrors the one-CodeMirror-instance-per-note model). */
   modes: Record<string, EditorMode>;
@@ -270,6 +285,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   panes: [firstPane()],
   activePaneId: "",
   buffers: {},
+  closingTabs: {},
   modes: {},
   lastEditModes: {},
   pdfJumpVersion: 0,
@@ -471,46 +487,27 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   closeView: (paneId) => {
-    set((s) => ({
-      panes: s.panes.map((pane) => {
-        if (pane.id !== paneId || !pane.graphOpen) return pane;
-        const tabOrder = pane.tabOrder.filter((id) => id !== GRAPH_TAB_ID);
-        if (pane.tabs.length > 0) {
-          const activePath = pane.activePath && pane.tabs.includes(pane.activePath)
-            ? pane.activePath
-            : pane.tabs[pane.tabs.length - 1];
-          return { ...pane, view: null, graphOpen: false, tabOrder, activePath };
-        }
+    const key = tabAnimationKey(paneId, GRAPH_TAB_ID);
+    const state = get();
+    const pane = state.panes.find((candidate) => candidate.id === paneId);
+    if (!pane?.graphOpen || state.closingTabs[key]) return;
 
-        // Closing a lone graph leaf must return to Obsidian's permanent
-        // "New tab" state, never to a pane with no tabs at all.
-        const emptyTab = makeEmptyTabId();
-        return {
-          ...pane,
-          tabs: [emptyTab],
-          tabOrder: [...tabOrder, emptyTab],
-          activePath: emptyTab,
-          view: null,
-          graphOpen: false,
-        };
-      }),
-    }));
-  },
+    set((s) => ({ closingTabs: { ...s.closingTabs, [key]: true } }));
+    setTimeout(() => {
+      set((s) => ({
+        closingTabs: withoutClosingTab(s.closingTabs, key),
+        panes: s.panes.map((pane) => {
+          if (pane.id !== paneId || !pane.graphOpen) return pane;
+          const tabOrder = pane.tabOrder.filter((id) => id !== GRAPH_TAB_ID);
+          if (pane.tabs.length > 0) {
+            const activePath = pane.activePath && pane.tabs.includes(pane.activePath)
+              ? pane.activePath
+              : pane.tabs[pane.tabs.length - 1];
+            return { ...pane, view: null, graphOpen: false, tabOrder, activePath };
+          }
 
-  closeTab: (paneId, path) => {
-    set((s) => {
-      const panes = s.panes.map((pane) => {
-        if (pane.id !== paneId || !pane.tabs.includes(path)) return pane;
-        const tabs = pane.tabs.filter((t) => t !== path);
-        const activePath =
-          pane.activePath === path ? (tabs[tabs.length - 1] ?? null) : pane.activePath;
-        const tabOrder = pane.tabOrder.filter((id) => id !== path);
-        const history = dropFromHistory(pane, path);
-
-        if (tabs.length === 0 && !pane.graphOpen) {
-          // Keep the tab strip structurally present after its final file or
-          // blank tab is closed. This also keeps the tab-list chevron in the
-          // title bar instead of collapsing the whole center area.
+          // Closing a lone graph leaf must return to Obsidian's permanent
+          // "New tab" state, never to a pane with no tabs at all.
           const emptyTab = makeEmptyTabId();
           return {
             ...pane,
@@ -518,36 +515,73 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             tabOrder: [...tabOrder, emptyTab],
             activePath: emptyTab,
             view: null,
+            graphOpen: false,
+          };
+        }),
+      }));
+    }, TAB_ANIMATION_MS);
+  },
+
+  closeTab: (paneId, path) => {
+    const key = tabAnimationKey(paneId, path);
+    const state = get();
+    const pane = state.panes.find((candidate) => candidate.id === paneId);
+    if (!pane?.tabs.includes(path) || state.closingTabs[key]) return;
+
+    set((s) => ({ closingTabs: { ...s.closingTabs, [key]: true } }));
+    void get().flush(path);
+    setTimeout(() => {
+      set((s) => {
+        const closingTabs = withoutClosingTab(s.closingTabs, key);
+        const panes = s.panes.map((pane) => {
+          if (pane.id !== paneId || !pane.tabs.includes(path)) return pane;
+          const tabs = pane.tabs.filter((t) => t !== path);
+          const activePath =
+            pane.activePath === path ? (tabs[tabs.length - 1] ?? null) : pane.activePath;
+          const tabOrder = pane.tabOrder.filter((id) => id !== path);
+          const history = dropFromHistory(pane, path);
+
+          if (tabs.length === 0 && !pane.graphOpen) {
+            // Keep the tab strip structurally present after its final file or
+            // blank tab is closed. This also keeps the tab-list chevron in the
+            // title bar instead of collapsing the whole center area.
+            const emptyTab = makeEmptyTabId();
+            return {
+              ...pane,
+              tabs: [emptyTab],
+              tabOrder: [...tabOrder, emptyTab],
+              activePath: emptyTab,
+              view: null,
+              mru: pane.mru.filter((p) => p !== path),
+              ...history,
+            };
+          }
+
+          return {
+            ...pane,
+            tabs,
+            tabOrder,
+            activePath,
+            // If the last file tab closes while a graph tab exists, bring
+            // that existing tab forward rather than showing an empty pane.
+            view: tabs.length === 0 && pane.graphOpen ? "graph" : pane.view,
             mru: pane.mru.filter((p) => p !== path),
             ...history,
           };
-        }
-
-        return {
-          ...pane,
-          tabs,
-          tabOrder,
-          activePath,
-          // If the last file tab closes while a graph tab exists, bring
-          // that existing tab forward rather than showing an empty pane.
-          view: tabs.length === 0 && pane.graphOpen ? "graph" : pane.view,
-          mru: pane.mru.filter((p) => p !== path),
-          ...history,
-        };
+        });
+        return { closingTabs, panes };
       });
-      return { panes };
-    });
-    void get().flush(path);
-    if (!isStillOpen(get().panes, path)) {
-      destroyEditor(path);
-      set((s) => {
-        const modes = { ...s.modes };
-        const lastEditModes = { ...s.lastEditModes };
-        delete modes[path];
-        delete lastEditModes[path];
-        return { modes, lastEditModes };
-      });
-    }
+      if (!isStillOpen(get().panes, path)) {
+        destroyEditor(path);
+        set((s) => {
+          const modes = { ...s.modes };
+          const lastEditModes = { ...s.lastEditModes };
+          delete modes[path];
+          delete lastEditModes[path];
+          return { modes, lastEditModes };
+        });
+      }
+    }, TAB_ANIMATION_MS);
   },
 
   reorderTab: (paneId, tabId, toIndex) => {
