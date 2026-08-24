@@ -21,5 +21,8 @@ crates/desktop/src-tauri/target/
 # Local Nodus vault runtime data (if this repo is ever opened as a vault)
 .nodus/
 
+# Personal font collections are not application assets and may be licensed.
+/шрифты/
+
 # Claude Code local settings (machine-specific permissions)
 .claude/settings.local.json
