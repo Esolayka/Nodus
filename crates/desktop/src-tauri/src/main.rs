@@ -43,7 +43,10 @@ fn main() {
     // through, every variable above is already present (inherited from the
     // exec below) and this whole block is skipped.
     #[cfg(target_os = "linux")]
-    if LINUX_COMPAT_ENV.iter().any(|(key, _)| std::env::var_os(key).is_none()) {
+    if LINUX_COMPAT_ENV
+        .iter()
+        .any(|(key, _)| std::env::var_os(key).is_none())
+    {
         use std::os::unix::process::CommandExt;
         let exe = std::env::current_exe().expect("failed to resolve our own executable path");
         let mut cmd = std::process::Command::new(exe);
