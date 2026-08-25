@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-25
+
+### Fixed
+
+- Linux builds on the same hybrid Intel/NVIDIA (`nouveau`) hardware fixed in 0.2.1 could still show a blank white window instead of aborting — WebKitGTK's accelerated compositor needed to be disabled too, not just its DMA-BUF renderer.
+
 ## [0.2.1] - 2026-08-25
 
 ### Fixed
