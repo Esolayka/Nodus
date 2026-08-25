@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/ai", "crates/core", "crates/crypto", "crates/desktop/src-tauri", "crates/sync-server", "crates/telegram"]
 
 [workspace.package]
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/Esolayka/Nodus"

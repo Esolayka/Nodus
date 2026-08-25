@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-08-26
+
+### Fixed
+
+- The white window persisted in 0.2.4 even with the re-exec fix confirmed active: the AppImage bundles its own copy of WebKitGTK/GTK (whatever was current on the CI runner at build time), and on the same affected hybrid Intel/NVIDIA (`nouveau`) hardware, that specific bundled build still renders a blank window — while the exact same frontend against the host's own system WebKitGTK package renders correctly. Also, the AppImage's own launcher sets `LD_LIBRARY_PATH` itself right before starting the app, unconditionally prepending its bundle's lib dir, so setting it any earlier in that chain was always getting overridden regardless. Now, when a system WebKitGTK is present on the host, the app prefers it over the bundled copy (library path and GTK module/loader paths alike), falling back to the bundle unchanged when the system doesn't have one, so the AppImage stays portable for systems without it installed. Verified against the actual CI-built bundle's own (older) WebKitGTK on the affected hardware, not just a local rebuild.
+- Also forces `GDK_BACKEND=x11`, working around a separate known WebKitGTK crash on the native Wayland backend ([tauri-apps/tauri#8541](https://github.com/tauri-apps/tauri/issues/8541)) — the AppImage's launcher already did this for the AppImage build specifically; it's now applied uniformly across all Linux package formats.
+
 ## [0.2.4] - 2026-08-25
 
 ### Fixed

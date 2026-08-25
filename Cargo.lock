@@ -3503,7 +3503,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-ai"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "fastembed",
  "hex",
@@ -3520,7 +3520,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-core"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "axum",
  "chardetng",
@@ -3552,7 +3552,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-crypto"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "argon2",
  "bip39",
@@ -3570,7 +3570,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-desktop"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "axum",
  "nodus-core",
@@ -3587,7 +3587,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-sync-server"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "axum",
  "clap",
@@ -3609,7 +3609,7 @@ dependencies = [
 
 [[package]]
 name = "nodus-telegram"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "hex",
  "hmac",
