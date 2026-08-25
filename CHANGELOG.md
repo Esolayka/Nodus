@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-25
+
+### Fixed
+
+- Linux builds could fail to start at all on hybrid Intel/NVIDIA laptops using the open-source `nouveau` driver under Wayland, aborting with "Could not create surfaceless EGL display: EGL_BAD_ALLOC" before any window appeared.
+
 ## [0.2.0] - 2026-08-25
 
 ### Added
