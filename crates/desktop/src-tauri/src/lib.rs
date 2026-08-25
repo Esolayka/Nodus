@@ -9,6 +9,19 @@ mod telegram;
 
 use tauri::Manager;
 
+// On the Linux hardware where main.rs forces WEBKIT_DISABLE_COMPOSITING_MODE
+// (see there for why), WebGL context creation still nominally succeeds but
+// its output never reaches the page: WebKitGTK composites WebGL canvases
+// through the same accelerated-compositing pipeline that variable turns
+// off. Canvas 2D paints through a separate, unaffected path. The Graph view
+// uses this to skip WebGL and go straight to the Canvas 2D renderer only on
+// the affected systems, rather than everywhere (which would give up real
+// GPU acceleration for everyone else).
+#[tauri::command]
+fn linux_gl_compat_forced() -> bool {
+    cfg!(target_os = "linux") && std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_some()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -29,6 +42,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            linux_gl_compat_forced,
             commands::open_vault,
             commands::ensure_sandbox_vault,
             commands::restore_last_vault,

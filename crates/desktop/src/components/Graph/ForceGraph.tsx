@@ -6,7 +6,16 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+// Tauri's CSP has no 'unsafe-eval' (intentionally — that's a real security
+// trade-off this app doesn't need to make), but PixiJS's default renderer
+// uses `new Function` internally to compile fast paths for shader/uniform
+// syncing. Without this side-effect import, `Application.init()` rejects
+// outright with "Current environment does not allow unsafe-eval" and the
+// Graph view never renders anything, on every platform — not a Linux- or
+// GPU-specific issue. This must run before any other pixi.js API is used.
+import "pixi.js/unsafe-eval";
 import { Application, Container, Graphics, Text } from "pixi.js";
+import { invoke } from "@tauri-apps/api/core";
 import { select } from "d3-selection";
 import {
   zoom,
@@ -142,6 +151,19 @@ function mix(a: string, b: string, t: number): string {
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+// On Linux hardware where the app forces WEBKIT_DISABLE_COMPOSITING_MODE
+// (see main.rs), WebKitGTK's accelerated-compositing pipeline is off, and
+// that's the same pipeline WebGL canvases composite through — so a WebGL
+// context there renders into thin air instead of the page. Canvas 2D paints
+// through a separate, unaffected path. Checked once and cached: it can't
+// change during a session, and every Graph view mount would otherwise repeat
+// the round trip.
+let linuxGlCompatForced: Promise<boolean> | null = null;
+function rendererPreference(): Promise<("webgl" | "canvas")[]> {
+  linuxGlCompatForced ??= invoke<boolean>("linux_gl_compat_forced").catch(() => false);
+  return linuxGlCompatForced.then((forced) => (forced ? ["canvas"] : ["webgl", "canvas"]));
 }
 
 function neighborhood(
@@ -709,6 +731,8 @@ export function ForceGraph({
       // again in development. Deferring one microtask prevents that probe
       // from starting two renderers against the same canvas concurrently.
       if (disposed) return;
+      const preference = await rendererPreference();
+      if (disposed) return;
       await app.init({
         canvas,
         width: Math.max(1, viewRef.current.w || canvas.clientWidth),
@@ -718,7 +742,7 @@ export function ForceGraph({
         autoStart: false,
         antialias: true,
         background: cssVar("--bg-primary"),
-        preference: ["webgl", "canvas"],
+        preference,
         powerPreference: "high-performance",
         roundPixels: false,
       });

@@ -10,19 +10,36 @@
 // still leaves a blank white window: WebKitGTK keeps routing some GL calls
 // through the broken discrete GPU driver even with compositing disabled, so
 // nothing gets painted. LIBGL_ALWAYS_SOFTWARE forces Mesa's software
-// rasterizer for every GL call, sidestepping both GPU drivers entirely.
-// GDK_BACKEND=x11 avoids a separate, known WebKitGTK crash on the native
-// Wayland backend (tauri-apps/tauri#8541). This costs the Graph view's WebGL
-// rendering some speed on affected hardware, an acceptable trade for "works
-// at all"; a user with known-good GPU setup can export any of these
-// themselves before launch to opt back into hardware acceleration/Wayland.
+// rasterizer for every GL call, sidestepping both GPU drivers entirely. This
+// costs the Graph view's WebGL rendering some speed on affected hardware, an
+// acceptable trade for "works at all"; a user with a known-good GPU setup
+// can export any of these themselves before launch to opt back into
+// hardware acceleration.
 #[cfg(target_os = "linux")]
-const LINUX_COMPAT_ENV: [(&str, &str); 4] = [
+const LINUX_COMPAT_ENV: [(&str, &str); 3] = [
     ("WEBKIT_DISABLE_DMABUF_RENDERER", "1"),
     ("WEBKIT_DISABLE_COMPOSITING_MODE", "1"),
     ("LIBGL_ALWAYS_SOFTWARE", "1"),
-    ("GDK_BACKEND", "x11"),
 ];
+
+// The AppImage's own launcher unconditionally forces GDK_BACKEND=x11
+// (tauri-apps/tauri#8541) to dodge a crash that turned out to be specific to
+// GNOME: a `gsettings` schema (`org.gnome.settings-daemon.plugins.xsettings`)
+// that GTK queries over Wayland can mismatch between the CI build image and
+// the user's own GNOME version. Non-GNOME compositors (niri, sway, Hyprland,
+// KDE, ...) don't run gnome-settings-daemon and aren't exposed to it — but
+// forcing X11 for them anyway trades away real window management for no
+// reason: niri's XWayland bridge doesn't implement the maximize/minimize
+// EWMH states at all (only fullscreen), while niri's native Wayland support
+// handles both correctly. So this only forces X11 where the crash it guards
+// against can actually happen.
+#[cfg(target_os = "linux")]
+fn is_gnome_session() -> bool {
+    ["XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .any(|value| value.to_lowercase().contains("gnome"))
+}
 
 // On the same affected hardware, the AppImage's *bundled* WebKitGTK/GTK
 // still renders a persistently blank window even with every flag above set
@@ -92,6 +109,15 @@ fn main() {
                 cmd.env(key, value);
             }
         }
+        // The AppImage's own launcher chain already sets GDK_BACKEND=x11
+        // unconditionally by the time we get here (see is_gnome_session's
+        // doc comment), so — same as LD_LIBRARY_PATH below — checking
+        // whether it's already set can't distinguish "the hook set this"
+        // from "a real user wants this"; decide it ourselves outright.
+        cmd.env(
+            "GDK_BACKEND",
+            if is_gnome_session() { "x11" } else { "wayland" },
+        );
         // AppImage's own launcher chain (see above) already sets
         // LD_LIBRARY_PATH by the time we get here, so checking whether it's
         // set is useless for detecting a real user override — it's always

@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-08-26
+
+### Fixed
+
+- The Graph view never rendered anything, on every platform (not just Linux) and regardless of GPU: PixiJS's default renderer uses `new Function` internally to compile fast paths for shader/uniform syncing, which the app's Content-Security-Policy has always correctly blocked (`'unsafe-eval'` is intentionally absent). `Application.init()` was rejecting outright with "Current environment does not allow unsafe-eval", silently leaving the canvas empty. Now imports PixiJS's own eval-free polyfill module before any other use of the library, so the CSP stays exactly as strict as before.
+- On Linux, the Graph view also now skips WebGL entirely in favor of the Canvas 2D renderer specifically when the app has forced `WEBKIT_DISABLE_COMPOSITING_MODE` (see 0.2.1–0.2.5): that variable turns off the same accelerated-compositing pipeline WebGL canvases render through in WebKitGTK, so a WebGL context there can succeed while never actually reaching the page. Canvas 2D paints through a separate, unaffected path.
+- The window's maximize/minimize titlebar buttons did nothing on Linux: the AppImage's own launcher unconditionally forces `GDK_BACKEND=x11` for a real but narrowly-scoped reason (a GNOME-specific `gsettings` schema crash, [tauri-apps/tauri#8541](https://github.com/tauri-apps/tauri/issues/8541)), and niri's XWayland compatibility layer (used by any non-GNOME Wayland compositor's X11 clients, confirmed here via its `_NET_SUPPORTED` list) doesn't implement the maximize/minimize window states at all — only fullscreen. X11 is now only forced when actually running under GNOME; everywhere else gets native Wayland, where niri's own window management handles both correctly.
+
 ## [0.2.5] - 2026-08-26
 
 ### Fixed
