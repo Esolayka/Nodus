@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-25
+
+### Fixed
+
+- The white window from 0.2.2, on the same hybrid Intel/NVIDIA (`nouveau`) hardware, is now fixed for real: WebKitGTK was still routing some GL calls through the broken discrete-GPU driver even with compositing disabled. Forcing Mesa's software rasterizer (`LIBGL_ALWAYS_SOFTWARE`) is what actually gets pixels on screen there. A user with a known-good GPU setup can export any of these three variables themselves before launch to opt back into hardware acceleration.
+
 ## [0.2.2] - 2026-08-25
 
 ### Fixed
