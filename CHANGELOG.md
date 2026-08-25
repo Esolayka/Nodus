@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-25
+
+### Fixed
+
+- The Linux graphics workaround from 0.2.1–0.2.3 didn't actually take effect: setting the environment variables from inside `main()` and continuing in the same process is too late for at least one of them (`LIBGL_ALWAYS_SOFTWARE`), which Mesa reads while the dynamic linker is still loading the process's shared libraries — before any of our own code runs. The process now re-execs itself once with the environment already correct from the start, the same as if the variables had been exported by the caller. Verified directly: the running process's own `/proc/<pid>/environ` now shows all three variables set purely from this logic, with no manual environment needed.
+
 ## [0.2.3] - 2026-08-25
 
 ### Fixed
