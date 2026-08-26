@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-08-26
+
+### Added
+
+- Themes can now be loaded from a `.css` file without rebuilding the app: `Settings → Appearance → Load external theme…`, next to "Create theme". It reads the file the same way external plugins do, pulls out whatever `--custom-property: value;` declarations it finds (regardless of selector), and fills in a full theme — colors the file doesn't define fall back to the currently active theme's, and the light/dark base is inferred from the background's lightness rather than needing to be specified. The result becomes a normal, fully persistent custom theme, editable afterward in the same color editor as any other. See `docs/themes.md` for the exact variable names.
+
 ## [0.2.6] - 2026-08-26
 
 ### Fixed

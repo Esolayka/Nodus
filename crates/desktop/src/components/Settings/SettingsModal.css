@@ -370,9 +370,10 @@
 
 .appearance-heading-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px 16px;
   margin-top: 20px;
   margin-bottom: 8px;
 }
@@ -388,6 +389,12 @@
   line-height: 1.4;
 }
 
+.appearance-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .appearance-create-button {
   display: inline-flex;
   align-items: center;
@@ -397,6 +404,13 @@
   border: 1px solid var(--border);
   color: var(--text-normal);
   background: var(--bg-tertiary);
+}
+
+.settings-warning {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .appearance-create-button:hover {

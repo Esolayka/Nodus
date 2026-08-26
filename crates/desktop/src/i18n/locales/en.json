@@ -251,6 +251,8 @@
       "customTitle": "Custom themes",
       "customDesc": "Create your own palettes from the current appearance.",
       "create": "Create theme",
+      "importFromFile": "Load external theme…",
+      "importEmpty": "No theme colors found in that file — expected variables like --bg-primary, --text-normal, etc.",
       "defaultCustomName": "My theme {{number}}",
       "copyName": "{{name}}, copy",
       "duplicate": "Duplicate theme",

@@ -1,8 +1,13 @@
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Copy, Plus, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "../../theme/ThemeProvider";
 import {
   CUSTOM_THEME_COLOR_FIELDS,
+  parseCssCustomProperties,
+  themeColorsFromCssVariables,
   type CustomTheme,
   type CustomThemeBase,
   type CustomThemeColors,
@@ -37,6 +42,7 @@ export function AppearanceSettings() {
   const activeTheme = appearance.customThemes.find(
     (theme) => theme.id === appearance.activeCustomThemeId,
   );
+  const [importError, setImportError] = useState<string | null>(null);
 
   function setAppearance(partial: Partial<typeof appearance>) {
     setSettings({ appearance: { ...appearance, ...partial } });
@@ -64,6 +70,40 @@ export function AppearanceSettings() {
       customThemes: [...appearance.customThemes, theme],
       activeCustomThemeId: theme.id,
     });
+  }
+
+  async function importThemeFromFile() {
+    setImportError(null);
+    const selection = await openFileDialog({
+      multiple: false,
+      filters: [{ name: "Theme", extensions: ["css"] }],
+    });
+    if (typeof selection !== "string") return;
+    try {
+      const css = await invoke<string>("read_external_file_text", {
+        path: selection,
+      });
+      const { colors, base, matched } = themeColorsFromCssVariables(
+        parseCssCustomProperties(css),
+        currentColors(),
+      );
+      if (matched === 0) {
+        throw new Error(t("settings.appearance.importEmpty"));
+      }
+      const fileName = selection.split(/[/\\]/).pop() ?? selection;
+      const theme: CustomTheme = {
+        id: newThemeId(),
+        name: fileName.replace(/\.css$/i, ""),
+        base,
+        colors,
+      };
+      setAppearance({
+        customThemes: [...appearance.customThemes, theme],
+        activeCustomThemeId: theme.id,
+      });
+    } catch (error) {
+      setImportError(String(error));
+    }
   }
 
   function removeTheme(id: string) {
@@ -125,15 +165,26 @@ export function AppearanceSettings() {
             {t("settings.appearance.customDesc")}
           </p>
         </div>
-        <button
-          type="button"
-          className="appearance-create-button"
-          onClick={() => createTheme()}
-        >
-          <Plus size={15} />
-          {t("settings.appearance.create")}
-        </button>
+        <div className="appearance-header-actions">
+          <button
+            type="button"
+            className="appearance-create-button"
+            onClick={() => void importThemeFromFile()}
+          >
+            <Upload size={15} />
+            {t("settings.appearance.importFromFile")}
+          </button>
+          <button
+            type="button"
+            className="appearance-create-button"
+            onClick={() => createTheme()}
+          >
+            <Plus size={15} />
+            {t("settings.appearance.create")}
+          </button>
+        </div>
       </div>
+      {importError && <p className="settings-warning">{importError}</p>}
 
       {appearance.customThemes.length > 0 ? (
         <div className="appearance-theme-list">
